@@ -1,5 +1,0 @@
-- [Orval Zod v4 fix](orval-zod-compat.md) — Orval 8.x generates Zod v4 API; must post-process generated file after codegen.
-- [Auth setup](auth-setup.md) — Auth replaced: Replit OIDC → local bcrypt; user creation via create-users-standalone.cjs (CJS + psql stdin).
-- [Hostinger migration](hostinger-migration.md) — All portability items done; see checklist for 30-step go-live procedure.
-- [DB schema](db-schema.md) — All 13 domain tables live in lib/db/src/schema/; push with pnpm --filter @workspace/db run push.
-- [Seed script](seed-script.md) — Demo data seed at scripts/seed.ts; run with npx tsx scripts/seed.ts (no dotenv needed, env already set).

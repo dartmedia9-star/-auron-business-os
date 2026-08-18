@@ -1,33 +1,58 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
-
-# compiled output
-dist
-tmp
-out-tsc
+# ── Build outputs ───────────────────────────────────────────────────────────
+dist/
+tmp/
+out-tsc/
 *.tsbuildinfo
-.expo
-.expo-shared
+.expo/
+.expo-shared/
 
-# dependencies
-node_modules
+# ── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
 
-# IDEs and editors
-/.idea
+# ── Environment / Secrets ────────────────────────────────────────────────────
+# NEVER commit real environment files.
+.env
+.env.*
+!.env.example
+
+# ── Database backups ─────────────────────────────────────────────────────────
+# Keep backups/ on disk but never commit them.
+# Download them manually via Replit file manager or scp.
+backups/
+*.dump
+*.sql.gz
+
+# ── Drizzle working directory ─────────────────────────────────────────────────
+# lib/db/drizzle/ is drizzle-kit's internal scratch dir.
+# The canonical migration files live in lib/db/migrations/ (which IS committed).
+lib/db/drizzle/
+
+# ── Replit-specific / agent files ────────────────────────────────────────────
+.cache/
+.local/
+.agents/
+.replitignore
+attached_assets/
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.idea/
 .project
 .classpath
 .c9/
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
 /.sass-cache
 /connect.lock
 /coverage
@@ -37,13 +62,6 @@ yarn-error.log
 testem.log
 /typings
 
-# System Files
-.DS_Store
-Thumbs.db
-
+# ── Files kept for Replit compatibility only (excluded from GitHub export) ───
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
