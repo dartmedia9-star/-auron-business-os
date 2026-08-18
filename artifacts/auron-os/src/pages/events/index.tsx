@@ -1,4 +1,10 @@
-import { useListEvents, getListEventsQueryKey } from "@workspace/api-client-react";
+import { useState } from "react";
+import { 
+  useListEvents, 
+  getListEventsQueryKey, 
+  useCreateEvent,
+  useListClients 
+} from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +20,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
 
 export function ProfitabilityBadge({ indicator }: { indicator?: string }) {
   if (!indicator) return <Badge variant="outline">Awaiting data</Badge>;
@@ -52,10 +64,70 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const EVENT_TYPES = ['Wedding', 'Corporate', 'Birthday', 'Cultural', 'Conference', 'Reception', 'Other'];
+const STATUSES = ['upcoming', 'in_progress', 'completed', 'cancelled'];
+
 export default function EventsList() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  
+  const [name, setName] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [status, setStatus] = useState("upcoming");
+  const [eventDate, setEventDate] = useState("");
+  const [venue, setVenue] = useState("");
+  const [locationStr, setLocationStr] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data, isLoading } = useListEvents(undefined, {
     query: { queryKey: getListEventsQueryKey() }
   });
+  
+  const { data: clientsData } = useListClients();
+  const clients = clientsData?.data || [];
+
+  const createEvent = useCreateEvent();
+
+  const handleSubmit = () => {
+    if (!name || !clientId || !eventType || !status || !eventDate) {
+      toast({ title: "Validation Error", description: "Please fill all required fields", variant: "destructive" });
+      return;
+    }
+    
+    createEvent.mutate({
+      data: {
+        name,
+        clientId: Number(clientId),
+        eventType,
+        status: status as any,
+        eventDate,
+        venue,
+        location: locationStr,
+        notes
+      }
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
+        toast({ title: "Event created successfully" });
+        setCreateOpen(false);
+        // Reset form
+        setName(""); setClientId(""); setEventType(""); setStatus("upcoming");
+        setEventDate(""); setVenue(""); setLocationStr(""); setNotes("");
+      },
+      onError: (error) => {
+        toast({ title: "Failed to create event", description: error.message, variant: "destructive" });
+      }
+    });
+  };
+
+  const filteredEvents = data?.data?.filter(e => 
+    e.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (e.clientName && e.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) || [];
 
   return (
     <div className="space-y-6">
@@ -64,82 +136,148 @@ export default function EventsList() {
           <h2 className="text-3xl font-bold tracking-tight">Events Ledger</h2>
           <p className="text-muted-foreground mt-1">Manage event productions and track their financial performance.</p>
         </div>
-        <Button>
+        <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> New Event
         </Button>
       </div>
 
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-h-[90dvh] flex flex-col sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add New Event</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
+            <div className="space-y-2">
+              <Label>Event Name *</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Smith Wedding" />
+            </div>
+            <div className="space-y-2">
+              <Label>Client *</Label>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Event Type *</Label>
+              <Select value={eventType} onValueChange={setEventType}>
+                <SelectTrigger><SelectValue placeholder="Select event type" /></SelectTrigger>
+                <SelectContent>
+                  {EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status *</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map(t => <SelectItem key={t} value={t}>{t.replace('_', ' ')}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Event Date *</Label>
+              <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Venue</Label>
+              <Input value={venue} onChange={e => setVenue(e.target.value)} placeholder="Venue name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input value={locationStr} onChange={e => setLocationStr(e.target.value)} placeholder="City, State" />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional details..." />
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 pt-4 border-t">
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={createEvent.isPending}>
+              {createEvent.isPending ? "Saving..." : "Save Event"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader className="py-4 border-b">
-          <div className="flex items-center justify-between">
-            <div className="relative w-72">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search events..." className="pl-9 bg-background" />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">Filter by Status</Button>
-              <Button variant="outline" size="sm">Filter by Profitability</Button>
+              <Input 
+                placeholder="Search events..." 
+                className="pl-9 bg-background" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-                <TableHead className="text-right">Gross Profit</TableHead>
-                <TableHead className="text-center">Profitability</TableHead>
-                <TableHead className="text-right"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    Loading events...
-                  </TableCell>
+                  <TableHead>Event</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                  <TableHead className="text-right">Gross Profit</TableHead>
+                  <TableHead className="text-center">Profitability</TableHead>
+                  <TableHead className="text-right"></TableHead>
                 </TableRow>
-              ) : data?.data && data.data.length > 0 ? (
-                data.data.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/events/${event.id}`} className="hover:text-primary transition-colors">
-                        {event.name}
-                      </Link>
-                      <div className="text-xs text-muted-foreground font-normal">{event.eventType}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/clients/${event.clientId}`} className="hover:underline">
-                        {event.clientName || "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{formatDate(event.eventDate)}</TableCell>
-                    <TableCell><StatusBadge status={event.status} /></TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(event.totalRevenue)}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(event.grossProfit)}</TableCell>
-                    <TableCell className="text-center">
-                      <ProfitabilityBadge indicator={event.profitabilityIndicator} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/events/${event.id}`}>View</Link>
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      Loading events...
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                    No events found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ) : filteredEvents.length > 0 ? (
+                  filteredEvents.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/events/${event.id}`} className="hover:text-primary transition-colors">
+                          {event.name}
+                        </Link>
+                        <div className="text-xs text-muted-foreground font-normal">{event.eventType}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/clients/${event.clientId}`} className="hover:underline">
+                          {event.clientName || "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatDate(event.eventDate)}</TableCell>
+                      <TableCell><StatusBadge status={event.status} /></TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(event.totalRevenue)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(event.grossProfit)}</TableCell>
+                      <TableCell className="text-center">
+                        <ProfitabilityBadge indicator={event.profitabilityIndicator} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/events/${event.id}`}>View</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                      No events found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

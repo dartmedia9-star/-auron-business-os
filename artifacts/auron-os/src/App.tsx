@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Route, Switch, useLocation, Router as WouterRouter, Redirect } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
-import { Sidebar, Header } from '@/components/layout';
+import { AppShell } from '@/components/layout';
 
 import NotFound from '@/pages/not-found';
 import LoginScreen from '@/pages/login';
@@ -51,36 +51,30 @@ function AuthenticatedApp() {
   }
 
   return (
-    <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
-      <Sidebar />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <RoutedErrorBoundary>
-            <Switch>
-              <Route path="/" component={() => <Redirect to="/dashboard" />} />
-              <Route path="/dashboard" component={Dashboard} />
-              <Route path="/events" component={EventsList} />
-              <Route path="/events/:id" component={EventDetail} />
-              <Route path="/clients" component={ClientsList} />
-              <Route path="/clients/:id" component={ClientDetail} />
-              <Route path="/leads" component={LeadsPipeline} />
-              <Route path="/marketing" component={MarketingList} />
-              <Route path="/valuation" component={ValuationCommand} />
-              <Route path="/finance" component={FinanceSummary} />
-              <Route path="/finance/receivables" component={ReceivablesList} />
-              <Route path="/finance/expenses" component={ExpensesList} />
-              <Route path="/vendors" component={VendorsList} />
-              <Route path="/assets" component={AssetsList} />
-              <Route path="/team" component={TeamList} />
-              <Route path="/reports" component={ReportsList} />
-              <Route path="/settings" component={SettingsPage} />
-              <Route component={NotFound} />
-            </Switch>
-          </RoutedErrorBoundary>
-        </main>
-      </div>
-    </div>
+    <AppShell>
+      <RoutedErrorBoundary>
+        <Switch>
+          <Route path="/" component={() => <Redirect to="/dashboard" />} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/events" component={EventsList} />
+          <Route path="/events/:id" component={EventDetail} />
+          <Route path="/clients" component={ClientsList} />
+          <Route path="/clients/:id" component={ClientDetail} />
+          <Route path="/leads" component={LeadsPipeline} />
+          <Route path="/marketing" component={MarketingList} />
+          <Route path="/valuation" component={ValuationCommand} />
+          <Route path="/finance" component={FinanceSummary} />
+          <Route path="/finance/receivables" component={ReceivablesList} />
+          <Route path="/finance/expenses" component={ExpensesList} />
+          <Route path="/vendors" component={VendorsList} />
+          <Route path="/assets" component={AssetsList} />
+          <Route path="/team" component={TeamList} />
+          <Route path="/reports" component={ReportsList} />
+          <Route path="/settings" component={SettingsPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </RoutedErrorBoundary>
+    </AppShell>
   );
 }
 

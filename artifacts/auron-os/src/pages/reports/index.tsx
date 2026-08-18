@@ -24,10 +24,10 @@ export default function ReportsList() {
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Total Evaluated Revenue</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Total Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCompactCurrency(data.totalRevenue)}</div>
+                <div className="text-2xl font-bold">{formatCompactCurrency(data.summary.totalRevenue)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -35,23 +35,23 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-primary">Total Gross Profit</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-primary">{formatCompactCurrency(data.totalGrossProfit)}</div>
+                <div className="text-2xl font-bold text-primary">{formatCompactCurrency(data.summary.totalGrossProfit)}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Blended Margin</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Avg Gross Margin</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-500">{formatPercentage(data.overallMarginPct)}</div>
+                <div className="text-2xl font-bold text-emerald-500">{formatPercentage(data.summary.avgGrossMarginPct)}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Profitability Status</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Events Analysed</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-lg font-medium text-emerald-500 capitalize">{data.overallProfitabilityIndicator}</div>
+                <div className="text-2xl font-bold">{data.summary.eventCount}</div>
               </CardContent>
             </Card>
           </div>
@@ -61,34 +61,76 @@ export default function ReportsList() {
               <CardTitle>Performance by Event Type</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Event Type</TableHead>
-                    <TableHead className="text-center">Count</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Gross Profit</TableHead>
-                    <TableHead className="text-right">Margin</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.byType.length > 0 ? (
-                    data.byType.map((item) => (
-                      <TableRow key={item.eventType}>
-                        <TableCell className="font-medium">{item.eventType}</TableCell>
-                        <TableCell className="text-center">{item.eventCount}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.revenue)}</TableCell>
-                        <TableCell className="text-right font-medium text-primary">{formatCurrency(item.grossProfit)}</TableCell>
-                        <TableCell className="text-right font-medium text-emerald-500">{formatPercentage(item.marginPct)}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No data available.</TableCell>
+                      <TableHead>Event Type</TableHead>
+                      <TableHead className="text-center">Count</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">Gross Profit</TableHead>
+                      <TableHead className="text-right">Margin</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {data.byEventType.length > 0 ? (
+                      data.byEventType.map((item) => (
+                        <TableRow key={item.eventType}>
+                          <TableCell className="font-medium">{item.eventType}</TableCell>
+                          <TableCell className="text-center">{item.eventCount}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.totalRevenue)}</TableCell>
+                          <TableCell className="text-right font-medium text-primary">{formatCurrency(item.grossProfit)}</TableCell>
+                          <TableCell className="text-right font-medium text-emerald-500">{formatPercentage(item.grossMarginPct)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No data available.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Events</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Event Name</TableHead>
+                      <TableHead className="hidden sm:table-cell">Client</TableHead>
+                      <TableHead className="hidden sm:table-cell">Type</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">Gross Profit</TableHead>
+                      <TableHead className="text-right hidden md:table-cell">Margin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.events.length > 0 ? (
+                      data.events.map((event) => (
+                        <TableRow key={event.id}>
+                          <TableCell className="font-medium">{event.name}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{event.clientName}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{event.eventType}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(event.revenue)}</TableCell>
+                          <TableCell className="text-right font-medium text-primary">{formatCurrency(event.grossProfit)}</TableCell>
+                          <TableCell className="text-right hidden md:table-cell text-emerald-500">{formatPercentage(event.grossMarginPct)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No events found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </>

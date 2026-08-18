@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   BarChart3, 
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
@@ -38,13 +40,13 @@ const BOTTOM_NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [location] = useLocation();
   const { logout } = useAuth();
 
   return (
-    <aside className="w-64 border-r bg-sidebar flex-shrink-0 flex flex-col h-[100dvh] overflow-hidden">
-      <div className="h-16 flex items-center px-6 border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="h-16 flex items-center px-6 border-b shrink-0">
         <h1 className="text-xl font-bold tracking-tight text-primary uppercase">AURON OS</h1>
       </div>
       <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
@@ -54,6 +56,7 @@ export function Sidebar() {
             <Link 
               key={item.href} 
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 isActive 
@@ -68,13 +71,14 @@ export function Sidebar() {
           );
         })}
       </div>
-      <div className="p-3 border-t flex flex-col gap-1">
+      <div className="p-3 border-t flex flex-col gap-1 shrink-0">
         {BOTTOM_NAV_ITEMS.map((item) => {
           const isActive = location === item.href;
           return (
             <Link 
               key={item.href} 
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 isActive 
@@ -94,16 +98,15 @@ export function Sidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+    </div>
   );
 }
 
-export function Header() {
+function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header className="h-16 border-b bg-background flex items-center justify-between px-6 shrink-0">
+    <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6 shrink-0">
       <div className="flex items-center gap-4 flex-1">
-        {/* Mobile menu placeholder */}
-        <button className="md:hidden text-muted-foreground">
+        <button onClick={onMenuClick} className="md:hidden p-1 -ml-1 text-muted-foreground hover:text-foreground">
           <Menu className="h-5 w-5" />
         </button>
         <div className="relative w-64 max-w-md hidden md:block">
@@ -125,5 +128,32 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  return (
+    <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
+      {/* Desktop sidebar - hidden on mobile */}
+      <aside className="hidden md:flex w-64 border-r bg-sidebar flex-shrink-0 flex-col h-[100dvh] overflow-hidden">
+        <SidebarContent />
+      </aside>
+      
+      {/* Mobile drawer using Sheet */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-64 p-0 bg-sidebar border-r">
+          <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+      
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <AppHeader onMenuClick={() => setMobileMenuOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

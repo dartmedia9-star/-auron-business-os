@@ -1,0 +1,725 @@
+Auron Business OS — Final QA, Mobile Optimization, Portability & Production Deployment
+
+The current Auron Business OS has been tested through the development environment:
+
+https://92df3d20-9f59-4c6d-96a0-eaa5623b04d3-00-2iqk81shlum4s.pike.replit.dev/dashboard
+
+I have tested the current application on an iPhone.
+
+Before deploying it to production, there are several important issues that need to be addressed.
+
+The application currently:
+
+* Is difficult to use on mobile/iPhone.
+* Has UI elements that are not sufficiently mobile-friendly.
+* Some functions/features are not working correctly.
+* Some workflows need to be more intuitive and user-friendly.
+* The application needs a proper functional QA pass before production deployment.
+
+Do NOT simply deploy the current version.
+
+First audit and improve the application, then deploy it.
+
+⸻
+
+1. CRITICAL PRIORITY — MOBILE-FIRST EXPERIENCE
+
+The application must be designed and tested primarily for mobile because I will frequently use it from an iPhone.
+
+The desktop version must remain fully functional.
+
+Do not simply shrink the desktop interface to fit a phone.
+
+Create a genuinely responsive mobile experience.
+
+Test at minimum:
+
+* iPhone portrait
+* iPhone landscape
+* Desktop/laptop
+
+The interface should adapt automatically.
+
+⸻
+
+2. MOBILE NAVIGATION
+
+The current navigation should be redesigned if necessary for mobile usability.
+
+On mobile:
+
+* Use a clean navigation drawer, bottom navigation, or another intuitive mobile navigation pattern.
+* Make the most important sections easily accessible.
+* Avoid extremely wide sidebars.
+* Avoid tiny navigation buttons.
+* Avoid unnecessary horizontal scrolling.
+* Keep important actions within thumb reach.
+* Make the current page obvious.
+
+Prioritize these sections:
+
+1. Dashboard
+2. Events
+3. Clients
+4. CRM
+5. Finance
+6. Reports
+
+Less frequently used sections can remain inside a menu.
+
+⸻
+
+3. MOBILE DASHBOARD
+
+Redesign the CEO dashboard for mobile.
+
+The dashboard should not require excessive zooming or horizontal scrolling.
+
+Important KPI cards should stack intelligently.
+
+Prioritize:
+
+* Revenue
+* Gross Profit
+* Gross Margin
+* Net Profit
+* Events
+* Pipeline
+* Receivables
+* CAC
+* Repeat Client Rate
+* ₹90 Cr Goal
+
+Charts must resize properly on mobile.
+
+Do not allow charts to overflow outside the screen.
+
+Tables should either:
+
+* become responsive cards, or
+* provide controlled horizontal scrolling where absolutely necessary.
+
+Do not create unusable tiny tables.
+
+⸻
+
+4. MOBILE FORMS
+
+Review EVERY form in the application.
+
+Forms must be comfortable to use on an iPhone.
+
+Examples:
+
+* Add Event
+* Edit Event
+* Add Client
+* Add Lead
+* Add Event Cost
+* Add Revenue
+* Add Payment
+* Add Vendor
+* Add Expense
+* Add Asset
+* Add Employee
+
+Requirements:
+
+* Large touch targets.
+* Proper input spacing.
+* Clear labels.
+* Appropriate iOS keyboard/input types.
+* Currency fields should use numeric input.
+* Date fields should be mobile-friendly.
+* Dropdowns/selectors should be easy to operate.
+* Forms should not overflow the screen.
+* Dialogs/modals must fit properly on mobile.
+* Save/Cancel buttons must remain accessible.
+* Show clear validation errors.
+* Preserve entered data when validation fails.
+
+⸻
+
+5. MOBILE MODALS / DIALOGS
+
+Audit every modal/dialog.
+
+The current application should NOT have dialogs that:
+
+* extend beyond the screen,
+* hide buttons,
+* require awkward scrolling,
+* have inaccessible close buttons,
+* have fields cut off,
+* prevent the user from reaching the Save button.
+
+On mobile, convert large dialogs into appropriate full-screen or near-full-screen forms when necessary.
+
+⸻
+
+6. FUNCTIONAL QA — CRITICAL
+
+Some functions in the current development version are not working correctly.
+
+Perform a complete functional audit before deployment.
+
+Do not assume that because a button exists, the feature works.
+
+Test every major action.
+
+For every CRUD module verify:
+
+Create
+
+Can a new record actually be created?
+
+Read
+
+Does the newly created record appear correctly?
+
+Update
+
+Can the record be edited?
+
+Delete
+
+Can it be deleted safely?
+
+Persistence
+
+Does the data remain after page refresh/logout/login?
+
+Validation
+
+Are invalid inputs rejected correctly?
+
+Error handling
+
+Does the user receive a useful error message?
+
+⸻
+
+7. TEST THESE MODULES INDIVIDUALLY
+
+Audit:
+
+Dashboard
+
+* KPI calculations
+* Charts
+* Date filters
+* Data refresh
+
+Events
+
+* Create event
+* Edit event
+* Delete event
+* Event status
+* Event type
+* Revenue
+* Costs
+* Profit
+* Margin
+
+Clients
+
+* Create
+* Edit
+* Delete
+* Search
+* Event history
+* Lifetime revenue
+* Lifetime profit
+* Repeat client calculation
+
+Leads / CRM
+
+* Create lead
+* Edit lead
+* Pipeline stages
+* Follow-up dates
+* Lead source
+* Conversion tracking
+
+Sales Pipeline
+
+* Pipeline value
+* Weighted pipeline
+* Win/loss tracking
+* Conversion rate
+
+Marketing / CAC
+
+* Marketing spend
+* Leads
+* Customers
+* CAC
+* CAC by channel
+* Marketing ROI
+* LTV:CAC
+
+Finance
+
+* Revenue
+* Expenses
+* Payments
+* Receivables
+* Outstanding amounts
+* Overdue amounts
+
+Vendors
+
+* Vendor creation
+* Vendor transactions
+* Vendor spending
+
+Assets
+
+* Asset creation
+* Purchase cost
+* Current value
+* Utilization
+* ROI
+
+Team
+
+* Employee records
+* Event assignments
+* Productivity metrics
+* Permission restrictions
+
+Reports
+
+* Filters
+* Calculations
+* Export functionality
+
+₹90 Cr Valuation Command Center
+
+* Current valuation
+* Revenue multiple calculation
+* EBITDA multiple calculation
+* Target gap
+* Scenario calculations
+* Charts
+
+⸻
+
+8. DATA INTEGRITY
+
+This is a business application, so calculations must be accurate.
+
+Do not use fake numbers in production.
+
+Do not silently fail when data is missing.
+
+If insufficient data exists, display:
+
+“Insufficient data”
+
+rather than generating an estimated number without clearly identifying it.
+
+Verify all formulas.
+
+Especially verify:
+
+Revenue
+
+minus Direct Event Costs
+
+=
+
+Gross Profit
+
+Gross Profit ÷ Revenue
+
+=
+
+Gross Margin %
+
+⸻
+
+9. CLIENT METRICS
+
+Verify:
+
+Repeat Client Rate
+
+Customer Lifetime Value
+
+Lifetime Revenue
+
+Lifetime Gross Profit
+
+Average Event Value
+
+Average Profit Per Client
+
+Do not calculate repeat clients incorrectly when a client has multiple events.
+
+Avoid duplicate client records where reasonably possible.
+
+⸻
+
+10. CAC / LTV
+
+Verify:
+
+CAC = Customer Acquisition Costs ÷ New Customers Acquired
+
+LTV should preferably be based on historical gross profit rather than only revenue.
+
+LTV:CAC must use consistent methodology.
+
+Clearly display when there is insufficient data.
+
+⸻
+
+11. FINANCIAL LOGIC
+
+Keep these concepts separate:
+
+Revenue
+
+Direct Event Costs
+
+Gross Profit
+
+Gross Margin
+
+Operating Expenses
+
+EBITDA
+
+Net Profit
+
+GST
+
+Receivables
+
+Payables
+
+Do not count GST collected as business revenue where it should be treated as a tax liability.
+
+Do not mix direct event costs with company-level operating expenses.
+
+⸻
+
+12. USER EXPERIENCE IMPROVEMENT
+
+Make the application intuitive for a non-technical business user.
+
+A user should understand what to do without needing instructions.
+
+Improve:
+
+* Button labels
+* Form labels
+* Empty states
+* Error messages
+* Success messages
+* Confirmation dialogs
+* Search
+* Filters
+* Sorting
+* Loading states
+* Navigation
+* Data tables
+* Dashboard hierarchy
+
+Use plain business terminology.
+
+Avoid unnecessary technical terminology in the UI.
+
+For example:
+
+Instead of:
+
+“Create Record”
+
+prefer:
+
+“Add Event”
+
+Instead of:
+
+“CRUD”
+
+do not show technical terminology at all.
+
+⸻
+
+13. QUICK ACTIONS
+
+Add useful quick actions to the CEO dashboard.
+
+Examples:
+
+* Add Event
+* Add Client
+* Add Lead
+* Add Expense
+* Record Payment
+* Add Event Cost
+
+These should work correctly from mobile.
+
+⸻
+
+14. GLOBAL SEARCH
+
+Make global search usable on mobile.
+
+Allow searching:
+
+* Clients
+* Events
+* Leads
+* Vendors
+* Invoices
+* Payments
+
+Results should be clearly categorized.
+
+⸻
+
+15. LOADING / ERROR STATES
+
+Every API/database operation should have proper loading and error states.
+
+Do not allow buttons to appear as if nothing happened.
+
+For example:
+
+When saving an event:
+
+“Saving…”
+
+then:
+
+“Event saved successfully.”
+
+If it fails:
+
+“Unable to save event. Please try again.”
+
+Never silently fail.
+
+⸻
+
+16. RESPONSIVE DESIGN QA
+
+Test the application at common mobile viewport sizes.
+
+Check for:
+
+* Overflow
+* Cut-off content
+* Overlapping elements
+* Tiny text
+* Tiny buttons
+* Broken charts
+* Broken modals
+* Broken tables
+* Navigation problems
+* Fixed elements covering content
+* Keyboard covering input fields
+
+Fix all major responsive issues before deployment.
+
+⸻
+
+17. DO NOT BREAK THE DESKTOP VERSION
+
+While improving mobile:
+
+* Preserve desktop functionality.
+* Preserve desktop dashboard.
+* Preserve existing business logic.
+* Preserve existing database records.
+* Preserve authentication.
+* Preserve user roles.
+
+Use responsive CSS/layout changes rather than creating unnecessary duplicate implementations.
+
+⸻
+
+18. HOSTINGER PORTABILITY — CRITICAL
+
+This application will eventually be moved from Replit to our existing Hostinger Business hosting.
+
+Make the codebase migration-friendly.
+
+DO NOT:
+
+* Hardcode Replit-specific URLs.
+* Hardcode Replit credentials.
+* Depend unnecessarily on proprietary Replit-only services.
+* Store important business logic exclusively in Replit-specific infrastructure.
+* Create unnecessary hosting-provider lock-in.
+
+DO:
+
+* Keep frontend, backend, database access and business logic separated.
+* Use standard technologies and packages.
+* Keep secrets in environment variables.
+* Make database connection details configurable.
+* Make API URLs configurable.
+* Keep authentication portable.
+* Keep file/storage paths configurable.
+* Keep database migrations available.
+* Keep package dependencies documented.
+* Keep the project deployable outside Replit.
+* Keep the project suitable for eventual GitHub → Hostinger deployment.
+
+Do NOT migrate to Hostinger yet.
+
+⸻
+
+19. DATABASE PORTABILITY
+
+Review the current database.
+
+Document:
+
+* Database type
+* Tables
+* Relationships
+* Indexes
+* Constraints
+* Migration files
+* Seed/demo data
+* Environment variables
+
+Do not unnecessarily change the existing database technology if doing so could break the working application.
+
+If any Replit-specific database technology is being used, identify it and explain the migration path.
+
+⸻
+
+20. ENVIRONMENT CONFIGURATION
+
+Maintain a proper .env.example.
+
+Include placeholders for required configuration such as:
+
+DATABASE_URL=
+SESSION_SECRET=
+AUTH_SECRET=
+API_URL=
+APP_URL=
+
+Never hardcode credentials.
+
+Never expose secrets in frontend code.
+
+Never commit real secrets to GitHub.
+
+⸻
+
+21. DOCUMENTATION
+
+Create:
+
+DEPLOYMENT.md
+
+Document:
+
+1. How the application runs on Replit.
+2. How to run it locally.
+3. Required environment variables.
+4. Database configuration.
+5. Database backup/export process.
+6. Deployment process.
+7. Future Hostinger migration process.
+8. Replit-specific dependencies.
+9. Components that may need replacement during migration.
+
+DATABASE.md
+
+Document:
+
+* Tables
+* Columns
+* Relationships
+* Indexes
+* Constraints
+* Migrations
+* Important calculations
+
+⸻
+
+22. BACKUP & DATA SAFETY
+
+Before making major architectural changes:
+
+* Do not delete existing business data.
+* Do not reset the database.
+* Do not overwrite production data.
+* Preserve existing records.
+* Make sure database backup/export is possible.
+
+⸻
+
+23. PRODUCTION DEPLOYMENT
+
+ONLY AFTER completing the above QA and fixes:
+
+Deploy the application as a production web application.
+
+Do not simply deploy the current broken mobile experience.
+
+Production must include the improvements from this task.
+
+Make sure:
+
+* Authentication works.
+* Database works.
+* CRUD operations work.
+* Calculations work.
+* Mobile interface works.
+* Desktop interface works.
+* Charts work.
+* Reports work.
+* Data persists.
+* No major console/runtime errors remain.
+
+Provide the production URL.
+
+⸻
+
+24. IMPORTANT — DO NOT STOP AFTER UI CHANGES
+
+Do not consider this task complete just because the interface looks better.
+
+The final application must be:
+
+Functional + Mobile-friendly + User-friendly + Data-safe + Portable + Production-ready.
+
+Test the actual workflows.
+
+⸻
+
+25. FINAL REPORT
+
+When finished, give me a concise report containing:
+
+1. What mobile problems were found.
+2. What mobile improvements were made.
+3. What broken functions were found.
+4. What functions were fixed.
+5. What calculations were tested.
+6. Database technology currently being used.
+7. Replit-specific dependencies found.
+8. Portability status.
+9. What will be required for Hostinger migration.
+10. Production deployment status.
+11. Production URL.
+12. Any remaining known issues.
+
+Do not claim something is fixed unless you actually tested it.
+
+The priority is:
+
+FUNCTIONALITY → MOBILE UX → USABILITY → DATA INTEGRITY → PORTABILITY → PRODUCTION DEPLOYMENT
