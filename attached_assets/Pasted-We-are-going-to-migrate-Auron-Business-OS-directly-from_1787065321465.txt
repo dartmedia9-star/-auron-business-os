@@ -1,0 +1,110 @@
+We are going to migrate Auron Business OS directly from Replit to our existing Hostinger Business hosting.
+
+Our production subdomain is already prepared:
+
+https://os.auronevents.com
+
+Before we migrate, perform a migration-readiness audit.
+
+1. Identify the current architecture
+
+Tell me exactly:
+
+* Frontend framework
+* Backend framework
+* Node.js version
+* Database technology
+* ORM/database library
+* Authentication technology
+* File/storage system
+* All Replit-specific services/dependencies
+* Build command
+* Start command
+* Required environment variables
+
+Do not change anything yet.
+
+2. Authentication
+
+The current application uses Replit OIDC.
+
+Because we are moving to Hostinger, identify the best portable authentication approach.
+
+I want authentication that can run independently of Replit.
+
+Do not migrate authentication yet until you explain exactly what is currently being used and what needs to change.
+
+3. Database
+
+Identify the exact database currently being used.
+
+List:
+
+* Database type
+* Tables
+* Relationships
+* Migrations
+* Current data
+* Database connection method
+
+Do not reset, delete, or replace the database.
+
+Do not change the database technology yet.
+
+4. Hostinger compatibility
+
+Compare the current application architecture against Hostinger Business Node.js hosting requirements.
+
+Determine whether the current application can be deployed to Hostinger directly.
+
+If something is incompatible, identify exactly what needs to be changed.
+
+5. Portability
+
+Make sure the codebase does not unnecessarily depend on Replit-specific infrastructure.
+
+Keep:
+
+* Environment variables configurable
+* Database configuration configurable
+* API URLs configurable
+* Authentication configurable
+* File storage configurable
+* Business logic independent from hosting provider
+
+Do not break any existing functionality.
+
+6. Backup and migration
+
+Prepare the project for migration through:
+
+Replit → GitHub → Hostinger
+
+Make sure:
+
+* All source code is available.
+* package.json and lock files are included.
+* Database migrations are included.
+* .env.example is included.
+* DEPLOYMENT.md is updated.
+* DATABASE.md is updated.
+* No secrets are committed.
+
+Do not migrate or deploy yet.
+
+FINAL RESPONSE
+
+Before making major changes, give me a concise technical report containing:
+
+1. Current frontend
+2. Current backend
+3. Current database
+4. Current authentication
+5. Replit-specific dependencies
+6. Hostinger compatibility
+7. Required migration changes
+8. Whether the current database can be migrated
+9. Whether the current authentication can be migrated
+10. Exact recommended migration path
+
+Do not delete or modify existing business data.
