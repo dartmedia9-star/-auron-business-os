@@ -1,0 +1,1430 @@
+Build Auron Business OS — Event Company Management & Business Intelligence Platform
+
+Build a production-ready full-stack web application called Auron Business OS for Auron Event Productions, an event production and management company in Kerala, India.
+
+This is an internal management platform for the CEO/management team. The purpose is to track event-level profitability, client acquisition, repeat business, sales pipeline, cash flow, vendors, assets, and company growth — ultimately helping management work toward a ₹90 crore company valuation goal.
+
+Do NOT build this as a simple static dashboard or demo. Build a functional application with a real database, authentication, CRUD operations, calculations, filters, charts, and persistent data.
+
+⸻
+
+1. TECH STACK
+
+Use a modern production-ready stack.
+
+Preferred:
+
+* React + TypeScript frontend
+* Tailwind CSS
+* Modern component library where useful
+* Node.js backend
+* PostgreSQL database
+* ORM such as Prisma or Drizzle
+* Recharts or equivalent for charts
+* Secure authentication
+* Responsive design
+* Clean REST/API architecture or equivalent server architecture
+
+The application must work well on:
+
+* Desktop
+* Laptop
+* Tablet
+* Mobile
+
+Use INR / ₹ as the default currency.
+
+Use Indian date formatting where appropriate.
+
+⸻
+
+2. DESIGN DIRECTION
+
+The application should feel like a premium corporate SaaS product, not a generic accounting application.
+
+Brand:
+
+Company:
+Auron Event Productions
+
+Visual style:
+
+* Premium
+* Minimal
+* Executive
+* Dark/light professional interface
+* Black / charcoal / white base
+* Subtle gold accent inspired by Auron branding
+* Clean cards
+* Professional data tables
+* Excellent spacing
+* Strong typography
+* Minimal unnecessary decoration
+
+The dashboard should look suitable for a CEO reviewing the company in a board meeting.
+
+Do not overuse gradients, excessive animations, emojis, or flashy UI.
+
+Use subtle animations only where they improve usability.
+
+⸻
+
+3. AUTHENTICATION & USER ROLES
+
+Implement authentication.
+
+Roles:
+
+CEO / Admin
+
+Full access.
+
+Finance
+
+Access to:
+
+* Financial records
+* Revenue
+* Costs
+* Invoices
+* Payments
+* Receivables
+* Vendors
+
+Sales
+
+Access to:
+
+* Leads
+* Clients
+* Sales pipeline
+* Proposals
+* Follow-ups
+
+Operations
+
+Access to:
+
+* Events
+* Vendors
+* Event costs
+* Assets
+* Event execution information
+
+The CEO/Admin should be able to manage users and permissions.
+
+Never expose sensitive financial information to users without permission.
+
+⸻
+
+4. MAIN NAVIGATION
+
+Create a sidebar navigation:
+
+1. Dashboard
+2. Events
+3. Clients
+4. Leads & CRM
+5. Sales Pipeline
+6. Marketing & CAC
+7. Finance
+8. Vendors
+9. Assets
+10. Team
+11. Reports
+12. 90 Cr Growth Plan
+13. Settings
+
+Include a global search.
+
+Include notifications.
+
+Include user profile/settings.
+
+⸻
+
+5. CEO DASHBOARD
+
+The Dashboard is the most important screen.
+
+It should provide an executive overview of the company.
+
+Top section:
+
+AURON BUSINESS OS
+
+Show:
+
+Revenue
+
+* Current month
+* Current quarter
+* Current year
+* Previous year
+* Growth %
+
+Gross Profit
+
+* Current period
+* Growth %
+
+Gross Margin
+
+* Current %
+* Previous %
+* Change
+
+Net Profit
+
+* Current period
+* Growth %
+
+Events
+
+* Total events
+* Completed
+* Upcoming
+* Cancelled
+
+Average Event Value
+
+Average Profit Per Event
+
+Pipeline Value
+
+Outstanding Receivables
+
+Repeat Client Rate
+
+CAC
+
+LTV
+
+LTV:CAC Ratio
+
+⸻
+
+6. ₹90 CRORE VALUATION COMMAND CENTER
+
+Create a dedicated dashboard section called:
+
+₹90 CRORE VALUATION COMMAND CENTER
+
+The target is ₹90 crore.
+
+Do NOT simply display a fake percentage.
+
+Create a real calculation system.
+
+Allow management to enter:
+
+* Current estimated company valuation
+* Current annual revenue
+* Current EBITDA
+* Current net profit
+* Revenue growth rate
+* EBITDA margin
+* Assumed valuation multiple
+
+Create scenario models.
+
+Scenario 1 — Revenue Multiple
+
+Valuation = Revenue × Revenue Multiple
+
+Scenario 2 — EBITDA Multiple
+
+Valuation = EBITDA × EBITDA Multiple
+
+Show:
+
+* Current estimated valuation
+* Target valuation
+* Gap to target
+* Required revenue
+* Required EBITDA
+* Required EBITDA margin
+* Required annual growth
+* Required number of events
+* Required average event value
+
+Create scenarios:
+
+Conservative
+
+Lower growth / lower multiple
+
+Base
+
+Expected growth / expected multiple
+
+Aggressive
+
+Higher growth / higher multiple
+
+Display these using professional charts.
+
+⸻
+
+7. EVENT MANAGEMENT MODULE
+
+Create a complete Events module.
+
+Each event should contain:
+
+Basic Information
+
+* Event ID
+* Event name
+* Client
+* Event type
+* Event date
+* Venue
+* Location
+* Event status
+* Salesperson
+* Operations manager
+* Lead source
+
+Event types should initially include:
+
+* Corporate Event
+* Wedding
+* Wedding Decoration
+* Stage Production
+* Institutional Event
+* Exhibition
+* Product Launch
+* Award Function
+* Employee Engagement
+* Promotional Activation
+* Customer Meet
+* Training Program
+* Branch Inauguration
+* Subcontracting
+* Other
+
+Allow custom event types.
+
+⸻
+
+8. EVENT REVENUE
+
+For every event track:
+
+* Contract value
+* GST
+* Total invoice value
+* Discount
+* Net revenue
+* Advance received
+* Second payment
+* Final payment
+* Total collected
+* Outstanding amount
+
+Automatically calculate outstanding amount.
+
+⸻
+
+9. EVENT COST TRACKING
+
+Each event must have detailed cost categories.
+
+Categories:
+
+* Stage
+* Decoration
+* Lighting
+* Sound
+* AV
+* Labour
+* Transportation
+* Printing
+* Flowers
+* Furniture
+* Fabrication
+* Equipment rental
+* Venue-related costs
+* Accommodation
+* Food
+* Subcontractors
+* Materials
+* Marketing
+* Commission
+* Miscellaneous
+
+Allow custom categories.
+
+Each cost should contain:
+
+* Vendor
+* Category
+* Description
+* Amount
+* GST
+* Payment status
+* Date
+* Invoice/reference number
+
+⸻
+
+10. AUTOMATIC EVENT PROFITABILITY
+
+For every event calculate:
+
+Revenue
+
+minus
+
+Direct Event Costs
+
+=
+
+Gross Profit
+
+Then:
+
+Gross Profit / Revenue × 100
+
+=
+
+Gross Margin %
+
+Also calculate:
+
+* Total revenue
+* Total direct cost
+* Gross profit
+* Gross margin
+* Amount collected
+* Amount outstanding
+* Cost percentage
+* Profit per event
+
+Create a profitability indicator:
+
+Excellent
+
+High margin
+
+Healthy
+
+Acceptable margin
+
+Warning
+
+Low margin
+
+Loss
+
+Negative gross profit
+
+Allow management to configure margin thresholds.
+
+⸻
+
+11. EVENT TYPE PROFITABILITY ANALYTICS
+
+Create a dedicated analytics page:
+
+Profitability by Event Type
+
+For every event type show:
+
+* Number of events
+* Total revenue
+* Average revenue/event
+* Total direct cost
+* Total gross profit
+* Average gross profit/event
+* Gross margin %
+* Revenue growth
+* Profit growth
+
+Create charts.
+
+Example:
+
+Corporate
+Wedding
+Production
+Subcontracting
+etc.
+
+The goal is to answer:
+
+Which type of event makes Auron the most money?
+
+Also identify:
+
+* Highest revenue event type
+* Highest margin event type
+* Highest profit/event type
+* Lowest margin event type
+* Fastest growing event type
+
+⸻
+
+12. CLIENT CRM
+
+Create a complete client management system.
+
+Client fields:
+
+* Client ID
+* Name
+* Company
+* Contact person
+* Phone
+* Email
+* Location
+* Client type
+* Industry
+* Lead source
+* First event date
+* Last event date
+* Total events
+* Lifetime revenue
+* Lifetime gross profit
+* Total outstanding
+* Repeat client status
+* Notes
+
+Automatically calculate:
+
+Customer Lifetime Value
+
+Use historical gross profit where possible, not just revenue.
+
+Repeat Client Rate
+
+Track:
+
+Total unique clients
+
+vs
+
+Clients with more than one completed event.
+
+Show:
+
+* New clients
+* Repeat clients
+* Repeat revenue
+* Repeat revenue %
+* Average events/client
+
+⸻
+
+13. CLIENT PROFITABILITY
+
+Create:
+
+Client Profitability
+
+Show top clients by:
+
+* Revenue
+* Gross profit
+* Number of events
+* Average event value
+* Lifetime value
+
+Important:
+
+Do not rank only by revenue.
+
+Allow sorting by gross profit.
+
+This should identify clients who are actually valuable to Auron.
+
+⸻
+
+14. LEADS & CRM
+
+Create a lead management system.
+
+Lead fields:
+
+* Lead ID
+* Client
+* Contact
+* Source
+* Event type
+* Expected event value
+* Expected profit
+* Probability
+* Salesperson
+* Date received
+* Follow-up date
+* Status
+* Lost reason
+* Notes
+
+Pipeline statuses:
+
+1. New
+2. Contacted
+3. Qualified
+4. Requirement Received
+5. Proposal Sent
+6. Negotiation
+7. Won
+8. Lost
+
+Create Kanban and table views.
+
+⸻
+
+15. SALES PIPELINE
+
+Dashboard metrics:
+
+* Total leads
+* Qualified leads
+* Proposals sent
+* Won deals
+* Lost deals
+* Pipeline value
+* Weighted pipeline
+* Win rate
+* Average deal size
+* Average sales cycle
+* Revenue by lead source
+
+Weighted pipeline:
+
+Expected Value × Probability
+
+Show pipeline by month.
+
+⸻
+
+16. CAC TRACKING
+
+Create:
+
+Marketing & Customer Acquisition
+
+Track marketing channels:
+
+* Instagram
+* Facebook
+* Google
+* Website
+* Justdial
+* Wedding platforms
+* Referral
+* Direct sales
+* Existing client
+* Event/exhibition
+* Other
+
+For each channel track:
+
+* Marketing spend
+* Leads
+* Qualified leads
+* Customers acquired
+* Revenue generated
+* Gross profit generated
+
+Automatically calculate:
+
+CAC
+
+Marketing + Acquisition Cost / New Customers
+
+Also calculate:
+
+CAC by channel
+
+Revenue per acquired customer
+
+Gross profit per acquired customer
+
+LTV:CAC
+
+Target benchmark can be configured.
+
+⸻
+
+17. MARKETING ROI
+
+Create charts showing:
+
+* Spend vs Revenue
+* Spend vs Gross Profit
+* Leads by source
+* Customers by source
+* CAC by source
+* Conversion rate by source
+* ROI by source
+
+Allow date filtering.
+
+⸻
+
+18. FINANCE MODULE
+
+Create a financial management section.
+
+Track:
+
+Revenue
+
+Expenses
+
+Gross Profit
+
+Operating Expenses
+
+EBITDA
+
+Net Profit
+
+Receivables
+
+Payables
+
+Cash Flow
+
+Separate:
+
+* Direct event costs
+* Operating expenses
+* Capital expenditure
+
+Examples of operating expenses:
+
+* Rent
+* Salaries
+* Software
+* Marketing
+* Utilities
+* Office expenses
+* Transportation
+* Professional fees
+* Insurance
+* Other
+
+⸻
+
+19. RECEIVABLES
+
+Create an Accounts Receivable dashboard.
+
+Show:
+
+* Total receivables
+* Due today
+* Due this week
+* Due this month
+* Overdue
+* 30+ days overdue
+* 60+ days overdue
+* 90+ days overdue
+
+Client-wise outstanding.
+
+Event-wise outstanding.
+
+Payment timeline.
+
+Add payment status:
+
+* Pending
+* Partially Paid
+* Paid
+* Overdue
+
+⸻
+
+20. VENDOR MANAGEMENT
+
+Create a vendor database.
+
+Fields:
+
+* Vendor
+* Category
+* Contact
+* Phone
+* Email
+* Location
+* Payment terms
+* Rating
+* Notes
+
+Track vendor spending.
+
+Show:
+
+* Total spend/vendor
+* Number of events
+* Average cost
+* Outstanding payment
+* Vendor performance
+
+Allow management to compare vendors.
+
+⸻
+
+21. ASSET MANAGEMENT
+
+Create an asset management module.
+
+Track:
+
+* Asset
+* Category
+* Purchase date
+* Purchase cost
+* Current book value
+* Storage location
+* Condition
+* Maintenance cost
+* Rental value
+* Events used
+* Utilization %
+
+Calculate:
+
+Asset utilization
+
+Asset ROI
+
+Buy vs Rent analysis
+
+This is important as Auron increases its own event-production inventory.
+
+⸻
+
+22. TEAM MANAGEMENT
+
+Track employees/team members:
+
+* Name
+* Role
+* Department
+* Salary
+* Joining date
+* Events assigned
+* Events completed
+* Responsibilities
+
+Create basic productivity metrics:
+
+* Events/team member
+* Revenue supported
+* Gross profit supported
+* Labour cost
+* Utilization
+
+Do not expose employee salary data to non-authorized users.
+
+⸻
+
+23. REPORTING SYSTEM
+
+Create downloadable reports.
+
+Reports should include:
+
+Monthly Management Report
+
+* Revenue
+* Gross profit
+* Margin
+* Net profit
+* Events
+* New clients
+* Repeat clients
+* CAC
+* Pipeline
+* Receivables
+
+Event Profitability Report
+
+Client Profitability Report
+
+Marketing ROI Report
+
+Vendor Spend Report
+
+Receivables Report
+
+Annual Business Report
+
+Allow export to:
+
+* CSV
+* Excel where practical
+* PDF where practical
+
+⸻
+
+24. FILTERING
+
+Every major dashboard/report should support:
+
+* Date range
+* Month
+* Quarter
+* Year
+* Event type
+* Client
+* Lead source
+* Salesperson
+* Location
+* Status
+
+Do not reload the entire page unnecessarily.
+
+⸻
+
+25. CEO INSIGHTS
+
+Create an optional AI-style insights section.
+
+The system should analyze stored business data and generate concise management observations.
+
+Examples:
+
+“Corporate events generated the highest gross margin this quarter.”
+
+“Wedding decoration revenue increased 31%, but margin declined from 28% to 22%.”
+
+“Client X generated ₹8.2 lakh gross profit across 4 events.”
+
+“Instagram has a lower CAC than Google but generates smaller average event values.”
+
+“Receivables above 60 days represent ₹X lakh.”
+
+“Subcontracting revenue is growing but has lower margin than direct corporate events.”
+
+Do NOT fabricate insights.
+
+If insufficient data exists, explicitly say:
+
+“Not enough data to calculate this metric.”
+
+⸻
+
+26. DATA INTEGRITY
+
+This is extremely important.
+
+Never use fake numbers in the actual business calculations.
+
+When the database is empty, show:
+
+“Awaiting data”
+
+instead of pretending the company has revenue/profit.
+
+You may create clearly labeled demo data only during development.
+
+Separate demo/test data from production data.
+
+Use proper validation.
+
+Prevent:
+
+* Negative revenue unless explicitly allowed
+* Invalid dates
+* Duplicate client records where possible
+* Invalid event costs
+* Duplicate payments
+* Incorrect calculations
+
+⸻
+
+27. IMPORT EXISTING DATA
+
+Create an import system so management can upload CSV/Excel files.
+
+Allow importing:
+
+* Clients
+* Events
+* Event costs
+* Revenue
+* Expenses
+* Leads
+* Vendors
+* Payments
+
+Show a preview before importing.
+
+Validate columns.
+
+Report errors clearly.
+
+Never silently discard rows.
+
+⸻
+
+28. DATABASE DESIGN
+
+Create normalized relational tables for:
+
+Users
+Roles
+Clients
+Events
+EventTypes
+EventRevenue
+EventCosts
+CostCategories
+Leads
+PipelineStages
+MarketingChannels
+MarketingSpend
+Invoices
+Payments
+Receivables
+Vendors
+VendorTransactions
+Assets
+Employees
+OperatingExpenses
+Goals
+ValuationScenarios
+Reports
+AuditLogs
+
+Use proper foreign keys.
+
+Use timestamps.
+
+Track created_by and updated_by where appropriate.
+
+⸻
+
+29. AUDIT LOG
+
+Create an audit log for important financial changes.
+
+Track:
+
+* User
+* Action
+* Record
+* Old value
+* New value
+* Timestamp
+
+Especially for:
+
+* Revenue
+* Event costs
+* Payments
+* Expenses
+* Client information
+* Valuation assumptions
+
+⸻
+
+30. SEARCH
+
+Implement global search across:
+
+* Clients
+* Events
+* Leads
+* Vendors
+* Invoices
+* Payments
+
+Search should be fast and useful.
+
+⸻
+
+31. NOTIFICATIONS
+
+Create notifications for:
+
+* Upcoming events
+* Overdue payments
+* Follow-ups due
+* Large outstanding invoices
+* Low-margin events
+* Lost opportunities
+* Important deadlines
+
+⸻
+
+32. MOBILE EXPERIENCE
+
+The mobile version must be usable.
+
+On mobile:
+
+* Sidebar becomes navigation drawer
+* Dashboard cards become responsive
+* Tables become horizontally scrollable or transform into cards
+* Forms remain easy to use
+* Important KPIs remain visible
+
+⸻
+
+33. SETTINGS
+
+Create settings for:
+
+* Company details
+* Currency
+* GST settings
+* Event types
+* Cost categories
+* Marketing channels
+* User roles
+* Margin thresholds
+* Valuation assumptions
+* Notification preferences
+
+Company:
+
+Auron Event Productions
+
+Country:
+
+India
+
+Currency:
+
+INR (₹)
+
+⸻
+
+34. DASHBOARD UX
+
+The dashboard should prioritize decision-making.
+
+A CEO should be able to answer these questions within 30 seconds:
+
+1. How much did we make?
+2. How profitable are we?
+3. Which event types are most profitable?
+4. Are we growing?
+5. Where are our next sales coming from?
+6. How much money are clients owing us?
+7. How much does it cost to acquire a customer?
+8. Which clients are most valuable?
+9. Are repeat clients increasing?
+10. Are we moving toward ₹90 crore valuation?
+
+⸻
+
+35. IMPORTANT BUSINESS METRICS
+
+Create a centralized KPI calculation system for:
+
+Revenue
+
+Revenue Growth %
+
+Gross Profit
+
+Gross Margin %
+
+Operating Expenses
+
+EBITDA
+
+EBITDA Margin %
+
+Net Profit
+
+Net Margin %
+
+Average Event Value
+
+Average Gross Profit/Event
+
+Events Completed
+
+New Clients
+
+Repeat Clients
+
+Repeat Client Rate
+
+Customer Lifetime Value
+
+CAC
+
+LTV:CAC
+
+Lead Conversion Rate
+
+Proposal Conversion Rate
+
+Win Rate
+
+Pipeline Value
+
+Weighted Pipeline
+
+Receivables
+
+Overdue Receivables
+
+Revenue per Employee
+
+Profit per Employee
+
+Asset Utilization
+
+Marketing ROI
+
+Revenue by Event Type
+
+Profit by Event Type
+
+Margin by Event Type
+
+⸻
+
+36. IMPORTANT ACCOUNTING LOGIC
+
+Clearly separate:
+
+Revenue
+
+Money earned from events.
+
+Direct Costs
+
+Costs directly attributable to an event.
+
+Gross Profit
+
+Revenue - Direct Costs.
+
+Operating Expenses
+
+Company-level expenses not directly attributable to one event.
+
+EBITDA
+
+Gross Profit - Operating Expenses before interest, tax, depreciation and amortization.
+
+Do not mix these calculations.
+
+GST should be tracked separately from operating revenue/profit where appropriate.
+
+Do not treat GST collected as company revenue.
+
+⸻
+
+37. FUTURE-READY ARCHITECTURE
+
+Build the architecture so future features can be added without rebuilding the application.
+
+Potential future integrations:
+
+* Tally
+* Accounting software
+* Google Sheets
+* Google Drive
+* WhatsApp
+* Email
+* Payment gateways
+* CRM integrations
+* Bank feeds
+* AI reporting
+
+Do not implement these integrations unless necessary for v1, but structure the application so they can be added later.
+
+⸻
+
+38. PERFORMANCE
+
+The application should:
+
+* Load quickly
+* Avoid unnecessary database queries
+* Paginate large tables
+* Use indexed database fields
+* Cache appropriate dashboard calculations
+* Handle thousands of events and clients
+* Avoid blocking the UI during calculations
+
+⸻
+
+39. SECURITY
+
+Implement:
+
+* Secure authentication
+* Password protection
+* Role-based authorization
+* Server-side validation
+* SQL injection protection
+* Secure API routes
+* Environment variables for secrets
+* No hardcoded passwords/API keys
+* Audit logs for sensitive changes
+
+Never expose database credentials to the frontend.
+
+⸻
+
+40. DEVELOPMENT PROCESS
+
+Do NOT try to build a fake frontend first and stop.
+
+Build the application in functional stages:
+
+Stage 1
+
+Set up project architecture, database, authentication and navigation.
+
+Stage 2
+
+Build Clients and Events.
+
+Stage 3
+
+Build Event Revenue + Event Costs + Profitability.
+
+Stage 4
+
+Build Finance and Receivables.
+
+Stage 5
+
+Build Leads + CRM + Sales Pipeline.
+
+Stage 6
+
+Build Marketing + CAC + LTV.
+
+Stage 7
+
+Build Vendors + Assets + Team.
+
+Stage 8
+
+Build Reports.
+
+Stage 9
+
+Build ₹90 Crore Valuation Command Center.
+
+Stage 10
+
+Polish UI, responsiveness, validation, security and performance.
+
+After each stage, test the actual functionality before moving to the next.
+
+⸻
+
+41. SEED DATA
+
+Create a small set of clearly labeled demo records for development/testing.
+
+For example:
+
+* 10 clients
+* 15 events
+* Various event types
+* Event costs
+* Revenue
+* Payments
+* 10 leads
+* Vendors
+* Marketing campaigns
+
+Clearly label this as:
+
+“DEMO DATA”
+
+Make it easy to delete all demo data before production.
+
+⸻
+
+42. CRITICAL REQUIREMENT
+
+The application must be designed around unit economics and scalability, not just bookkeeping.
+
+The core question is:
+
+“What does Auron need to change operationally to become a ₹90 crore company?”
+
+Therefore the system should help management understand:
+
+Revenue growth
+
+Gross margin improvement
+
+Repeat customer growth
+
+Lower CAC
+
+Higher LTV
+
+Higher average event value
+
+Higher employee productivity
+
+Better asset utilization
+
+Better cash collection
+
+=
+
+Scalable business
+
+⸻
+
+43. FINAL UX REQUIREMENT
+
+The finished application should feel like a combination of:
+
+* CEO dashboard
+* CRM
+* Event management system
+* Profitability analyzer
+* Financial intelligence platform
+* Sales pipeline
+* Business growth tracker
+
+Do not make it look like an Excel spreadsheet converted into a website.
+
+Use clean visual hierarchy, interactive charts, useful tables, smart filters and professional empty states.
+
+⸻
+
+44. START NOW
+
+Start by:
+
+1. Creating the application architecture.
+2. Setting up PostgreSQL.
+3. Creating the database schema.
+4. Implementing authentication and roles.
+5. Creating the main navigation.
+6. Building the CEO Dashboard.
+7. Building Clients and Events.
+8. Implementing the event profitability engine.
+9. Testing all calculations.
+10. Then continue through the remaining modules.
+
+Before declaring the project complete, verify that:
+
+* Data persists after refresh.
+* CRUD operations work.
+* Calculations are correct.
+* Dashboard numbers update when records change.
+* Filters work.
+* Permissions work.
+* Mobile layout works.
+* Demo data can be removed.
+* No fake production metrics are displayed.
+* There are no obvious console/runtime errors.
+
+Build this as a serious internal business platform that Auron can continue using as the company grows from its current stage toward the ₹90 crore valuation objective.

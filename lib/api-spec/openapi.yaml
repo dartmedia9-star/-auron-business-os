@@ -1,22 +1,55 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Auron Business OS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: dashboard
+    description: CEO dashboard and KPI aggregates
+  - name: clients
+    description: Client CRM
+  - name: events
+    description: Event management
+  - name: eventRevenue
+    description: Event revenue tracking
+  - name: eventCosts
+    description: Event cost tracking
+  - name: leads
+    description: Lead and pipeline management
+  - name: marketing
+    description: Marketing channels and CAC tracking
+  - name: finance
+    description: Finance and operating expenses
+  - name: vendors
+    description: Vendor management
+  - name: assets
+    description: Asset management
+  - name: employees
+    description: Team management
+  - name: valuation
+    description: Valuation scenarios and growth planning
+  - name: notifications
+    description: In-app notifications
+  - name: settings
+    description: Company settings
+  - name: auditLogs
+    description: Audit logs for financial changes
+  - name: reports
+    description: Analytics and reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +57,1646 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Auth
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to the returnTo path on success.
+
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+            default: /
+      responses:
+        '302':
+          description: Redirect to the OIDC provider logout URL.
+
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+
+  # Dashboard
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: CEO dashboard KPI summary
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [month, quarter, year]
+            default: year
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Dashboard KPIs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/revenue-trend:
+    get:
+      operationId: getRevenueTrend
+      tags: [dashboard]
+      summary: Monthly revenue and profit trend for charts
+      parameters:
+        - name: months
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 12
+      responses:
+        "200":
+          description: Revenue trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevenueTrendPoint"
+
+  /dashboard/event-type-breakdown:
+    get:
+      operationId: getEventTypeBreakdown
+      tags: [dashboard]
+      summary: Revenue and profit broken down by event type
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Event type breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventTypeStats"
+
+  /dashboard/insights:
+    get:
+      operationId: getDashboardInsights
+      tags: [dashboard]
+      summary: CEO data-driven insights derived from actual data
+      responses:
+        "200":
+          description: List of insights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insight"
+
+  # Clients
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List all clients
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [name, revenue, grossProfit, events, ltv]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+      responses:
+        "200":
+          description: Clients list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientListResponse"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a new client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /clients/{id}/profitability:
+    get:
+      operationId: getClientProfitability
+      tags: [clients]
+      summary: Get profitability details for a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Client profitability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientProfitability"
+
+  # Events
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+      responses:
+        "200":
+          description: Events list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventListResponse"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create a new event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get an event by ID with full profitability
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Event with profitability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  # Event Revenue
+  /events/{eventId}/revenue:
+    get:
+      operationId: getEventRevenue
+      tags: [eventRevenue]
+      summary: Get revenue record for an event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Event revenue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventRevenue"
+    post:
+      operationId: upsertEventRevenue
+      tags: [eventRevenue]
+      summary: Create or update event revenue
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventRevenueInput"
+      responses:
+        "200":
+          description: Updated revenue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventRevenue"
+
+  # Event Costs
+  /events/{eventId}/costs:
+    get:
+      operationId: listEventCosts
+      tags: [eventCosts]
+      summary: List all costs for an event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Event costs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventCost"
+    post:
+      operationId: createEventCost
+      tags: [eventCosts]
+      summary: Add a cost to an event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCostInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventCost"
+
+  /events/{eventId}/costs/{id}:
+    patch:
+      operationId: updateEventCost
+      tags: [eventCosts]
+      summary: Update a cost entry
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCostUpdate"
+      responses:
+        "200":
+          description: Updated cost
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventCost"
+    delete:
+      operationId: deleteEventCost
+      tags: [eventCosts]
+      summary: Delete a cost entry
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  # Leads
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List leads
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: salespersonId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 100
+      responses:
+        "200":
+          description: Leads list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadListResponse"
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+
+  /leads/{id}:
+    get:
+      operationId: getLead
+      tags: [leads]
+      summary: Get a lead by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadUpdate"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    delete:
+      operationId: deleteLead
+      tags: [leads]
+      summary: Delete a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /pipeline/summary:
+    get:
+      operationId: getPipelineSummary
+      tags: [leads]
+      summary: Sales pipeline summary metrics
+      responses:
+        "200":
+          description: Pipeline summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineSummary"
+
+  # Marketing
+  /marketing/channels:
+    get:
+      operationId: listMarketingChannels
+      tags: [marketing]
+      summary: List marketing channels
+      responses:
+        "200":
+          description: Channels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketingChannel"
+    post:
+      operationId: createMarketingChannel
+      tags: [marketing]
+      summary: Create a marketing channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingChannelInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingChannel"
+
+  /marketing/channels/{id}:
+    patch:
+      operationId: updateMarketingChannel
+      tags: [marketing]
+      summary: Update a marketing channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingChannelUpdate"
+      responses:
+        "200":
+          description: Updated channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingChannel"
+
+  /marketing/spend:
+    get:
+      operationId: listMarketingSpend
+      tags: [marketing]
+      summary: List marketing spend records
+      parameters:
+        - name: channelId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Spend records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketingSpend"
+    post:
+      operationId: createMarketingSpend
+      tags: [marketing]
+      summary: Record marketing spend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingSpendInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingSpend"
+
+  /marketing/spend/{id}:
+    patch:
+      operationId: updateMarketingSpend
+      tags: [marketing]
+      summary: Update a marketing spend record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingSpendUpdate"
+      responses:
+        "200":
+          description: Updated spend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingSpend"
+    delete:
+      operationId: deleteMarketingSpend
+      tags: [marketing]
+      summary: Delete a marketing spend record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /marketing/roi:
+    get:
+      operationId: getMarketingRoi
+      tags: [marketing]
+      summary: Marketing ROI and CAC by channel
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Marketing ROI breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingRoiSummary"
+
+  # Finance
+  /finance/summary:
+    get:
+      operationId: getFinanceSummary
+      tags: [finance]
+      summary: Financial summary (P&L, EBITDA, net profit)
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Finance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceSummary"
+
+  /finance/expenses:
+    get:
+      operationId: listOperatingExpenses
+      tags: [finance]
+      summary: List operating expenses
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operating expenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperatingExpense"
+    post:
+      operationId: createOperatingExpense
+      tags: [finance]
+      summary: Add an operating expense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperatingExpenseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatingExpense"
+
+  /finance/expenses/{id}:
+    patch:
+      operationId: updateOperatingExpense
+      tags: [finance]
+      summary: Update an operating expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperatingExpenseUpdate"
+      responses:
+        "200":
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatingExpense"
+    delete:
+      operationId: deleteOperatingExpense
+      tags: [finance]
+      summary: Delete an operating expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /finance/receivables:
+    get:
+      operationId: getReceivablesSummary
+      tags: [finance]
+      summary: Accounts receivable summary and aging breakdown
+      responses:
+        "200":
+          description: Receivables summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceivablesSummary"
+
+  # Vendors
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List vendors
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vendors list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get a vendor by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorUpdate"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /vendors/{id}/stats:
+    get:
+      operationId: getVendorStats
+      tags: [vendors]
+      summary: Get spend stats for a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Vendor stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorStats"
+
+  # Assets
+  /assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List assets
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: condition
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Add an asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}:
+    get:
+      operationId: getAsset
+      tags: [assets]
+      summary: Get an asset by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update an asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpdate"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Delete an asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  # Employees
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List team members
+      responses:
+        "200":
+          description: Employees list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Employee"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Add a team member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /employees/{id}:
+    get:
+      operationId: getEmployee
+      tags: [employees]
+      summary: Get a team member by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+    patch:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update a team member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdate"
+      responses:
+        "200":
+          description: Updated employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Delete a team member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  # Valuation
+  /valuation/scenarios:
+    get:
+      operationId: listValuationScenarios
+      tags: [valuation]
+      summary: List valuation scenarios
+      responses:
+        "200":
+          description: Scenarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ValuationScenario"
+    post:
+      operationId: createValuationScenario
+      tags: [valuation]
+      summary: Create a valuation scenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValuationScenarioInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValuationScenario"
+
+  /valuation/scenarios/{id}:
+    patch:
+      operationId: updateValuationScenario
+      tags: [valuation]
+      summary: Update a valuation scenario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValuationScenarioUpdate"
+      responses:
+        "200":
+          description: Updated scenario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValuationScenario"
+    delete:
+      operationId: deleteValuationScenario
+      tags: [valuation]
+      summary: Delete a valuation scenario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /valuation/command-center:
+    get:
+      operationId: getValuationCommandCenter
+      tags: [valuation]
+      summary: ₹90 crore valuation command center with all scenarios and gap analysis
+      responses:
+        "200":
+          description: Valuation command center data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValuationCommandCenter"
+
+  # Notifications
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for the current user
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutSuccess"
+
+  # Settings
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get company settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update company settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanySettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+
+  # Audit Logs
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [auditLogs]
+      summary: List audit log entries
+      parameters:
+        - name: entityType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+
+  # Reports
+  /reports/event-profitability:
+    get:
+      operationId: getEventProfitabilityReport
+      tags: [reports]
+      summary: Event profitability report
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Event profitability report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventProfitabilityReport"
+
+  /reports/client-profitability:
+    get:
+      operationId: getClientProfitabilityReport
+      tags: [reports]
+      summary: Client profitability report
+      responses:
+        "200":
+          description: Client profitability report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientProfitabilityReport"
+
+  # Search
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [dashboard]
+      summary: Global search across clients, events, leads, vendors
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 20
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +1706,1882 @@ components:
       required:
         - status
 
+    # Auth schemas
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: ["string", "null"]
+          
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        profileImageUrl:
+          type: ["string", "null"]
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # Dashboard schemas
+    DashboardSummary:
+      type: object
+      required:
+        - revenue
+        - grossProfit
+        - grossMarginPct
+        - netProfit
+        - ebitda
+        - events
+        - avgEventValue
+        - avgProfitPerEvent
+        - pipelineValue
+        - weightedPipeline
+        - outstandingReceivables
+        - repeatClientRate
+        - cac
+        - ltv
+        - ltvCacRatio
+        - newClients
+        - repeatClients
+        - winRate
+        - revenueGrowthPct
+      properties:
+        revenue:
+          type: number
+        revenueGrowthPct:
+          type: ["number", "null"]
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        netProfit:
+          type: number
+        ebitda:
+          type: number
+        ebitdaMarginPct:
+          type: number
+        events:
+          type: object
+          required: [total, completed, upcoming, inProgress, cancelled]
+          properties:
+            total:
+              type: number
+            completed:
+              type: number
+            upcoming:
+              type: number
+            inProgress:
+              type: number
+            cancelled:
+              type: number
+        avgEventValue:
+          type: number
+        avgProfitPerEvent:
+          type: number
+        pipelineValue:
+          type: number
+        weightedPipeline:
+          type: number
+        outstandingReceivables:
+          type: number
+        repeatClientRate:
+          type: number
+        cac:
+          type: ["number", "null"]
+        ltv:
+          type: ["number", "null"]
+        ltvCacRatio:
+          type: ["number", "null"]
+        newClients:
+          type: number
+        repeatClients:
+          type: number
+        winRate:
+          type: number
+
+    RevenueTrendPoint:
+      type: object
+      required: [month, year, revenue, grossProfit, netProfit, events]
+      properties:
+        month:
+          type: number
+        year:
+          type: number
+        revenue:
+          type: number
+        grossProfit:
+          type: number
+        netProfit:
+          type: number
+        events:
+          type: number
+
+    EventTypeStats:
+      type: object
+      required: [eventType, eventCount, totalRevenue, avgRevenue, totalCost, grossProfit, avgGrossProfit, grossMarginPct]
+      properties:
+        eventType:
+          type: string
+        eventCount:
+          type: number
+        totalRevenue:
+          type: number
+        avgRevenue:
+          type: number
+        totalCost:
+          type: number
+        grossProfit:
+          type: number
+        avgGrossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+
+    Insight:
+      type: object
+      required: [id, type, message, severity]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, success, alert]
+        value:
+          type: ["number", "null"]
+        changeDirection:
+          type: ["string", "null"]
+
+    # Client schemas
+    Client:
+      type: object
+      required: [id, name, clientType, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        company:
+          type: ["string", "null"]
+        contactPerson:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        clientType:
+          type: string
+        industry:
+          type: ["string", "null"]
+        leadSource:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        totalEvents:
+          type: number
+        lifetimeRevenue:
+          type: number
+        lifetimeGrossProfit:
+          type: number
+        totalOutstanding:
+          type: number
+        repeatClient:
+          type: boolean
+        firstEventDate:
+          type: ["string", "null"]
+          format: date
+        lastEventDate:
+          type: ["string", "null"]
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClientInput:
+      type: object
+      required: [name, clientType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        company:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          
+        location:
+          type: string
+        clientType:
+          type: string
+        industry:
+          type: string
+        leadSource:
+          type: string
+        notes:
+          type: string
+
+    ClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        company:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          
+        location:
+          type: string
+        clientType:
+          type: string
+        industry:
+          type: string
+        leadSource:
+          type: string
+        notes:
+          type: string
+
+    ClientListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Client"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    ClientProfitability:
+      type: object
+      required: [clientId, totalRevenue, totalCost, grossProfit, grossMarginPct, totalCollected, totalOutstanding, events]
+      properties:
+        clientId:
+          type: number
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        totalCollected:
+          type: number
+        totalOutstanding:
+          type: number
+        ltv:
+          type: number
+        events:
+          type: array
+          items:
+            type: object
+            required: [id, name, date, revenue, grossProfit, grossMarginPct]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              date:
+                type: string
+                format: date
+              revenue:
+                type: number
+              grossProfit:
+                type: number
+              grossMarginPct:
+                type: number
+
+    # Event schemas
+    Event:
+      type: object
+      required: [id, name, clientId, eventType, status, eventDate, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        clientId:
+          type: number
+        clientName:
+          type: ["string", "null"]
+        eventType:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, in_progress, completed, cancelled]
+        eventDate:
+          type: string
+          format: date
+        venue:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        salespersonId:
+          type: ["integer", "null"]
+        salespersonName:
+          type: ["string", "null"]
+        operationsManagerId:
+          type: ["integer", "null"]
+        leadSource:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        profitabilityIndicator:
+          type: string
+          enum: [excellent, healthy, warning, loss, awaiting_data]
+        totalCollected:
+          type: number
+        totalOutstanding:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    EventDetail:
+      type: object
+      required: [id, name, clientId, eventType, status, eventDate, createdAt, revenue, costs]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        clientId:
+          type: number
+        clientName:
+          type: ["string", "null"]
+        eventType:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, in_progress, completed, cancelled]
+        eventDate:
+          type: string
+          format: date
+        venue:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        salespersonId:
+          type: ["integer", "null"]
+        salespersonName:
+          type: ["string", "null"]
+        operationsManagerId:
+          type: ["integer", "null"]
+        leadSource:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        profitabilityIndicator:
+          type: string
+        totalCollected:
+          type: number
+        totalOutstanding:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        revenue:
+          $ref: "#/components/schemas/EventRevenue"
+        costs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventCost"
+
+    EventInput:
+      type: object
+      required: [name, clientId, eventType, status, eventDate]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        clientId:
+          type: number
+        eventType:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, in_progress, completed, cancelled]
+        eventDate:
+          type: string
+          format: date
+        venue:
+          type: string
+        location:
+          type: string
+        salespersonId:
+          type: number
+        operationsManagerId:
+          type: number
+        leadSource:
+          type: string
+        notes:
+          type: string
+
+    EventUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        clientId:
+          type: number
+        eventType:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, in_progress, completed, cancelled]
+        eventDate:
+          type: string
+          format: date
+        venue:
+          type: string
+        location:
+          type: string
+        salespersonId:
+          type: number
+        operationsManagerId:
+          type: number
+        leadSource:
+          type: string
+        notes:
+          type: string
+
+    EventListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    # Event Revenue schemas
+    EventRevenue:
+      type: object
+      required: [id, eventId, contractValue, gst, totalInvoiceValue, netRevenue, advanceReceived, secondPayment, finalPayment, totalCollected, outstandingAmount, createdAt]
+      properties:
+        id:
+          type: number
+        eventId:
+          type: number
+        contractValue:
+          type: number
+        discount:
+          type: number
+        gst:
+          type: number
+        totalInvoiceValue:
+          type: number
+        netRevenue:
+          type: number
+        advanceReceived:
+          type: number
+        secondPayment:
+          type: number
+        finalPayment:
+          type: number
+        totalCollected:
+          type: number
+        outstandingAmount:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, partially_paid, paid, overdue]
+        invoiceNumber:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+
+    EventRevenueInput:
+      type: object
+      required: [contractValue, gst]
+      properties:
+        contractValue:
+          type: number
+        discount:
+          type: number
+        gst:
+          type: number
+        advanceReceived:
+          type: number
+        secondPayment:
+          type: number
+        finalPayment:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, partially_paid, paid, overdue]
+        invoiceNumber:
+          type: string
+        dueDate:
+          type: string
+          format: date
+
+    # Event Cost schemas
+    EventCost:
+      type: object
+      required: [id, eventId, category, amount, gst, paymentStatus, createdAt]
+      properties:
+        id:
+          type: number
+        eventId:
+          type: number
+        vendorId:
+          type: ["integer", "null"]
+        vendorName:
+          type: ["string", "null"]
+        category:
+          type: string
+        description:
+          type: ["string", "null"]
+        amount:
+          type: number
+        gst:
+          type: number
+        totalAmount:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, paid, partially_paid]
+        date:
+          type: ["string", "null"]
+          format: date
+        referenceNumber:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    EventCostInput:
+      type: object
+      required: [category, amount]
+      properties:
+        vendorId:
+          type: number
+        category:
+          type: string
+        description:
+          type: string
+        amount:
+          type: number
+        gst:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, paid, partially_paid]
+        date:
+          type: string
+          format: date
+        referenceNumber:
+          type: string
+
+    EventCostUpdate:
+      type: object
+      properties:
+        vendorId:
+          type: number
+        category:
+          type: string
+        description:
+          type: string
+        amount:
+          type: number
+        gst:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, paid, partially_paid]
+        date:
+          type: string
+          format: date
+        referenceNumber:
+          type: string
+
+    # Lead schemas
+    Lead:
+      type: object
+      required: [id, contactName, status, createdAt]
+      properties:
+        id:
+          type: number
+        clientId:
+          type: ["integer", "null"]
+        clientName:
+          type: ["string", "null"]
+        contactName:
+          type: string
+        contactPhone:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        source:
+          type: ["string", "null"]
+        eventType:
+          type: ["string", "null"]
+        expectedValue:
+          type: ["number", "null"]
+        expectedProfit:
+          type: ["number", "null"]
+        probability:
+          type: ["integer", "null"]
+        salespersonId:
+          type: ["integer", "null"]
+        salespersonName:
+          type: ["string", "null"]
+        dateReceived:
+          type: ["string", "null"]
+          format: date
+        followUpDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [new, contacted, qualified, requirement_received, proposal_sent, negotiation, won, lost]
+        lostReason:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        weightedValue:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    LeadInput:
+      type: object
+      required: [contactName, status]
+      properties:
+        clientId:
+          type: number
+        contactName:
+          type: string
+          minLength: 1
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+          
+        source:
+          type: string
+        eventType:
+          type: string
+        expectedValue:
+          type: number
+        expectedProfit:
+          type: number
+        probability:
+          type: number
+          minimum: 0
+          maximum: 100
+        salespersonId:
+          type: number
+        dateReceived:
+          type: string
+          format: date
+        followUpDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [new, contacted, qualified, requirement_received, proposal_sent, negotiation, won, lost]
+        lostReason:
+          type: string
+        notes:
+          type: string
+
+    LeadUpdate:
+      type: object
+      properties:
+        clientId:
+          type: number
+        contactName:
+          type: string
+          minLength: 1
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+          
+        source:
+          type: string
+        eventType:
+          type: string
+        expectedValue:
+          type: number
+        expectedProfit:
+          type: number
+        probability:
+          type: number
+          minimum: 0
+          maximum: 100
+        salespersonId:
+          type: number
+        dateReceived:
+          type: string
+          format: date
+        followUpDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [new, contacted, qualified, requirement_received, proposal_sent, negotiation, won, lost]
+        lostReason:
+          type: string
+        notes:
+          type: string
+
+    LeadListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lead"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    PipelineSummary:
+      type: object
+      required: [totalLeads, qualifiedLeads, proposalsSent, wonDeals, lostDeals, pipelineValue, weightedPipeline, winRate, avgDealSize]
+      properties:
+        totalLeads:
+          type: number
+        qualifiedLeads:
+          type: number
+        proposalsSent:
+          type: number
+        wonDeals:
+          type: number
+        lostDeals:
+          type: number
+        pipelineValue:
+          type: number
+        weightedPipeline:
+          type: number
+        winRate:
+          type: number
+        avgDealSize:
+          type: number
+        byStatus:
+          type: array
+          items:
+            type: object
+            required: [status, count, value]
+            properties:
+              status:
+                type: string
+              count:
+                type: number
+              value:
+                type: number
+
+    # Marketing schemas
+    MarketingChannel:
+      type: object
+      required: [id, name, isActive, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    MarketingChannelInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        isActive:
+          type: boolean
+
+    MarketingChannelUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        isActive:
+          type: boolean
+
+    MarketingSpend:
+      type: object
+      required: [id, channelId, channelName, amount, year, month, createdAt]
+      properties:
+        id:
+          type: number
+        channelId:
+          type: number
+        channelName:
+          type: string
+        amount:
+          type: number
+        leadsGenerated:
+          type: number
+        qualifiedLeads:
+          type: number
+        customersAcquired:
+          type: number
+        revenueGenerated:
+          type: number
+        grossProfitGenerated:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    MarketingSpendInput:
+      type: object
+      required: [channelId, amount, year, month]
+      properties:
+        channelId:
+          type: number
+        amount:
+          type: number
+        leadsGenerated:
+          type: number
+        qualifiedLeads:
+          type: number
+        customersAcquired:
+          type: number
+        revenueGenerated:
+          type: number
+        grossProfitGenerated:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        notes:
+          type: string
+
+    MarketingSpendUpdate:
+      type: object
+      properties:
+        channelId:
+          type: number
+        amount:
+          type: number
+        leadsGenerated:
+          type: number
+        qualifiedLeads:
+          type: number
+        customersAcquired:
+          type: number
+        revenueGenerated:
+          type: number
+        grossProfitGenerated:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        notes:
+          type: string
+
+    MarketingRoiSummary:
+      type: object
+      required: [totalSpend, totalRevenue, totalGrossProfit, overallRoi, overallCac, channels]
+      properties:
+        totalSpend:
+          type: number
+        totalRevenue:
+          type: number
+        totalGrossProfit:
+          type: number
+        overallRoi:
+          type: number
+        overallCac:
+          type: ["number", "null"]
+        channels:
+          type: array
+          items:
+            type: object
+            required: [channelId, channelName, spend, leadsGenerated, customersAcquired, revenue, grossProfit, cac, roi, conversionRate]
+            properties:
+              channelId:
+                type: number
+              channelName:
+                type: string
+              spend:
+                type: number
+              leadsGenerated:
+                type: number
+              customersAcquired:
+                type: number
+              revenue:
+                type: number
+              grossProfit:
+                type: number
+              cac:
+                type: ["number", "null"]
+              roi:
+                type: number
+              conversionRate:
+                type: number
+
+    # Finance schemas
+    FinanceSummary:
+      type: object
+      required: [revenue, directCosts, grossProfit, grossMarginPct, operatingExpenses, ebitda, ebitdaMarginPct, netProfit, netMarginPct]
+      properties:
+        revenue:
+          type: number
+        directCosts:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        operatingExpenses:
+          type: number
+        ebitda:
+          type: number
+        ebitdaMarginPct:
+          type: number
+        netProfit:
+          type: number
+        netMarginPct:
+          type: number
+        totalReceivables:
+          type: number
+        overdueReceivables:
+          type: number
+
+    OperatingExpense:
+      type: object
+      required: [id, category, description, amount, year, month, createdAt]
+      properties:
+        id:
+          type: number
+        category:
+          type: string
+        description:
+          type: string
+        amount:
+          type: number
+        gst:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        date:
+          type: ["string", "null"]
+          format: date
+        referenceNumber:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    OperatingExpenseInput:
+      type: object
+      required: [category, description, amount, year, month]
+      properties:
+        category:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+        gst:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        date:
+          type: string
+          format: date
+        referenceNumber:
+          type: string
+
+    OperatingExpenseUpdate:
+      type: object
+      properties:
+        category:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        amount:
+          type: number
+        gst:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        date:
+          type: string
+          format: date
+        referenceNumber:
+          type: string
+
+    ReceivablesSummary:
+      type: object
+      required: [totalReceivables, dueToday, dueThisWeek, dueThisMonth, overdue, overdue30, overdue60, overdue90, byClient, byEvent]
+      properties:
+        totalReceivables:
+          type: number
+        dueToday:
+          type: number
+        dueThisWeek:
+          type: number
+        dueThisMonth:
+          type: number
+        overdue:
+          type: number
+        overdue30:
+          type: number
+        overdue60:
+          type: number
+        overdue90:
+          type: number
+        byClient:
+          type: array
+          items:
+            type: object
+            required: [clientId, clientName, outstanding]
+            properties:
+              clientId:
+                type: number
+              clientName:
+                type: string
+              outstanding:
+                type: number
+        byEvent:
+          type: array
+          items:
+            type: object
+            required: [eventId, eventName, outstanding, dueDate, paymentStatus]
+            properties:
+              eventId:
+                type: number
+              eventName:
+                type: string
+              outstanding:
+                type: number
+              dueDate:
+                type: ["string", "null"]
+                format: date
+              paymentStatus:
+                type: string
+
+    # Vendor schemas
+    Vendor:
+      type: object
+      required: [id, name, category, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        category:
+          type: string
+        contactPerson:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        paymentTerms:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        totalSpend:
+          type: number
+        totalEvents:
+          type: number
+        avgCostPerEvent:
+          type: number
+        outstandingPayment:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    VendorInput:
+      type: object
+      required: [name, category]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          
+        location:
+          type: string
+        paymentTerms:
+          type: string
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+        notes:
+          type: string
+
+    VendorUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          
+        location:
+          type: string
+        paymentTerms:
+          type: string
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+        notes:
+          type: string
+
+    VendorStats:
+      type: object
+      required: [vendorId, totalSpend, totalEvents, avgCostPerEvent, outstandingPayment]
+      properties:
+        vendorId:
+          type: number
+        totalSpend:
+          type: number
+        totalEvents:
+          type: number
+        avgCostPerEvent:
+          type: number
+        outstandingPayment:
+          type: number
+        events:
+          type: array
+          items:
+            type: object
+            required: [eventId, eventName, amount, paymentStatus]
+            properties:
+              eventId:
+                type: number
+              eventName:
+                type: string
+              amount:
+                type: number
+              paymentStatus:
+                type: string
+
+    # Asset schemas
+    Asset:
+      type: object
+      required: [id, name, category, purchaseDate, purchaseCost, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        category:
+          type: string
+        purchaseDate:
+          type: string
+          format: date
+        purchaseCost:
+          type: number
+        currentBookValue:
+          type: ["number", "null"]
+        storageLocation:
+          type: ["string", "null"]
+        condition:
+          type: string
+          enum: [excellent, good, fair, poor, retired]
+        maintenanceCost:
+          type: number
+        rentalValue:
+          type: ["number", "null"]
+        utilizationPct:
+          type: number
+        roi:
+          type: ["number", "null"]
+        totalEventsUsed:
+          type: number
+        notes:
+          type: ["string", "null"]
+        isDemo:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    AssetInput:
+      type: object
+      required: [name, category, purchaseDate, purchaseCost]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        purchaseDate:
+          type: string
+          format: date
+        purchaseCost:
+          type: number
+        currentBookValue:
+          type: number
+        storageLocation:
+          type: string
+        condition:
+          type: string
+          enum: [excellent, good, fair, poor, retired]
+        maintenanceCost:
+          type: number
+        rentalValue:
+          type: number
+        notes:
+          type: string
+
+    AssetUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        purchaseDate:
+          type: string
+          format: date
+        purchaseCost:
+          type: number
+        currentBookValue:
+          type: number
+        storageLocation:
+          type: string
+        condition:
+          type: string
+          enum: [excellent, good, fair, poor, retired]
+        maintenanceCost:
+          type: number
+        rentalValue:
+          type: number
+        notes:
+          type: string
+
+    # Employee schemas
+    Employee:
+      type: object
+      required: [id, name, role, department, joiningDate, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        role:
+          type: string
+        department:
+          type: string
+        salary:
+          type: ["number", "null"]
+        joiningDate:
+          type: string
+          format: date
+        responsibilities:
+          type: ["string", "null"]
+        eventsAssigned:
+          type: number
+        eventsCompleted:
+          type: number
+        revenueSupported:
+          type: number
+        grossProfitSupported:
+          type: number
+        isActive:
+          type: boolean
+        isDemo:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    EmployeeInput:
+      type: object
+      required: [name, role, department, joiningDate]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        role:
+          type: string
+        department:
+          type: string
+        salary:
+          type: number
+        joiningDate:
+          type: string
+          format: date
+        responsibilities:
+          type: string
+        isActive:
+          type: boolean
+
+    EmployeeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        role:
+          type: string
+        department:
+          type: string
+        salary:
+          type: number
+        joiningDate:
+          type: string
+          format: date
+        responsibilities:
+          type: string
+        isActive:
+          type: boolean
+
+    # Valuation schemas
+    ValuationScenario:
+      type: object
+      required: [id, name, scenarioType, targetValuation, currentRevenue, revenueMultiple, ebitdaMultiple, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        scenarioType:
+          type: string
+          enum: [conservative, base, aggressive, custom]
+        targetValuation:
+          type: number
+        currentRevenue:
+          type: number
+        currentEbitda:
+          type: ["number", "null"]
+        currentNetProfit:
+          type: ["number", "null"]
+        revenueGrowthRate:
+          type: number
+        ebitdaMargin:
+          type: number
+        revenueMultiple:
+          type: number
+        ebitdaMultiple:
+          type: number
+        estimatedValuation:
+          type: number
+        gapToTarget:
+          type: number
+        requiredRevenue:
+          type: number
+        requiredEbitda:
+          type: number
+        requiredAnnualGrowth:
+          type: number
+        requiredEvents:
+          type: ["integer", "null"]
+        requiredAvgEventValue:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ValuationScenarioInput:
+      type: object
+      required: [name, scenarioType, targetValuation, currentRevenue, revenueGrowthRate, ebitdaMargin, revenueMultiple, ebitdaMultiple]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        scenarioType:
+          type: string
+          enum: [conservative, base, aggressive, custom]
+        targetValuation:
+          type: number
+        currentRevenue:
+          type: number
+        currentEbitda:
+          type: number
+        currentNetProfit:
+          type: number
+        revenueGrowthRate:
+          type: number
+        ebitdaMargin:
+          type: number
+        revenueMultiple:
+          type: number
+        ebitdaMultiple:
+          type: number
+        notes:
+          type: string
+
+    ValuationScenarioUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        scenarioType:
+          type: string
+          enum: [conservative, base, aggressive, custom]
+        targetValuation:
+          type: number
+        currentRevenue:
+          type: number
+        currentEbitda:
+          type: number
+        currentNetProfit:
+          type: number
+        revenueGrowthRate:
+          type: number
+        ebitdaMargin:
+          type: number
+        revenueMultiple:
+          type: number
+        ebitdaMultiple:
+          type: number
+        notes:
+          type: string
+
+    ValuationCommandCenter:
+      type: object
+      required: [targetValuation, scenarios, currentMetrics]
+      properties:
+        targetValuation:
+          type: number
+        currentMetrics:
+          type: object
+          required: [revenue, ebitda, netProfit, grossMarginPct]
+          properties:
+            revenue:
+              type: number
+            ebitda:
+              type: number
+            netProfit:
+              type: number
+            grossMarginPct:
+              type: number
+        scenarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValuationScenario"
+
+    # Notification schemas
+    Notification:
+      type: object
+      required: [id, type, title, message, isRead, createdAt]
+      properties:
+        id:
+          type: number
+        type:
+          type: string
+          enum: [upcoming_event, overdue_payment, follow_up_due, large_outstanding, low_margin, lost_opportunity, deadline]
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        entityType:
+          type: ["string", "null"]
+        entityId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # Settings schemas
+    CompanySettings:
+      type: object
+      required: [id, companyName, country, currency]
+      properties:
+        id:
+          type: number
+        companyName:
+          type: string
+        country:
+          type: string
+        currency:
+          type: string
+        gstNumber:
+          type: ["string", "null"]
+        gstRate:
+          type: number
+        excellentMarginThreshold:
+          type: number
+        healthyMarginThreshold:
+          type: number
+        warningMarginThreshold:
+          type: number
+        ltvCacTarget:
+          type: number
+        cacTarget:
+          type: ["number", "null"]
+        valuationTarget:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+
+    CompanySettingsUpdate:
+      type: object
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+        country:
+          type: string
+        currency:
+          type: string
+        gstNumber:
+          type: string
+        gstRate:
+          type: number
+        excellentMarginThreshold:
+          type: number
+        healthyMarginThreshold:
+          type: number
+        warningMarginThreshold:
+          type: number
+        ltvCacTarget:
+          type: number
+        cacTarget:
+          type: number
+        valuationTarget:
+          type: number
+
+    # Audit Log schemas
+    AuditLog:
+      type: object
+      required: [id, userId, action, entityType, entityId, createdAt]
+      properties:
+        id:
+          type: number
+        userId:
+          type: string
+        userEmail:
+          type: ["string", "null"]
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: number
+        oldValues:
+          type: ["object", "null"]
+        newValues:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AuditLogListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    # Report schemas
+    EventProfitabilityReport:
+      type: object
+      required: [events, summary, byEventType]
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            required: [id, name, clientName, eventType, eventDate, revenue, totalCost, grossProfit, grossMarginPct, indicator]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              clientName:
+                type: string
+              eventType:
+                type: string
+              eventDate:
+                type: string
+                format: date
+              revenue:
+                type: number
+              totalCost:
+                type: number
+              grossProfit:
+                type: number
+              grossMarginPct:
+                type: number
+              indicator:
+                type: string
+        summary:
+          type: object
+          required: [totalRevenue, totalCost, totalGrossProfit, avgGrossMarginPct, eventCount]
+          properties:
+            totalRevenue:
+              type: number
+            totalCost:
+              type: number
+            totalGrossProfit:
+              type: number
+            avgGrossMarginPct:
+              type: number
+            eventCount:
+              type: number
+        byEventType:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventTypeStats"
+
+    ClientProfitabilityReport:
+      type: object
+      required: [clients, summary]
+      properties:
+        clients:
+          type: array
+          items:
+            type: object
+            required: [id, name, totalEvents, totalRevenue, totalGrossProfit, grossMarginPct, ltv]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              company:
+                type: ["string", "null"]
+              totalEvents:
+                type: number
+              totalRevenue:
+                type: number
+              totalGrossProfit:
+                type: number
+              grossMarginPct:
+                type: number
+              ltv:
+                type: number
+              repeatClient:
+                type: boolean
+        summary:
+          type: object
+          required: [totalClients, repeatClients, repeatClientRate, totalRevenue, totalGrossProfit]
+          properties:
+            totalClients:
+              type: number
+            repeatClients:
+              type: number
+            repeatClientRate:
+              type: number
+            totalRevenue:
+              type: number
+            totalGrossProfit:
+              type: number
+
+    # Search schema
+    SearchResults:
+      type: object
+      required: [clients, events, leads, vendors]
+      properties:
+        clients:
+          type: array
+          items:
+            type: object
+            required: [id, name, type]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              type:
+                type: string
+        events:
+          type: array
+          items:
+            type: object
+            required: [id, name, type]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              type:
+                type: string
+        leads:
+          type: array
+          items:
+            type: object
+            required: [id, name, type]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              type:
+                type: string
+        vendors:
+          type: array
+          items:
+            type: object
+            required: [id, name, type]
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              type:
+                type: string

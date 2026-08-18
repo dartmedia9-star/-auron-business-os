@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Auron Business OS"
+description = "Auron Business OS — a premium internal management platform for Auron Event Productions. Covers event-level profitability, client CRM, sales pipeline, marketing CAC/LTV tracking, finance (revenue/EBITDA/net profit), accounts receivable, vendor management, asset management, team metrics, and a ₹90 crore valuation command center. Built for the CEO and management team to track unit economics, growth, and operational scalability."
+version = "1.0.0"
+id = "artifacts/auron-os"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23434
+
+[services.development]
+run = "pnpm --filter @workspace/auron-os run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/auron-os", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/auron-os/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23434"
+BASE_PATH = "/"

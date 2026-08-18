@@ -1,0 +1,4 @@
+- [Orval Zod v4 fix](orval-zod-compat.md) — Orval 8.x generates Zod v4 API; must post-process generated file after codegen.
+- [Auth setup](auth-setup.md) — Replit Auth (OIDC) wired; replit-auth-web lib uses document.baseURI not import.meta.env for basepath.
+- [DB schema](db-schema.md) — All 13 domain tables live in lib/db/src/schema/; push with pnpm --filter @workspace/db run push.
+- [Seed script](seed-script.md) — Demo data seed at scripts/seed.ts; run with npx tsx scripts/seed.ts (no dotenv needed, env already set).
