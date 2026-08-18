@@ -1,21 +1,27 @@
 ---
-name: Replit Auth Setup for Auron OS
-description: How Replit Auth (OIDC) is wired in this monorepo — server templates, web lib, and key gotchas.
+name: Auth setup
+description: Auth system replaced from Replit OIDC to local bcrypt username/password; migration complete.
 ---
 
-## Rule
-Use `@workspace/replit-auth-web` for frontend auth — do NOT use generated API hooks for auth. Import `useAuth` from it to get `{ user, isLoading, isAuthenticated, login, logout }`.
+## Auth System — Local bcrypt (replaced Replit OIDC)
 
-## Why
-The generated hooks don't include auth endpoints in a way that handles cookies/sessions correctly. The `replit-auth-web` lib wraps the OIDC flow with a simple `fetch('/api/auth/user')` check.
+Replit OIDC auth has been fully replaced with a local username/password system.
 
-## Key files
-- Backend: `artifacts/api-server/src/lib/auth.ts`, `src/middlewares/authMiddleware.ts`, `src/routes/auth.ts`
-- Frontend lib: `lib/replit-auth-web/src/` — `use-auth.ts`, `index.ts`
-- DB sessions: `lib/db/src/schema/auth.ts` — `sessionsTable` and `usersTable` are mandatory, don't drop.
+### What changed
+- `artifacts/api-server/src/lib/auth.ts` — OIDC removed; session functions kept; `SessionData = { user: AuthUser }`
+- `artifacts/api-server/src/middlewares/authMiddleware.ts` — OIDC token refresh removed; pure session lookup
+- `artifacts/api-server/src/routes/auth.ts` — `POST /api/login` (bcrypt), `POST /api/logout`, `GET /api/logout`
+- `artifacts/auron-os/src/pages/login.tsx` — username/password form, POSTs to `/api/login`, reloads on success
+- `lib/db/src/schema/auth.ts` — added `username varchar(64) UNIQUE`, `password_hash varchar`, `role varchar(32)`, `is_active boolean` to `usersTable`
+- `lib/api-zod/src/generated/types/authUser.ts` — added `role: string` and `username: string | null`
 
-## Gotcha — import.meta.env
-`lib/replit-auth-web` is a shared lib, NOT a Vite project itself. Do NOT use `import.meta.env.BASE_URL` in it (causes `tsc --build` to fail with TS2339). Instead use `document.baseURI` for basepath detection.
+### User creation
+Run: `node scripts/create-users-standalone.cjs`
 
-## Gotcha — replit-auth-web tsconfig
-Must have `composite: true`, `declarationMap: true`, `emitDeclarationOnly: true` for it to work as a TypeScript project reference in the monorepo.
+**Why standalone CJS not tsx:** The scripts package's local `node_modules` (with bcryptjs) conflicts with workspace dep resolution for drizzle-orm. The CJS script uses bcryptjs from `scripts/node_modules` and psql via stdin (not `-c` shell arg — bcrypt hashes contain `$` which shell expands in double-quoted args).
+
+### Users in DB (created 2026-08-18)
+Four users: `ceo` (admin), `finance`, `sales`, `operations` — all with 60-char bcrypt hashes.
+
+### replit-auth-web hook compatibility
+`@workspace/replit-auth-web` hook (`useAuth`) is already portable — calls `/api/auth/user`, `/api/login`, `/api/logout` only; no OIDC dependency.

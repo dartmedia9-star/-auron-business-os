@@ -26,12 +26,13 @@ The project is a **pnpm monorepo** with three services managed by Replit Artifac
 Replit routes traffic through a shared proxy. The frontend is served at `/auron-os/` and the API at `/api-server/`. Both use the `PORT` and `BASE_PATH` environment variables injected automatically by Replit.
 
 ### Auth
-Authentication is handled by **Replit Auth** (OpenID Connect / PKCE). When the user clicks "Sign In", they are redirected through:
-1. `GET /api/login` → Replit OIDC provider
-2. Callback → `GET /api/callback` → session cookie set
+Authentication uses **username + password** (bcrypt, local). The login flow:
+1. User submits credentials to `POST /api/login`
+2. Server validates bcrypt hash, sets a session cookie
 3. Frontend reads session from `GET /api/auth/user`
+4. `GET /api/logout` clears the session and redirects to `/`
 
-Sessions are stored in the PostgreSQL `sessions` table via `connect-pg-simple`.
+Sessions are stored in the PostgreSQL `sessions` table.
 
 ### Run Commands
 ```bash
@@ -95,10 +96,9 @@ pnpm --filter @workspace/auron-os run dev
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
 | `SESSION_SECRET` | ✅ | Minimum 32-char random string for session signing |
 | `PORT` | ✅ | HTTP port for each service (different per service) |
-| `REPLIT_DOMAINS` | Replit only | Allowed OIDC redirect domains (set by Replit) |
-| `REPL_ID` | Replit only | Replit environment identifier |
-| `BASE_PATH` | Replit only | URL base path for Vite frontend (e.g. `/auron-os`) |
 | `NODE_ENV` | ✅ | `development` or `production` |
+| `BASE_PATH` | ✅ build-time | URL base path for Vite frontend — use `/auron-os` on Replit, `/` on Hostinger |
+| `REPL_ID` | Replit only | Enables Replit dev plugins (cartographer, dev-banner, error overlay) |
 
 See `.env.example` for a full reference.
 
@@ -174,81 +174,85 @@ Replit provides a hosted PostgreSQL via the Database integration. The connection
 
 ---
 
-## 7. Future Hostinger Migration
+## 7. Hostinger Migration
 
-> **Do NOT migrate yet.** This section is a reference for when the time comes.
+> **Migration is complete** — the codebase is fully portable. See `MIGRATION.md` for the step-by-step guide and `HOSTINGER_MIGRATION_CHECKLIST.md` for the go-live checklist.
 
 ### Migration Overview
-Hostinger Business hosting provides:
-- Shared hosting or VPS (Ubuntu)
-- MySQL / MariaDB (not PostgreSQL — see note below)
-- Node.js via hPanel or SSH
-- Let's Encrypt SSL
+Target: `https://os.auronevents.com` on a Hostinger VPS
+- VPS (Ubuntu 24.04 LTS) — **not** shared hosting (Node.js requires VPS)
+- **PostgreSQL 15** — Hostinger VPS supports PostgreSQL (install via `apt`)
+  > ⚠️ Shared/starter Hostinger plans offer MySQL/MariaDB only. A VPS is required for PostgreSQL.
+- Node.js 20 LTS, PM2 process manager
+- Nginx reverse proxy with Let's Encrypt SSL
 
-### Step-by-Step Migration Path
+### Quick Migration Steps
 
-**Step 1: Provision a VPS** (recommended over shared hosting for Node.js apps)
-- Minimum: 2 vCPU, 4GB RAM, 40GB SSD
-- OS: Ubuntu 22.04 LTS
+**Step 1: Provision VPS** — min 2 vCPU / 4 GB RAM / 40 GB SSD, Ubuntu 24.04
 
-**Step 2: Set up PostgreSQL on the VPS** (or use Hostinger's managed DB add-on)
+**Step 2: Set up PostgreSQL on the VPS**
 ```bash
-sudo apt install postgresql-15
-sudo -u postgres createdb auron_os
-sudo -u postgres createuser auron_user -P
+sudo apt install postgresql postgresql-contrib
+sudo -u postgres psql -c "CREATE USER auron_user WITH PASSWORD 'strong-password';"
+sudo -u postgres psql -c "CREATE DATABASE auron_os OWNER auron_user;"
 ```
 
-**Step 3: Export and import data**
+**Step 3: Export and restore data**
 ```bash
-# On Replit
-pg_dump "$DATABASE_URL" -F c -f auron_backup.dump
-# Transfer to VPS via scp
-scp auron_backup.dump user@hostinger-vps:/home/auron/
-# On VPS
-pg_restore -d auron_os auron_backup.dump
+# On Replit — backup files already in backups/
+pg_dump "$DATABASE_URL" -F c -f backups/auron_$(date +%Y%m%d).dump
+
+# Transfer to VPS
+scp backups/auron_*.dump auron@<VPS_IP>:/home/auron/auron-os/backups/
+
+# On VPS — restore
+pg_restore -U auron_user -d auron_os --no-owner backups/auron_latest.dump
 ```
 
 **Step 4: Clone and build on VPS**
 ```bash
-git clone https://github.com/your-org/auron-os.git
-cd auron-os
-pnpm install
+git clone https://github.com/your-org/auron-os.git && cd auron-os
+pnpm install --frozen-lockfile
 pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/auron-os run build
+BASE_PATH=/ pnpm --filter @workspace/auron-os run build
 ```
 
 **Step 5: Configure environment**
 ```bash
 cp .env.example .env
-# Set DATABASE_URL, SESSION_SECRET, PORT, NODE_ENV=production
-# Replace Replit Auth (see §9)
+# Set DATABASE_URL, SESSION_SECRET, PORT=8080, NODE_ENV=production, BASE_PATH=/
 ```
 
-**Step 6: Set up PM2 process manager**
+**Step 6: Create user accounts**
+```bash
+node scripts/create-users-standalone.cjs
+# Save the printed credentials immediately
+```
+
+**Step 7: Set up PM2**
 ```bash
 npm install -g pm2
-pm2 start artifacts/api-server/dist/index.mjs --name auron-api
-pm2 save
-pm2 startup
+export $(grep -v '^#' .env | xargs)
+pm2 start artifacts/api-server/dist/index.mjs --name auron-api -- --enable-source-maps
+pm2 save && pm2 startup
 ```
 
-**Step 7: Configure Nginx as reverse proxy**
+**Step 8: Configure Nginx**
 ```nginx
 server {
-    listen 443 ssl;
-    server_name your-domain.com;
-    
+    listen 443 ssl http2;
+    server_name os.auronevents.com;
+
     location /api/ {
-        proxy_pass http://localhost:8080/api/;
+        proxy_pass         http://127.0.0.1:8080/api/;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-Proto $scheme;
     }
-    
-    location / {
-        root /home/auron/auron-os/artifacts/auron-os/dist/public;
-        try_files $uri $uri/ /index.html;
-    }
+
+    root /home/auron/auron-os/artifacts/auron-os/dist/public;
+    location / { try_files $uri $uri/ /index.html; }
 }
 ```
 
@@ -256,52 +260,36 @@ server {
 
 ## 8. Replit-Specific Dependencies
 
-| Dependency | Where Used | Migration Risk |
+| Dependency | Where Used | Status |
 |---|---|---|
-| **Replit Auth (OIDC)** | `artifacts/api-server/src/lib/auth.ts` | 🔴 High — must replace entirely |
-| **Replit PostgreSQL** | `DATABASE_URL` env var | 🟢 Low — standard PostgreSQL, any host works |
-| **`@replit/vite-plugin-*`** | `artifacts/auron-os/vite.config.ts` | 🟡 Medium — plugins are dev-only, remove for production build |
-| **`PORT` / `BASE_PATH`** | Both services | 🟢 Low — already reads from env vars |
-| **`REPLIT_DOMAINS`** | Auth callback URL | 🔴 High — required by Replit Auth OIDC |
+| **Replit Auth (OIDC)** | `artifacts/api-server/src/lib/auth.ts` | ✅ Replaced — bcrypt username/password auth |
+| **Replit PostgreSQL** | `DATABASE_URL` env var | ✅ Portable — standard PostgreSQL, any host works |
+| **`@replit/vite-plugin-*`** | `artifacts/auron-os/vite.config.ts` | ✅ Gated — only loaded when `REPL_ID` is set; production builds skip them |
+| **`PORT` / `BASE_PATH`** | Both services | ✅ Portable — reads from env vars; set `BASE_PATH=/` on Hostinger |
+| **`REPLIT_DOMAINS`** | Auth callback URL | ✅ Removed — no longer needed after auth replacement |
+| **`@replit/connectors-sdk`** | Root `package.json` | ✅ Removed — was unused in application code |
 
 ---
 
-## 9. Components to Replace During Migration
+## 9. Migration Status — All Items Resolved
 
-### Auth (Critical)
+| Component | Status | Notes |
+|---|---|---|
+| **Auth** | ✅ Done | Replaced with bcrypt username/password; run `create-users-standalone.cjs` on VPS |
+| **Vite Replit plugins** | ✅ Done | Gated behind `REPL_ID` check — absent from production builds |
+| **Frontend base path** | ✅ Done | Set `BASE_PATH=/` on Hostinger |
+| **Database backup** | ✅ Done | `backups/auron_business_os_backup.dump` and `.sql` |
+| **Migration SQL** | ✅ Done | `lib/db/migrations/0000_initial_schema.sql` |
 
-The current auth is **Replit Auth** — an OIDC provider that only works within Replit. When migrating:
+### User Creation on Hostinger
 
-**Option A: Clerk** (recommended SaaS auth)
+After restoring the database backup and running `pnpm install`:
 ```bash
-pnpm add @clerk/express @clerk/clerk-js
-```
-Replace `artifacts/api-server/src/lib/auth.ts` and `artifacts/api-server/src/middlewares/authMiddleware.ts`.
-
-**Option B: Passport.js with local strategy** (self-hosted)
-```bash
-pnpm add passport passport-local express-session bcryptjs
+# Uses only bcryptjs (bundled in scripts/node_modules) + psql
+node scripts/create-users-standalone.cjs
 ```
 
-**Option C: Auth.js / NextAuth** (if migrating to Next.js)
-
-The database tables (`users`, `sessions`) are already in place and use standard schemas — they will not need structural changes regardless of auth provider.
-
-### Vite Plugins (Minor)
-
-Remove from `artifacts/auron-os/vite.config.ts`:
-```ts
-// Remove these for non-Replit builds:
-@replit/vite-plugin-runtime-error-modal
-@replit/vite-plugin-cartographer  
-@replit/vite-plugin-dev-banner
-```
-
-The production build (`vite build`) already gates these behind `process.env.REPL_ID !== undefined`, so they are automatically excluded in production.
-
-### Frontend Base Path
-
-Currently the frontend uses `BASE_PATH` env var for the Vite `base` config. When serving from root on Hostinger, set `BASE_PATH=/` in the build environment.
+This creates four accounts (ceo/admin, finance, sales, operations) and prints their passwords.
 
 ---
 

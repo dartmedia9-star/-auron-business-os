@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessionsTable = pgTable(
   'sessions',
   {
@@ -12,11 +11,18 @@ export const sessionsTable = pgTable(
   (table) => [index('IDX_session_expire').on(table.expire)],
 );
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const usersTable = pgTable('users', {
   id: varchar('id')
     .primaryKey()
     .default(sql`gen_random_uuid()`),
+  /** Unique login handle (lowercase). Null for legacy Replit-imported accounts. */
+  username: varchar('username', { length: 64 }).unique(),
+  /** bcrypt hash of the user's password. Null for legacy accounts. */
+  passwordHash: varchar('password_hash'),
+  /** Role for RBAC: admin | finance | sales | operations */
+  role: varchar('role', { length: 32 }).notNull().default('admin'),
+  /** Whether the account can log in */
+  isActive: boolean('is_active').notNull().default(true),
   email: varchar('email').unique(),
   firstName: varchar('first_name'),
   lastName: varchar('last_name'),

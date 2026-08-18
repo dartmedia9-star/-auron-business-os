@@ -1,0 +1,464 @@
+AURON BUSINESS OS — URGENT MIGRATION PREPARATION
+
+My Replit credits are running low, and I need to prepare this application for migration to my Hostinger VPS before the Replit credits are exhausted.
+
+The goal is:
+
+Replit → GitHub → Hostinger VPS → PostgreSQL → os.auronevents.com
+
+Do NOT migrate to Hostinger yet and do NOT change DNS.
+
+However, complete everything that can safely be done while the Replit environment and database are still available.
+
+Do not waste time rebuilding or redesigning the application.
+
+⸻
+
+1. REPLACE REPLIT OIDC AUTHENTICATION — CRITICAL
+
+Replace the current Replit-specific authentication with a self-hosted authentication system suitable for a private internal company application.
+
+Use:
+
+* Passport.js
+* passport-local
+* bcrypt or argon2
+* Secure server-side sessions
+* Existing PostgreSQL session infrastructure where practical
+
+Required roles:
+
+* CEO/Admin
+* Finance
+* Sales
+* Operations
+
+Requirements:
+
+* Secure password hashing
+* Secure login
+* Secure logout
+* Session persistence
+* Backend-enforced authorization
+* Mobile-friendly login
+* Role-based access control
+* No Replit OIDC dependency
+
+Remove dependencies on:
+
+* Replit OIDC
+* REPL_ID
+* REPLIT_DOMAINS
+* @workspace/replit-auth-web
+* openid-client where it is only being used for Replit authentication
+
+Do not delete existing business data.
+
+Before changing the users table, inspect the current schema and choose the safest migration strategy.
+
+Preserve existing users where technically possible.
+
+If existing Replit-authenticated users cannot be migrated automatically, create a safe migration path for the existing accounts rather than deleting them.
+
+Document the exact user-table changes.
+
+⸻
+
+2. REMOVE REPLIT-SPECIFIC BUILD DEPENDENCIES — CRITICAL
+
+Fix the unconditional import of:
+
+@replit/vite-plugin-runtime-error-modal
+
+The production build must work without Replit.
+
+Remove unnecessary Replit-only dependencies where safe.
+
+Development-only Replit plugins may remain only if they are properly gated and cannot affect production builds.
+
+The production application must NOT require:
+
+REPL_ID
+
+REPLIT_DOMAINS
+
+or other automatically injected Replit variables.
+
+Test the production build with these variables absent.
+
+⸻
+
+3. GENERATE REAL DATABASE MIGRATIONS — CRITICAL
+
+The application currently uses:
+
+PostgreSQL
+
+Drizzle ORM
+
+drizzle-kit
+
+The current schema uses drizzle-kit push and does not have proper SQL migration files.
+
+Generate proper Drizzle SQL migration files from the existing schema.
+
+Create:
+
+lib/db/migrations/
+
+Do NOT:
+
+* Reset the database.
+* Drop tables.
+* Delete data.
+* Recreate the production database.
+* Lose existing records.
+
+The migrations must be capable of creating the complete Auron Business OS database from an empty PostgreSQL database.
+
+Document the correct migration command.
+
+⸻
+
+4. CREATE A COMPLETE DATABASE BACKUP NOW
+
+This is extremely important because Replit credits are running low.
+
+While the Replit PostgreSQL database is still accessible, create a complete database backup/export.
+
+Use the safest appropriate PostgreSQL backup method.
+
+Create a backup file such as:
+
+auron_business_os_backup.dump
+
+Also create a plain SQL backup if practical:
+
+auron_business_os_backup.sql
+
+The backup must contain:
+
+* All 17 tables
+* All existing records
+* Relationships
+* Constraints
+* Indexes
+* Required database objects
+
+Do NOT expose database credentials.
+
+Do NOT paste DATABASE_URL or secrets into source code.
+
+Verify that the backup files were successfully created.
+
+Document exactly how the backup can be restored to a new PostgreSQL database.
+
+IMPORTANT:
+
+Do not assume the backup exists simply because the command ran.
+
+Verify that the backup files actually exist and are non-empty.
+
+⸻
+
+5. CREATE A MIGRATION PACKAGE
+
+Prepare a clearly documented migration package containing:
+
+* Database migration files
+* Database backup
+* Schema documentation
+* Deployment documentation
+* Environment variable template
+* Package lock files
+* Source code requirements
+
+Create/update:
+
+DEPLOYMENT.md
+
+DATABASE.md
+
+MIGRATION.md
+
+.env.example
+
+MIGRATION.md must explain:
+
+1. How to obtain the source code.
+2. How to install dependencies.
+3. How to configure environment variables.
+4. How to create the PostgreSQL database.
+5. How to run Drizzle migrations.
+6. How to restore the database backup.
+7. How to build the frontend.
+8. How to build the backend.
+9. How to start the Node.js server.
+10. How to configure Nginx.
+11. How to configure PM2.
+12. How to configure SSL.
+13. How to point os.auronevents.com to the VPS.
+14. How to verify the deployment.
+
+⸻
+
+6. VERIFY THE CURRENT APPLICATION IS HOSTING-INDEPENDENT
+
+After the changes, verify:
+
+Frontend
+
+* Builds without Replit authentication.
+* Builds without REPL_ID.
+* Builds without REPLIT_DOMAINS.
+* Production build works independently of Replit.
+
+Backend
+
+* Starts without Replit OIDC.
+* Authentication works independently.
+* API routes work.
+* Database connection uses DATABASE_URL.
+* No Replit-only backend dependency is required.
+
+Database
+
+* Migration files exist.
+* Schema is complete.
+* Existing data remains intact.
+* Backup exists.
+* Backup is non-empty.
+* Restore instructions are documented.
+
+⸻
+
+7. PREPARE FOR HOSTINGER VPS
+
+The target environment will be:
+
+Operating System:
+Ubuntu 24.04 LTS
+
+Web server:
+Nginx
+
+Backend:
+Node.js 20 LTS
+
+Process manager:
+PM2
+
+Database:
+PostgreSQL 15+
+
+SSL:
+Let’s Encrypt
+
+Domain:
+os.auronevents.com
+
+Prepare the project for this environment.
+
+Do NOT actually configure the VPS.
+
+Do NOT change DNS.
+
+Do NOT migrate the live database yet.
+
+⸻
+
+8. SOURCE CODE PORTABILITY
+
+Make sure the complete source code can run outside Replit.
+
+Include:
+
+* package.json
+* pnpm-lock.yaml
+* all workspace packages
+* frontend source
+* backend source
+* database schema
+* migration files
+* configuration files
+* build scripts
+* documentation
+
+Do NOT rely on files that only exist inside the Replit runtime.
+
+Remove unnecessary Replit-only dependencies.
+
+Do not hardcode:
+
+* Replit URLs
+* Replit credentials
+* Database credentials
+* Session secrets
+* API keys
+
+Use environment variables.
+
+⸻
+
+9. CREATE A HOSTINGER DEPLOYMENT CHECKLIST
+
+Create:
+
+HOSTINGER_MIGRATION_CHECKLIST.md
+
+Include the exact sequence:
+
+1. Purchase/configure Hostinger VPS.
+2. Install Ubuntu 24.04 LTS.
+3. Configure SSH.
+4. Create non-root deployment user.
+5. Configure firewall.
+6. Install Node.js 20 LTS.
+7. Install pnpm.
+8. Install PostgreSQL.
+9. Create Auron PostgreSQL database.
+10. Clone GitHub repository.
+11. Configure .env.
+12. Run database migrations.
+13. Restore database backup if required.
+14. Build frontend.
+15. Build backend.
+16. Configure PM2.
+17. Configure Nginx.
+18. Configure SSL.
+19. Configure DNS for os.auronevents.com.
+20. Test authentication.
+21. Test database.
+22. Test all major application modules.
+23. Verify financial calculations.
+24. Verify mobile experience.
+25. Only then switch production usage to Hostinger.
+
+⸻
+
+10. DO NOT BREAK THE CURRENT APPLICATION
+
+Preserve:
+
+* Dashboard
+* Events
+* Clients
+* CRM
+* Finance
+* Marketing
+* CAC
+* Vendors
+* Assets
+* Team
+* Reports
+* ₹90 Cr valuation system
+* Existing calculations
+* Existing database records
+* Mobile improvements
+* Existing UI functionality
+
+Do not rebuild the application.
+
+Do not redesign it.
+
+Do not remove features.
+
+Only make changes required for:
+
+* Authentication portability
+* Replit independence
+* Database migration
+* Backup
+* Deployment portability
+
+⸻
+
+11. FINAL VERIFICATION
+
+Before finishing, actually test:
+
+1. Application builds.
+2. Backend starts.
+3. Authentication works.
+4. Login works.
+5. Logout works.
+6. Sessions persist.
+7. Role permissions work.
+8. Database connection works.
+9. Existing records remain.
+10. Dashboard loads.
+11. Events load.
+12. Clients load.
+13. Finance loads.
+14. Reports load.
+15. ₹90 Cr dashboard loads.
+16. Mobile interface loads.
+17. Database migration files exist.
+18. Database backup exists and is non-empty.
+19. No production code requires REPL_ID.
+20. No production code requires REPLIT_DOMAINS.
+21. No critical Replit-only dependency remains.
+
+⸻
+
+12. IMPORTANT — CREDITS ARE RUNNING LOW
+
+Prioritize the following in this order:
+
+PRIORITY 1
+
+Database backup/export.
+
+PRIORITY 2
+
+Source code portability/export readiness.
+
+PRIORITY 3
+
+Authentication replacement.
+
+PRIORITY 4
+
+Database migration files.
+
+PRIORITY 5
+
+Remove Replit-specific production dependencies.
+
+PRIORITY 6
+
+Documentation.
+
+Do not spend significant resources on cosmetic improvements right now.
+
+Do not start a new redesign.
+
+Do not deploy to Hostinger.
+
+⸻
+
+FINAL RESPONSE
+
+When finished, provide a concise migration-readiness report containing:
+
+1. Authentication technology now used.
+2. Whether Replit OIDC has been completely removed.
+3. Replit dependencies remaining.
+4. Database technology.
+5. Number of migration files created.
+6. Database backup filename and location.
+7. Backup size.
+8. Whether existing data was preserved.
+9. Exact database restore command.
+10. Exact production build command.
+11. Exact production start command.
+12. Required environment variables.
+13. Whether the application can run independently of Replit.
+14. Any remaining blockers.
+15. Exact steps required on the Hostinger VPS.
+
+MOST IMPORTANT:
+
+Do not claim that the database backup or migration package exists unless you have actually verified that the files were successfully created.
+
+Do not delete or reset any existing data.
