@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import { db, notificationsTable, companySettingsTable, auditLogsTable, eventsTable, clientsTable, eventRevenueTable, eventCostsTable } from "@workspace/db";
+import { db, notificationsTable, companySettingsTable, auditLogsTable, eventsTable, clientsTable, eventRevenueTable } from "@workspace/db";
+import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
@@ -95,15 +96,14 @@ router.get("/reports/event-profitability", async (req, res): Promise<void> => {
   });
 
   const revenues = await db.select().from(eventRevenueTable);
-  const costs = await db.select().from(eventCostsTable);
+  const directCostsByEvent = await getEventDirectCostTotals(filtered.map(event => event.id));
   const clients = await db.select().from(clientsTable);
 
   const eventData = filtered.map(ev => {
     const rev = revenues.find(r => r.eventId === ev.id);
-    const evCosts = costs.filter(c => c.eventId === ev.id);
     const client = clients.find(c => c.id === ev.clientId);
     const revenue = parseFloat(String(rev?.netRevenue ?? 0));
-    const totalCost = evCosts.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+    const totalCost = directCostsByEvent.get(ev.id) ?? 0;
     const grossProfit = revenue - totalCost;
     const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
     let indicator = "awaiting_data";
@@ -146,16 +146,15 @@ router.get("/reports/client-profitability", async (req, res): Promise<void> => {
   const clients = await db.select().from(clientsTable);
   const events = await db.select().from(eventsTable);
   const revenues = await db.select().from(eventRevenueTable);
-  const costs = await db.select().from(eventCostsTable);
+  const directCostsByEvent = await getEventDirectCostTotals(events.map(event => event.id));
 
   const clientData = clients.map(client => {
     const clientEvents = events.filter(e => e.clientId === client.id);
     let totalRevenue = 0, totalCost = 0;
     for (const ev of clientEvents) {
       const rev = revenues.find(r => r.eventId === ev.id);
-      const evCosts = costs.filter(c => c.eventId === ev.id);
       totalRevenue += parseFloat(String(rev?.netRevenue ?? 0));
-      totalCost += evCosts.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+      totalCost += directCostsByEvent.get(ev.id) ?? 0;
     }
     const totalGrossProfit = totalRevenue - totalCost;
     const grossMarginPct = totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0;

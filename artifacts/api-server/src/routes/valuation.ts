@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, valuationScenariosTable, companySettingsTable, eventsTable, eventRevenueTable, eventCostsTable, operatingExpensesTable } from "@workspace/db";
+import { eq, isNull } from "drizzle-orm";
+import { db, valuationScenariosTable, companySettingsTable, eventsTable, eventRevenueTable, operatingExpensesTable } from "@workspace/db";
+import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
@@ -92,7 +93,7 @@ router.get("/valuation/command-center", async (req, res): Promise<void> => {
 
   const events = await db.select().from(eventsTable);
   const revenues = await db.select().from(eventRevenueTable);
-  const costs = await db.select().from(eventCostsTable);
+  const directCostsByEvent = await getEventDirectCostTotals();
   const opex = await db.select().from(operatingExpensesTable);
 
   const currentYear = new Date().getFullYear();
@@ -102,13 +103,12 @@ router.get("/valuation/command-center", async (req, res): Promise<void> => {
   });
 
   const revenue = yearRevenues.reduce((s, r) => s + parseFloat(String(r.netRevenue)), 0);
-  const totalCosts = costs.filter(c => {
-    const ev = events.find(e => e.id === c.eventId);
-    return ev && ev.eventDate.startsWith(String(currentYear));
-  }).reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+  const totalCosts = events
+    .filter(event => event.eventDate.startsWith(String(currentYear)))
+    .reduce((sum, event) => sum + (directCostsByEvent.get(event.id) ?? 0), 0);
   const grossProfit = revenue - totalCosts;
   const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-  const opexTotal = opex.filter(e => e.year === currentYear).reduce((s, e) => s + parseFloat(String(e.amount)), 0);
+  const opexTotal = opex.filter(e => e.year === currentYear && e.eventId === null).reduce((s, e) => s + parseFloat(String(e.amount)), 0);
   const ebitda = grossProfit - opexTotal;
   const netProfit = ebitda;
 

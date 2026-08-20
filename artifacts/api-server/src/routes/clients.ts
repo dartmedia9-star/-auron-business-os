@@ -1,24 +1,29 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, ilike, or, sql } from "drizzle-orm";
-import { db, clientsTable, eventsTable, eventRevenueTable, eventCostsTable } from "@workspace/db";
+import { db, clientsTable, eventsTable, eventRevenueTable } from "@workspace/db";
+import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
-function computeClientStats(clientId: number) {
-  return db
-    .select({
-      clientId: eventsTable.clientId,
-      totalEvents: sql<number>`count(${eventsTable.id})::int`,
-      lifetimeRevenue: sql<number>`coalesce(sum(${eventRevenueTable.netRevenue}), 0)`,
-      lifetimeGrossProfit: sql<number>`coalesce(sum(${eventRevenueTable.netRevenue}) - sum(${eventCostsTable.totalAmount}), 0)`,
-      totalCollected: sql<number>`coalesce(sum(${eventRevenueTable.totalCollected}), 0)`,
-      totalOutstanding: sql<number>`coalesce(sum(${eventRevenueTable.outstandingAmount}), 0)`,
-    })
-    .from(eventsTable)
-    .leftJoin(eventRevenueTable, eq(eventRevenueTable.eventId, eventsTable.id))
-    .leftJoin(eventCostsTable, eq(eventCostsTable.eventId, eventsTable.id))
-    .where(eq(eventsTable.clientId, clientId))
-    .groupBy(eventsTable.clientId);
+async function computeClientStats(clientId: number) {
+  const events = await db.select().from(eventsTable).where(eq(eventsTable.clientId, clientId));
+  const eventIds = events.map(event => event.id);
+  const [revenues, directCostsByEvent] = await Promise.all([
+    db.select().from(eventRevenueTable),
+    getEventDirectCostTotals(eventIds),
+  ]);
+  const clientRevenues = revenues.filter(revenue => eventIds.includes(revenue.eventId));
+  const lifetimeRevenue = clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.netRevenue)), 0);
+  const totalDirectCost = eventIds.reduce((sum, eventId) => sum + (directCostsByEvent.get(eventId) ?? 0), 0);
+
+  return [{
+    clientId,
+    totalEvents: eventIds.length,
+    lifetimeRevenue,
+    lifetimeGrossProfit: lifetimeRevenue - totalDirectCost,
+    totalCollected: clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.totalCollected)), 0),
+    totalOutstanding: clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.outstandingAmount)), 0),
+  }];
 }
 
 router.get("/clients", async (req, res): Promise<void> => {
@@ -128,14 +133,17 @@ router.get("/clients/:id/profitability", async (req, res): Promise<void> => {
     date: eventsTable.eventDate,
   }).from(eventsTable).where(eq(eventsTable.clientId, id)).orderBy(desc(eventsTable.eventDate));
 
-  const eventDetails = await Promise.all(events.map(async (ev) => {
-    const [revenue] = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, ev.id));
-    const costs = await db.select({ totalAmount: eventCostsTable.totalAmount }).from(eventCostsTable).where(eq(eventCostsTable.eventId, ev.id));
-    const totalCost = costs.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+  const [revenues, directCostsByEvent] = await Promise.all([
+    db.select().from(eventRevenueTable),
+    getEventDirectCostTotals(events.map(event => event.id)),
+  ]);
+  const eventDetails = events.map((ev) => {
+    const revenue = revenues.find(item => item.eventId === ev.id);
+    const totalCost = directCostsByEvent.get(ev.id) ?? 0;
     const rev = parseFloat(String(revenue?.netRevenue ?? 0));
     const gp = rev - totalCost;
     return { id: ev.id, name: ev.name, date: ev.date, revenue: rev, grossProfit: gp, grossMarginPct: rev > 0 ? (gp / rev) * 100 : 0 };
-  }));
+  });
 
   const totalRevenue = eventDetails.reduce((s, e) => s + e.revenue, 0);
   const totalCostSum = eventDetails.reduce((s, e) => s + (e.revenue - e.grossProfit), 0);

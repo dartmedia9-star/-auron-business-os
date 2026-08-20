@@ -4,7 +4,10 @@ import {
   getListOperatingExpensesQueryKey,
   useCreateOperatingExpense,
   useUpdateOperatingExpense,
-  useDeleteOperatingExpense
+  useDeleteOperatingExpense,
+  useListEvents,
+  getListEventsQueryKey,
+  getGetEventQueryKey,
 } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +31,8 @@ export default function ExpensesList() {
   const { data, isLoading } = useListOperatingExpenses(undefined, {
     query: { queryKey: getListOperatingExpensesQueryKey() }
   });
+  const { data: eventsData } = useListEvents({ limit: 100 });
+  const events = eventsData?.data ?? [];
 
   const createExpense = useCreateOperatingExpense();
   const updateExpense = useUpdateOperatingExpense();
@@ -47,11 +52,12 @@ export default function ExpensesList() {
   const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
   const [date, setDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [eventId, setEventId] = useState("");
 
   const resetForm = () => {
     setCategory("Admin"); setDescription(""); setAmount(""); setGst("0");
     setYear(new Date().getFullYear().toString()); setMonth((new Date().getMonth() + 1).toString());
-    setDate(""); setReferenceNumber("");
+    setDate(""); setReferenceNumber(""); setEventId("");
   };
 
   const openEdit = (exp: any) => {
@@ -64,7 +70,16 @@ export default function ExpensesList() {
     setMonth(String(exp.month));
     setDate(exp.date ? exp.date.split('T')[0] : "");
     setReferenceNumber(exp.referenceNumber || "");
+    setEventId(exp.eventId ? String(exp.eventId) : "");
     setEditOpen(true);
+  };
+
+  const invalidateExpenseAndEventQueries = (eventIds: Array<number | null | undefined>) => {
+    queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
+    for (const id of new Set(eventIds.filter((id): id is number => typeof id === "number"))) {
+      queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(id) });
+    }
   };
 
   const handleCreate = () => {
@@ -72,14 +87,16 @@ export default function ExpensesList() {
       toast({ title: "Validation Error", description: "Required fields missing", variant: "destructive" });
       return;
     }
+    const linkedEventId = eventId ? Number(eventId) : null;
     createExpense.mutate({
       data: {
         category, description, amount: Number(amount), gst: Number(gst),
-        year: Number(year), month: Number(month), date: date || undefined, referenceNumber
+        year: Number(year), month: Number(month), date: date || undefined, referenceNumber,
+        eventId: linkedEventId,
       }
     }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
+        invalidateExpenseAndEventQueries([linkedEventId]);
         toast({ title: "Expense logged" });
         setCreateOpen(false);
         resetForm();
@@ -92,15 +109,17 @@ export default function ExpensesList() {
     if (!selectedExpense) return;
     if (!category || !description || !amount || !year || !month) return;
     
+    const linkedEventId = eventId ? Number(eventId) : null;
     updateExpense.mutate({
       id: selectedExpense.id,
       data: {
         category, description, amount: Number(amount), gst: Number(gst),
-        year: Number(year), month: Number(month), date: date || undefined, referenceNumber
+        year: Number(year), month: Number(month), date: date || undefined, referenceNumber,
+        eventId: linkedEventId,
       }
     }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
+        invalidateExpenseAndEventQueries([selectedExpense.eventId, linkedEventId]);
         toast({ title: "Expense updated" });
         setEditOpen(false);
       },
@@ -112,7 +131,7 @@ export default function ExpensesList() {
     if (!selectedExpense) return;
     deleteExpense.mutate({ id: selectedExpense.id }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
+        invalidateExpenseAndEventQueries([selectedExpense.eventId]);
         toast({ title: "Expense deleted" });
         setDeleteOpen(false);
       },
@@ -164,6 +183,20 @@ export default function ExpensesList() {
           <Label>Reference Number</Label>
           <Input value={referenceNumber} onChange={e => setReferenceNumber(e.target.value)} />
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Event <span className="text-muted-foreground">(optional)</span></Label>
+        <Select value={eventId || "no-event"} onValueChange={(value) => setEventId(value === "no-event" ? "" : value)}>
+          <SelectTrigger><SelectValue placeholder="No event — operating expense" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="no-event">No event — operating expense</SelectItem>
+            {events.map((event) => (
+              <SelectItem key={event.id} value={String(event.id)}>
+                {event.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

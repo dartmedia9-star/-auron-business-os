@@ -18,5 +18,7 @@ export interface OperatingExpense {
   date?: Date | null;
   /** @nullable */
   referenceNumber?: string | null;
+  /** @nullable */
+  eventId?: number | null;
   createdAt: Date;
 }

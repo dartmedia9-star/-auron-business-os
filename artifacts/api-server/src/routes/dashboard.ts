@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, gte, lte, and } from "drizzle-orm";
-import { db, eventsTable, clientsTable, eventRevenueTable, eventCostsTable, leadsTable, operatingExpensesTable, marketingSpendTable, notificationsTable } from "@workspace/db";
+import { eq, desc, sql, gte, lte, and, isNull } from "drizzle-orm";
+import { db, eventsTable, clientsTable, eventRevenueTable, leadsTable, operatingExpensesTable, marketingSpendTable, notificationsTable } from "@workspace/db";
+import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
@@ -31,18 +32,16 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const events = await db.select({ event: eventsTable }).from(eventsTable).where(and(gte(eventsTable.eventDate, fromDate), lte(eventsTable.eventDate, toDate)));
   const allEvents = await db.select().from(eventsTable);
   const allRevenues = await db.select().from(eventRevenueTable);
-  const allCosts = await db.select().from(eventCostsTable);
-  const opex = await db.select().from(operatingExpensesTable).where(and(eq(operatingExpensesTable.year, currentYear)));
+  const directCostsByEvent = await getEventDirectCostTotals();
+  const opex = await db.select().from(operatingExpensesTable).where(and(eq(operatingExpensesTable.year, currentYear), isNull(operatingExpensesTable.eventId)));
   const marketing = await db.select().from(marketingSpendTable);
   const leads = await db.select().from(leadsTable);
   const clients = await db.select().from(clientsTable);
 
   const eventIds = events.map(e => e.event.id);
   const revenues = allRevenues.filter(r => eventIds.includes(r.eventId));
-  const costs = allCosts.filter(c => eventIds.includes(c.eventId));
-
   const revenue = revenues.reduce((s, r) => s + parseFloat(String(r.netRevenue)), 0);
-  const totalCost = costs.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+  const totalCost = eventIds.reduce((sum, eventId) => sum + (directCostsByEvent.get(eventId) ?? 0), 0);
   const grossProfit = revenue - totalCost;
   const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
   const opexTotal = opex.reduce((s, e) => s + parseFloat(String(e.amount)), 0);
@@ -83,8 +82,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 
   const allClientGrossProfit: Record<number, number> = {};
   for (const r of allRevenues) {
-    const evCosts = allCosts.filter(c => c.eventId === r.eventId).reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
-    const gp = parseFloat(String(r.netRevenue)) - evCosts;
+    const gp = parseFloat(String(r.netRevenue)) - (directCostsByEvent.get(r.eventId) ?? 0);
     const ev = allEvents.find(e => e.id === r.eventId);
     if (ev) allClientGrossProfit[ev.clientId] = (allClientGrossProfit[ev.clientId] ?? 0) + gp;
   }
@@ -121,6 +119,10 @@ router.get("/dashboard/revenue-trend", async (req, res): Promise<void> => {
   const monthCount = parseInt(months, 10);
   const now = new Date();
   const result = [];
+  const [allRevenues, directCostsByEvent] = await Promise.all([
+    db.select().from(eventRevenueTable),
+    getEventDirectCostTotals(),
+  ]);
 
   for (let i = monthCount - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -135,16 +137,13 @@ router.get("/dashboard/revenue-trend", async (req, res): Promise<void> => {
     let revenue = 0, grossProfit = 0;
 
     if (eventIds.length > 0) {
-      const revenues = await db.select().from(eventRevenueTable);
-      const costs = await db.select().from(eventCostsTable);
-      const periodRevs = revenues.filter(r => eventIds.includes(r.eventId));
-      const periodCosts = costs.filter(c => eventIds.includes(c.eventId));
+      const periodRevs = allRevenues.filter(r => eventIds.includes(r.eventId));
       revenue = periodRevs.reduce((s, r) => s + parseFloat(String(r.netRevenue)), 0);
-      const totalCost = periodCosts.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+      const totalCost = eventIds.reduce((sum, eventId) => sum + (directCostsByEvent.get(eventId) ?? 0), 0);
       grossProfit = revenue - totalCost;
     }
 
-    const opex = await db.select().from(operatingExpensesTable).where(and(eq(operatingExpensesTable.year, year), eq(operatingExpensesTable.month, month)));
+    const opex = await db.select().from(operatingExpensesTable).where(and(eq(operatingExpensesTable.year, year), eq(operatingExpensesTable.month, month), isNull(operatingExpensesTable.eventId)));
     const opexTotal = opex.reduce((s, e) => s + parseFloat(String(e.amount)), 0);
     const netProfit = grossProfit - opexTotal;
 
@@ -162,7 +161,7 @@ router.get("/dashboard/event-type-breakdown", async (req, res): Promise<void> =>
 
   const events = await db.select().from(eventsTable).where(and(gte(eventsTable.eventDate, fromDate), lte(eventsTable.eventDate, toDate)));
   const allRevenues = await db.select().from(eventRevenueTable);
-  const allCosts = await db.select().from(eventCostsTable);
+  const directCostsByEvent = await getEventDirectCostTotals(events.map(event => event.id));
 
   const byType: Record<string, { eventCount: number; totalRevenue: number; totalCost: number }> = {};
   for (const ev of events) {
@@ -170,9 +169,8 @@ router.get("/dashboard/event-type-breakdown", async (req, res): Promise<void> =>
     if (!byType[type]) byType[type] = { eventCount: 0, totalRevenue: 0, totalCost: 0 };
     byType[type].eventCount++;
     const rev = allRevenues.find(r => r.eventId === ev.id);
-    const costs = allCosts.filter(c => c.eventId === ev.id);
     byType[type].totalRevenue += parseFloat(String(rev?.netRevenue ?? 0));
-    byType[type].totalCost += costs.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+    byType[type].totalCost += directCostsByEvent.get(ev.id) ?? 0;
   }
 
   const result = Object.entries(byType).map(([eventType, stats]) => {
@@ -195,7 +193,7 @@ router.get("/dashboard/event-type-breakdown", async (req, res): Promise<void> =>
 router.get("/dashboard/insights", async (req, res): Promise<void> => {
   const events = await db.select().from(eventsTable);
   const revenues = await db.select().from(eventRevenueTable);
-  const costs = await db.select().from(eventCostsTable);
+  const directCostsByEvent = await getEventDirectCostTotals(events.map(event => event.id));
   const leads = await db.select().from(leadsTable);
 
   const insights = [];
@@ -213,9 +211,8 @@ router.get("/dashboard/insights", async (req, res): Promise<void> => {
     if (!byType[type]) byType[type] = { rev: 0, cost: 0, count: 0 };
     byType[type].count++;
     const rev = revenues.find(r => r.eventId === ev.id);
-    const evCosts = costs.filter(c => c.eventId === ev.id);
     byType[type].rev += parseFloat(String(rev?.netRevenue ?? 0));
-    byType[type].cost += evCosts.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+    byType[type].cost += directCostsByEvent.get(ev.id) ?? 0;
   }
   const typeEntries = Object.entries(byType).filter(([_, s]) => s.rev > 0);
   if (typeEntries.length > 0) {

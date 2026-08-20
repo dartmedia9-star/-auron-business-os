@@ -26,6 +26,8 @@ export const GetCurrentAuthUserHeader = zod.object({
 export const GetCurrentAuthUserResponse = zod.object({
   "user": zod.union([zod.object({
   "id": zod.string(),
+  "username": zod.string().nullable(),
+  "role": zod.string(),
   "email": zod.string().nullable(),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
@@ -1250,6 +1252,7 @@ export const ListOperatingExpensesResponseItem = zod.object({
   "month": zod.number(),
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
+  "eventId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const ListOperatingExpensesResponse = zod.array(ListOperatingExpensesResponseItem)
@@ -1270,7 +1273,8 @@ export const CreateOperatingExpenseBody = zod.object({
   "year": zod.number(),
   "month": zod.number(),
   "date": zod.coerce.date().optional(),
-  "referenceNumber": zod.string().optional()
+  "referenceNumber": zod.string().optional(),
+  "eventId": zod.number().nullish()
 })
 
 export const CreateOperatingExpenseResponse = zod.object({
@@ -1283,6 +1287,7 @@ export const CreateOperatingExpenseResponse = zod.object({
   "month": zod.number(),
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
+  "eventId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -1305,7 +1310,8 @@ export const UpdateOperatingExpenseBody = zod.object({
   "year": zod.number().optional(),
   "month": zod.number().optional(),
   "date": zod.coerce.date().optional(),
-  "referenceNumber": zod.string().optional()
+  "referenceNumber": zod.string().optional(),
+  "eventId": zod.number().nullish()
 })
 
 export const UpdateOperatingExpenseResponse = zod.object({
@@ -1318,6 +1324,7 @@ export const UpdateOperatingExpenseResponse = zod.object({
   "month": zod.number(),
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
+  "eventId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 

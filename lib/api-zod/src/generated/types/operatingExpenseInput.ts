@@ -17,4 +17,6 @@ export interface OperatingExpenseInput {
   month: number;
   date?: Date;
   referenceNumber?: string;
+  /** @nullable */
+  eventId?: number | null;
 }

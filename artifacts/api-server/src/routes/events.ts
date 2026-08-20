@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { db, eventsTable, clientsTable, eventRevenueTable, eventCostsTable, companySettingsTable } from "@workspace/db";
+import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
@@ -13,7 +14,7 @@ async function getEventWithProfitability(eventId: number) {
   if (!event) return null;
 
   const [revenue] = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, eventId));
-  const costs = await db.select().from(eventCostsTable).where(eq(eventCostsTable.eventId, eventId));
+  const directCostsByEvent = await getEventDirectCostTotals([eventId]);
   
   const [settings] = await db.select().from(companySettingsTable).limit(1);
   const excellentThreshold = parseFloat(String(settings?.excellentMarginThreshold ?? 35));
@@ -21,7 +22,7 @@ async function getEventWithProfitability(eventId: number) {
   const warningThreshold = parseFloat(String(settings?.warningMarginThreshold ?? 10));
 
   const netRevenue = parseFloat(String(revenue?.netRevenue ?? 0));
-  const totalCost = costs.reduce((sum, c) => sum + parseFloat(String(c.totalAmount)), 0);
+  const totalCost = directCostsByEvent.get(eventId) ?? 0;
   const grossProfit = netRevenue - totalCost;
   const grossMarginPct = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
   const totalCollected = parseFloat(String(revenue?.totalCollected ?? 0));
@@ -74,11 +75,11 @@ router.get("/events", async (req, res): Promise<void> => {
     db.select({ count: sql<number>`count(*)::int` }).from(eventsTable).where(where),
   ]);
 
+  const directCostsByEvent = await getEventDirectCostTotals(events.map(row => row.event.id));
   const enriched = await Promise.all(events.map(async (row) => {
     const [revenue] = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, row.event.id));
-    const costs = await db.select({ totalAmount: eventCostsTable.totalAmount }).from(eventCostsTable).where(eq(eventCostsTable.eventId, row.event.id));
     const netRevenue = parseFloat(String(revenue?.netRevenue ?? 0));
-    const totalCost = costs.reduce((s, c) => s + parseFloat(String(c.totalAmount)), 0);
+    const totalCost = directCostsByEvent.get(row.event.id) ?? 0;
     const grossProfit = netRevenue - totalCost;
     const grossMarginPct = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
     const [settings] = await db.select().from(companySettingsTable).limit(1);

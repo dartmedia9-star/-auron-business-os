@@ -12,6 +12,9 @@ export interface HealthStatus {
 export interface AuthUser {
   id: string;
   /** @nullable */
+  username: string | null;
+  role: string;
+  /** @nullable */
   email: string | null;
   /** @nullable */
   firstName: string | null;
@@ -763,6 +766,8 @@ export interface OperatingExpense {
   date?: string | null;
   /** @nullable */
   referenceNumber?: string | null;
+  /** @nullable */
+  eventId?: number | null;
   createdAt: string;
 }
 
@@ -777,6 +782,8 @@ export interface OperatingExpenseInput {
   month: number;
   date?: string;
   referenceNumber?: string;
+  /** @nullable */
+  eventId?: number | null;
 }
 
 export interface OperatingExpenseUpdate {
@@ -789,6 +796,8 @@ export interface OperatingExpenseUpdate {
   month?: number;
   date?: string;
   referenceNumber?: string;
+  /** @nullable */
+  eventId?: number | null;
 }
 
 export type ReceivablesSummaryByClientItem = {
