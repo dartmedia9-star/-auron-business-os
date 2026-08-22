@@ -1230,8 +1230,13 @@ export const GetFinanceSummaryResponse = zod.object({
   "netMarginPct": zod.number(),
   "totalReceivables": zod.number().optional(),
   "overdueReceivables": zod.number().optional(),
-  "auronBalance": zod.number().optional(),
-  "rajeshBalance": zod.number().optional()
+  "auronBalance": zod.number().optional().describe('Legacy convenience field — current balance of the \"Auron Event Productions\" account (0 when absent)'),
+  "rajeshBalance": zod.number().optional().describe('Legacy convenience field — current balance of the \"Rajesh PR\" account (0 when absent)'),
+  "fundAccounts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "balance": zod.number()
+})).optional().describe('Current balance of every fund account')
 })
 
 
@@ -1389,7 +1394,8 @@ export const ListFundAccountsResponseItem = zod.object({
   "name": zod.string(),
   "opening_balance": zod.number(),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date().optional()
+  "updated_at": zod.coerce.date().optional(),
+  "has_financial_history": zod.boolean().nullish().describe('True when the account has fund transactions, transfers, or linked expenses')
 })
 export const ListFundAccountsResponse = zod.array(ListFundAccountsResponseItem)
 
@@ -1407,7 +1413,8 @@ export const CreateFundAccountResponse = zod.object({
   "name": zod.string(),
   "opening_balance": zod.number(),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date().optional()
+  "updated_at": zod.coerce.date().optional(),
+  "has_financial_history": zod.boolean().nullish().describe('True when the account has fund transactions, transfers, or linked expenses')
 })
 
 
@@ -1424,10 +1431,22 @@ export const GetFundAccountResponse = zod.object({
   "name": zod.string(),
   "opening_balance": zod.number(),
   "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date().optional()
+  "updated_at": zod.coerce.date().optional(),
+  "has_financial_history": zod.boolean().nullish().describe('True when the account has fund transactions, transfers, or linked expenses')
 }).optional(),
   "current_balance": zod.number().optional()
 })
+
+
+/**
+ * Permanently deletes a fund account that has no financial history. Accounts with fund transactions, transfers, or linked expenses cannot be deleted and return 409 Conflict.
+ * @summary Delete an unused fund account
+ */
+export const DeleteFundAccountParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteFundAccountResponse = zod.void()
 
 
 /**

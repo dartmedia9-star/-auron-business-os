@@ -4,6 +4,7 @@ import {
   getListFundAccountsQueryKey,
   useCreateFundTransfer,
   useCreateFundAccount,
+  useDeleteFundAccount,
   getGetFinanceSummaryQueryKey,
   getListFundTransactionsQueryKey,
 } from "@workspace/api-client-react";
@@ -13,7 +14,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, Pencil, RefreshCw, Landmark } from "lucide-react";
+import { Plus, ArrowRight, Pencil, RefreshCw, Landmark, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +70,8 @@ export default function FundTransfers() {
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountOpeningBalance, setNewAccountOpeningBalance] = useState("");
 
+  const [deleteTarget, setDeleteTarget] = useState<FundAccount | null>(null);
+
   const { data: accounts, isLoading } = useListFundAccounts({
     query: {
       queryKey: getListFundAccountsQueryKey(),
@@ -69,6 +82,7 @@ export default function FundTransfers() {
 
   const createTransfer = useCreateFundTransfer();
   const createAccount = useCreateFundAccount();
+  const deleteAccount = useDeleteFundAccount();
 
   /*
    * Load the current calculated balance for every fund account.
@@ -395,6 +409,55 @@ export default function FundTransfers() {
     );
   };
 
+  /*
+   * Deletion is a protected financial operation. The backend refuses to
+   * delete any account that has financial history (409) — this handler only
+   * runs after the user explicitly confirms in the AlertDialog.
+   */
+  const handleConfirmDelete = () => {
+    const target = deleteTarget;
+    if (!target || deleteAccount.isPending) return;
+
+    deleteAccount.mutate(
+      { id: target.id },
+      {
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: getListFundAccountsQueryKey(),
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: getGetFinanceSummaryQueryKey(),
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: getListFundTransactionsQueryKey(target.id),
+          });
+
+          setFromId((current) => (current === String(target.id) ? "" : current));
+          setToId((current) => (current === String(target.id) ? "" : current));
+
+          await loadBalances();
+
+          toast({
+            title: "Fund account deleted",
+            description: `Fund account deleted: ${target.name}. It has been removed from transfers, expenses, and finance summary.`,
+          });
+
+          setDeleteTarget(null);
+        },
+
+        onError: (err) => {
+          toast({
+            title: "Failed to delete fund account",
+            description: errorMessage(err),
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
   const accountName = (id: string) =>
     accountList.find((account) => String(account.id) === id)?.name;
 
@@ -491,19 +554,31 @@ export default function FundTransfers() {
                       </p>
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBalanceAccount(acct);
-                        setOpeningBalance(
-                          String(acct.opening_balance ?? 0),
-                        );
-                      }}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit Balance
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBalanceAccount(acct);
+                          setOpeningBalance(
+                            String(acct.opening_balance ?? 0),
+                          );
+                        }}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit Balance
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={deleteAccount.isPending}
+                        onClick={() => setDeleteTarget(acct)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -832,6 +907,70 @@ export default function FundTransfers() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(value) => {
+          if (!value && !deleteAccount.isPending) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          {deleteTarget?.has_financial_history ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Cannot delete {deleteTarget.name}
+                </AlertDialogTitle>
+
+                <AlertDialogDescription>
+                  This fund account has financial transactions (expenses or
+                  transfers). Accounts with financial history cannot be deleted,
+                  so your records stay accurate and reconcilable.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <AlertDialogFooter>
+                <AlertDialogAction>Close</AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Delete {deleteTarget?.name}?
+                </AlertDialogTitle>
+
+                <AlertDialogDescription>
+                  This action cannot be undone. Only unused fund accounts can be
+                  permanently deleted; accounts with any financial history are
+                  protected by the backend and cannot be removed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteAccount.isPending}>
+                  Cancel
+                </AlertDialogCancel>
+
+                <AlertDialogAction
+                  disabled={deleteAccount.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleConfirmDelete();
+                  }}
+                >
+                  {deleteAccount.isPending
+                    ? "Deleting..."
+                    : "Delete Account"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

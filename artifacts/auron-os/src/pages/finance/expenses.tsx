@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { 
-  useListOperatingExpenses, 
+import { useState, useMemo, useEffect } from "react";
+import {
+  useListOperatingExpenses,
   getListOperatingExpensesQueryKey,
   useCreateOperatingExpense,
   useUpdateOperatingExpense,
@@ -9,6 +9,8 @@ import {
   getListEventsQueryKey,
   getGetEventQueryKey,
   getGetFinanceSummaryQueryKey,
+  useListFundAccounts,
+  getListFundAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -50,6 +52,14 @@ export default function ExpensesList() {
   const { data: eventsData } = useListEvents({ limit: 100 });
   const events = eventsData?.data ?? [];
 
+  // Payer options come straight from the fund accounts API so newly created
+  // accounts appear automatically. Shares the list query key with the Fund
+  // Transfers page, so account creation/deletion refreshes this selector.
+  const { data: fundAccountsData, isLoading: isLoadingFundAccounts } = useListFundAccounts({
+    query: { queryKey: getListFundAccountsQueryKey() },
+  });
+  const fundAccounts = useMemo(() => fundAccountsData ?? [], [fundAccountsData]);
+
   const createExpense = useCreateOperatingExpense();
   const updateExpense = useUpdateOperatingExpense();
   const deleteExpense = useDeleteOperatingExpense();
@@ -77,10 +87,18 @@ export default function ExpensesList() {
   const [date, setDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [eventId, setEventId] = useState("");
-  const [paidBy, setPaidBy] = useState<string>("Auron Event Productions");
+  const [paidBy, setPaidBy] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("GPay / UPI");
   const [otherPaidByName, setOtherPaidByName] = useState("");
   const [otherPaymentMethodName, setOtherPaymentMethodName] = useState("");
+
+  // Default the payer to the first fund account once the list arrives
+  // ("Other" only when no accounts exist yet).
+  useEffect(() => {
+    if (!paidBy && !isLoadingFundAccounts) {
+      setPaidBy(fundAccounts[0]?.name ?? "Other");
+    }
+  }, [fundAccounts, isLoadingFundAccounts, paidBy]);
 
   const resetForm = () => {
     setCategory("Admin"); setDescription(""); setAmount(""); setGst("0");
@@ -261,10 +279,17 @@ export default function ExpensesList() {
       <div className="space-y-2">
         <Label>Paid By *</Label>
         <Select value={paidBy} onValueChange={setPaidBy}>
-          <SelectTrigger><SelectValue placeholder="Select paid by" /></SelectTrigger>
+          <SelectTrigger disabled={isLoadingFundAccounts}><SelectValue placeholder={isLoadingFundAccounts ? "Loading accounts..." : "Select paid by"} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="Auron Event Productions">Auron Event Productions</SelectItem>
-            <SelectItem value="Rajesh PR">Rajesh PR</SelectItem>
+            {fundAccounts.map((account) => (
+              <SelectItem key={account.id} value={account.name}>
+                {account.name}
+              </SelectItem>
+            ))}
+            {/* Keeps an expense paid by a since-deleted/renamed account editable. */}
+            {paidBy && paidBy !== "Other" && !fundAccounts.some((account) => account.name === paidBy) && (
+              <SelectItem value={paidBy}>{paidBy}</SelectItem>
+            )}
             <SelectItem value="Other">Other</SelectItem>
           </SelectContent>
         </Select>

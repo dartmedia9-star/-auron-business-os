@@ -1,7 +1,19 @@
 import { useGetFinanceSummary, getGetFinanceSummaryQueryKey } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Minus, Target } from "lucide-react";
+import { ArrowDown, ArrowUp, Landmark, Minus, Target, Wallet } from "lucide-react";
+
+// Cycled per fund-account card so every account gets a distinct accent while
+// keeping the original emerald/amber look for the first two accounts.
+const FUND_CARD_STYLES = [
+  { border: "border-l-emerald-500/50", iconBg: "bg-emerald-500/10", icon: "text-emerald-500", value: "text-emerald-500" },
+  { border: "border-l-amber-500/50", iconBg: "bg-amber-500/10", icon: "text-amber-500", value: "text-amber-500" },
+  { border: "border-l-sky-500/50", iconBg: "bg-sky-500/10", icon: "text-sky-500", value: "text-sky-500" },
+  { border: "border-l-violet-500/50", iconBg: "bg-violet-500/10", icon: "text-violet-500", value: "text-violet-500" },
+  { border: "border-l-rose-500/50", iconBg: "bg-rose-500/10", icon: "text-rose-500", value: "text-rose-500" },
+];
+
+const FUND_CARD_ICONS = [ArrowUp, Target, Landmark, Wallet];
 import { useToast } from "@/hooks/use-toast";
 
 export default function FinanceSummary() {
@@ -12,6 +24,9 @@ export default function FinanceSummary() {
   if (isLoading || !data) {
     return <div className="p-8">Loading finance data...</div>;
   }
+
+  const fundAccounts = data.fundAccounts ?? [];
+  const totalFunds = fundAccounts.reduce((sum, account) => sum + account.balance, 0);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -114,44 +129,47 @@ export default function FinanceSummary() {
           </CardContent>
         </Card>
 
-        {/* Capital & Funds */}
-        <Card className="border-l-4 border-l-emerald-500/50 shadow-sm ml-8">
-          <CardContent className="flex items-center justify-between p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <ArrowUp className="h-5 w-5 text-emerald-500" />
-              </div>
+        {/* Capital & Funds — one card per fund account, straight from the API */}
+        {fundAccounts.length === 0 ? (
+          <Card className="border-l-4 border-l-muted shadow-sm ml-8">
+            <CardContent className="flex items-center justify-between p-6">
               <div>
-                <h3 className="text-lg font-medium">Auron Event Productions</h3>
-                <p className="text-sm text-muted-foreground">Bank balance</p>
+                <h3 className="text-lg font-medium">No fund accounts yet</h3>
+                <p className="text-sm text-muted-foreground">Create one under Fund Transfers → Add Fund Account.</p>
               </div>
-            </div>
-            <div className="text-3xl font-bold text-emerald-500">₹{formatCurrency(data?.auronBalance ?? 0)}</div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          fundAccounts.map((account, index) => {
+            const style = FUND_CARD_STYLES[index % FUND_CARD_STYLES.length];
+            const Icon = FUND_CARD_ICONS[index % FUND_CARD_ICONS.length];
 
-        <Card className="border-l-4 border-l-amber-500/50 shadow-sm ml-8">
-          <CardContent className="flex items-center justify-between p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <Target className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium">Rajesh PR — Funds Held</h3>
-                <p className="text-sm text-muted-foreground">Business expenses account</p>
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-amber-500">₹{formatCurrency(data?.rajeshBalance ?? 0)}</div>
-          </CardContent>
-        </Card>
+            return (
+              <Card key={account.id} className={`border-l-4 ${style.border} shadow-sm ml-8`}>
+                <CardContent className="flex items-center justify-between p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`h-10 w-10 rounded-full ${style.iconBg} flex items-center justify-center`}>
+                      <Icon className={`h-5 w-5 ${style.icon}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium">{account.name}</h3>
+                      <p className="text-sm text-muted-foreground">Fund account balance</p>
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${style.value}`}>{formatCurrency(account.balance)}</div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
 
         <Card className="bg-muted border-none shadow-inner mt-8">
           <CardContent className="flex items-center justify-between p-6">
             <div>
               <h3 className="text-lg font-medium">Total Available Funds</h3>
-              <p className="text-sm text-muted-foreground">Sum of both fund accounts</p>
+              <p className="text-sm text-muted-foreground">Sum of all fund accounts</p>
             </div>
-            <div className="text-2xl font-bold">₹{formatCurrency((data?.auronBalance ?? 0) + (data?.rajeshBalance ?? 0))}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalFunds)}</div>
           </CardContent>
         </Card>
       </div>

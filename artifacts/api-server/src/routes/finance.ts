@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, asc, sql, and, gte, lte, isNull } from "drizzle-orm";
 import {
   db,
+  auditLogsTable,
   operatingExpensesTable,
   eventsTable,
   eventRevenueTable,
@@ -91,7 +92,22 @@ async function requireFundAccount(tx: Tx, id: number): Promise<boolean> {
 
 // GET /fund-accounts - List fund accounts
 router.get("/fund-accounts", async (req, res): Promise<void> => {
-  const accounts = await db.select().from(fundAccountsTable).orderBy(desc(fundAccountsTable.created_at));
+  const accounts = await db
+    .select({
+      id: fundAccountsTable.id,
+      name: fundAccountsTable.name,
+      opening_balance: fundAccountsTable.opening_balance,
+      created_at: fundAccountsTable.created_at,
+      updated_at: fundAccountsTable.updated_at,
+      // True when the account has any ledger row, transfer, or expense linked
+      // to it. Lets the UI explain why a protected account cannot be deleted.
+      // Fully-qualified raw SQL: interpolated columns from tables outside the
+      // query's FROM render unqualified and would bind to the wrong scope.
+      has_financial_history:
+        sql<boolean>`exists (select 1 from fund_transactions ft where ft.fund_account_id = fund_accounts.id) or exists (select 1 from fund_transfers tr where tr.from_account_id = fund_accounts.id or tr.to_account_id = fund_accounts.id) or exists (select 1 from operating_expenses oe where oe.paid_by = fund_accounts.name)`.mapWith(Boolean),
+    })
+    .from(fundAccountsTable)
+    .orderBy(desc(fundAccountsTable.created_at));
   res.json(accounts);
 });
 
@@ -193,6 +209,90 @@ router.patch("/fund-accounts/:id", async (req, res): Promise<void> => {
     .returning();
 
   res.json(updated);
+});
+
+class FundAccountDeleteError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// DELETE /fund-accounts/:id - Permanently delete a fund account. This is a
+// protected financial operation: only accounts with NO financial history may
+// be deleted. Any fund transaction, transfer, or linked expense blocks the
+// deletion with 409 so historical records always stay reconcilable. Nothing
+// is cascade-deleted, rewritten, or rebalanced to make room for deletion.
+router.delete("/fund-accounts/:id", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid fund account id" });
+    return;
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const [account] = await tx.select().from(fundAccountsTable).where(eq(fundAccountsTable.id, id));
+      if (!account) {
+        throw new FundAccountDeleteError(404, "Fund account not found");
+      }
+
+      // Inspect every source of financial history before deleting anything.
+      const [transactionCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(fundTransactionsTable)
+        .where(eq(fundTransactionsTable.fund_account_id, id));
+
+      const [transferCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(fundTransfersTable)
+        .where(sql`${fundTransfersTable.from_account_id} = ${id} or ${fundTransfersTable.to_account_id} = ${id}`);
+
+      // Expenses reference the payer by its label (paid_by), so a zero-value
+      // expense can mention this account without any ledger row.
+      const [expenseCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(operatingExpensesTable)
+        .where(eq(operatingExpensesTable.paidBy, account.name));
+
+      const hasHistory =
+        Number(transactionCount?.count ?? 0) > 0 ||
+        Number(transferCount?.count ?? 0) > 0 ||
+        Number(expenseCount?.count ?? 0) > 0;
+
+      if (hasHistory) {
+        throw new FundAccountDeleteError(
+          409,
+          "Cannot delete this fund account because it has financial transactions. Accounts with financial history cannot be deleted.",
+        );
+      }
+
+      // Record the audit entry inside the same transaction as the deletion so
+      // an account can never disappear without its audit trail.
+      await tx.insert(auditLogsTable).values({
+        userId: req.user.id,
+        userEmail: req.user.email ?? null,
+        action: "delete",
+        entityType: "fund_account",
+        entityId: id,
+        oldValues: account,
+      });
+
+      await tx.delete(fundAccountsTable).where(eq(fundAccountsTable.id, id));
+    });
+
+    res.sendStatus(204);
+  } catch (err) {
+    if (err instanceof FundAccountDeleteError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
 });
 
 // GET /fund-accounts/:id/transactions - List fund account transactions with running balance
@@ -529,8 +629,8 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
   const totalReceivables = revenues.reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
   const overdueReceivables = revenues.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
 
-  // Capital & funds: current balance of each tracked fund account.
-  const fundAccounts = await db.select().from(fundAccountsTable);
+  // Capital & funds: current balance of every fund account.
+  const fundAccounts = await db.select().from(fundAccountsTable).orderBy(desc(fundAccountsTable.created_at));
   const fundTxs = await db.select({
     fund_account_id: fundTransactionsTable.fund_account_id,
     transaction_type: fundTransactionsTable.transaction_type,
@@ -553,6 +653,12 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
     revenue, directCosts, grossProfit, grossMarginPct, operatingExpenses, ebitda, ebitdaMarginPct, netProfit, netMarginPct, totalReceivables, overdueReceivables,
     auronBalance: balanceOf(AURON_ACCOUNT_NAME),
     rajeshBalance: balanceOf(RAJESH_ACCOUNT_NAME),
+    // Dynamic per-account balances so new accounts appear without code changes.
+    fundAccounts: fundAccounts.map(a => ({
+      id: a.id,
+      name: a.name,
+      balance: Math.round((balancesByAccount.get(a.id) ?? 0) * 100) / 100,
+    })),
   });
 });
 

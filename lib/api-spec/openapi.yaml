@@ -1176,6 +1176,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteFundAccount
+      tags: [fundAccounts]
+      summary: Delete an unused fund account
+      description: >
+        Permanently deletes a fund account that has no financial history.
+        Accounts with fund transactions, transfers, or linked expenses cannot
+        be deleted and return 409 Conflict.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Account has financial history and cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /fund-accounts/{id}/transactions:
     get:
@@ -2986,7 +3015,25 @@ components:
           type: number
         auronBalance:
           type: number
+          description: Legacy convenience field — current balance of the "Auron Event Productions" account (0 when absent)
         rajeshBalance:
+          type: number
+          description: Legacy convenience field — current balance of the "Rajesh PR" account (0 when absent)
+        fundAccounts:
+          type: array
+          description: Current balance of every fund account
+          items:
+            $ref: "#/components/schemas/FundAccountBalance"
+
+    FundAccountBalance:
+      type: object
+      required: [id, name, balance]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        balance:
           type: number
 
     OperatingExpense:
@@ -3099,6 +3146,9 @@ components:
         updated_at:
           type: string
           format: date-time
+        has_financial_history:
+          type: ["boolean", "null"]
+          description: True when the account has fund transactions, transfers, or linked expenses
 
     FundAccountInput:
       type: object

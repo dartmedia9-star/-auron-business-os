@@ -5,6 +5,7 @@
  * Auron Business OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { FundAccountBalance } from './fundAccountBalance';
 
 export interface FinanceSummary {
   revenue: number;
@@ -18,6 +19,10 @@ export interface FinanceSummary {
   netMarginPct: number;
   totalReceivables?: number;
   overdueReceivables?: number;
+  /** Legacy convenience field — current balance of the "Auron Event Productions" account (0 when absent) */
   auronBalance?: number;
+  /** Legacy convenience field — current balance of the "Rajesh PR" account (0 when absent) */
   rajeshBalance?: number;
+  /** Current balance of every fund account */
+  fundAccounts?: FundAccountBalance[];
 }

@@ -12,4 +12,9 @@ export interface FundAccount {
   opening_balance: number;
   created_at: Date;
   updated_at?: Date;
+  /**
+     * True when the account has fund transactions, transfers, or linked expenses
+     * @nullable
+     */
+  has_financial_history?: boolean | null;
 }

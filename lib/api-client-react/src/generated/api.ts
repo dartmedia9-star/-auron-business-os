@@ -4028,6 +4028,78 @@ export function useGetFundAccount<TData = Awaited<ReturnType<typeof getFundAccou
 
 
 
+export const getDeleteFundAccountUrl = (id: number,) => {
+
+
+
+
+  return `/api/fund-accounts/${id}`
+}
+
+/**
+ * Permanently deletes a fund account that has no financial history. Accounts with fund transactions, transfers, or linked expenses cannot be deleted and return 409 Conflict.
+ * @summary Delete an unused fund account
+ */
+export const deleteFundAccount = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteFundAccountUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteFundAccountMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFundAccount>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFundAccount>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteFundAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFundAccount>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteFundAccount(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFundAccountMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFundAccount>>>
+
+    export type DeleteFundAccountMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Delete an unused fund account
+ */
+export const useDeleteFundAccount = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFundAccount>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFundAccount>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteFundAccountMutationOptions(options));
+    }
+
 export const getListFundTransactionsUrl = (id: number,) => {
 
 
