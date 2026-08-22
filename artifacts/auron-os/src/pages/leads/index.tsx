@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   useListLeads, 
   useGetPipelineSummary, 
@@ -11,7 +11,7 @@ import {
 import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, TrendingUp, ListTodo, Plus, Trash2 } from "lucide-react";
+import { Target, TrendingUp, ListTodo, Plus, Trash2, Search, ArrowUpDown, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -53,10 +53,64 @@ export default function LeadsPipeline() {
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
 
+  // Search, Filter & Sort State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSource, setSelectedSource] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+
+  const isFiltered = searchQuery !== "" || selectedSource !== "all" || sortBy !== "newest";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedSource("all");
+    setSortBy("newest");
+  };
+
+  const filteredLeads = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return leads.filter((lead) => {
+      if (q) {
+        const nameMatch = (lead.contactName || lead.clientName)?.toLowerCase().includes(q);
+        const eventMatch = lead.eventType?.toLowerCase().includes(q);
+        const emailMatch = lead.contactEmail?.toLowerCase().includes(q);
+        const phoneMatch = lead.contactPhone?.toLowerCase().includes(q);
+        const notesMatch = lead.notes?.toLowerCase().includes(q);
+        if (!nameMatch && !eventMatch && !emailMatch && !phoneMatch && !notesMatch) {
+          return false;
+        }
+      }
+      if (selectedSource !== "all" && lead.source !== selectedSource) {
+        return false;
+      }
+      return true;
+    });
+  }, [leads, searchQuery, selectedSource]);
+
+  const getStageLeads = (stageId: string) => {
+    const stageLeads = filteredLeads.filter(l => l.status === stageId);
+    return stageLeads.sort((a, b) => {
+      switch (sortBy) {
+        case "value_desc":
+          return Number(b.expectedValue || 0) - Number(a.expectedValue || 0);
+        case "value_asc":
+          return Number(a.expectedValue || 0) - Number(b.expectedValue || 0);
+        case "name_asc":
+          return (a.clientName || a.contactName || "").localeCompare(b.clientName || b.contactName || "");
+        case "name_desc":
+          return (b.clientName || b.contactName || "").localeCompare(a.clientName || a.contactName || "");
+        case "oldest":
+          return Number(a.id || 0) - Number(b.id || 0);
+        case "newest":
+        default:
+          return Number(b.id || 0) - Number(a.id || 0);
+      }
+    });
+  };
 
   // Form State
   const [contactName, setContactName] = useState("");
@@ -222,11 +276,75 @@ export default function LeadsPipeline() {
         </div>
       )}
 
+      {/* Search, Filter & Sort Controls */}
+      <Card className="shrink-0">
+        <CardContent className="p-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search leads, clients, contacts, event types..." 
+                className="pl-9 bg-background" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Source Filter */}
+              <Select value={selectedSource} onValueChange={setSelectedSource}>
+                <SelectTrigger className="w-[130px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  {SOURCES.map((s) => (
+                    <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort Control */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[160px] bg-background h-9 text-xs">
+                  <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="value_desc">Value: High → Low</SelectItem>
+                  <SelectItem value="value_asc">Value: Low → High</SelectItem>
+                  <SelectItem value="name_asc">Name: A → Z</SelectItem>
+                  <SelectItem value="name_desc">Name: Z → A</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Reset Action */}
+              {isFiltered && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Kanban Board - Desktop */}
       <div className="hidden md:flex flex-1 overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max h-full">
           {PIPELINE_STAGES.map(stage => {
-            const stageLeads = leads.filter(l => l.status === stage.id);
+            const stageLeads = getStageLeads(stage.id);
             const stageValue = stageLeads.reduce((sum, l) => sum + (l.expectedValue || 0), 0);
             
             return (
@@ -264,7 +382,7 @@ export default function LeadsPipeline() {
                   ))}
                   {stageLeads.length === 0 && (
                     <div className="h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center text-xs text-muted-foreground">
-                      No deals
+                      {isFiltered ? "No matching deals" : "No deals"}
                     </div>
                   )}
                 </div>
@@ -277,9 +395,9 @@ export default function LeadsPipeline() {
       {/* Vertical List - Mobile */}
       <div className="md:hidden flex flex-col gap-6 pb-6">
         {PIPELINE_STAGES.map(stage => {
-          const stageLeads = leads.filter(l => l.status === stage.id);
+          const stageLeads = getStageLeads(stage.id);
           const stageValue = stageLeads.reduce((sum, l) => sum + (l.expectedValue || 0), 0);
-          if (stageLeads.length === 0) return null;
+          if (stageLeads.length === 0 && isFiltered) return null;
 
           return (
             <div key={stage.id} className="space-y-3">

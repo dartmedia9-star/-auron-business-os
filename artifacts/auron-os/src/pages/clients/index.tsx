@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useListClients, getListClientsQueryKey, useCreateClient } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { formatCurrency, formatCompactCurrency, cn } from "@/lib/utils";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Star } from "lucide-react";
+import { Search, Plus, Star, ArrowUpDown, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,10 @@ const CLIENT_TYPES = ['individual', 'corporate', 'government', 'ngo', 'associati
 
 export default function ClientsList() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedRepeat, setSelectedRepeat] = useState("all");
+  const [sortBy, setSortBy] = useState("name_asc");
+
   const [createOpen, setCreateOpen] = useState(false);
   
   const [name, setName] = useState("");
@@ -39,6 +43,69 @@ export default function ClientsList() {
   });
 
   const createClient = useCreateClient();
+
+  const isFiltered = searchQuery !== "" || selectedType !== "all" || selectedRepeat !== "all" || sortBy !== "name_asc";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedType("all");
+    setSelectedRepeat("all");
+    setSortBy("name_asc");
+  };
+
+  const filteredClients = useMemo(() => {
+    const raw = data?.data || [];
+    const q = searchQuery.trim().toLowerCase();
+
+    const filtered = raw.filter((c) => {
+      if (q) {
+        const nameMatch = c.name?.toLowerCase().includes(q);
+        const companyMatch = c.company?.toLowerCase().includes(q);
+        const contactMatch = c.contactPerson?.toLowerCase().includes(q);
+        const emailMatch = c.email?.toLowerCase().includes(q);
+        const phoneMatch = c.phone?.toLowerCase().includes(q);
+        const locMatch = c.location?.toLowerCase().includes(q);
+        const indMatch = c.industry?.toLowerCase().includes(q);
+        const typeMatch = c.clientType?.toLowerCase().includes(q);
+        if (!nameMatch && !companyMatch && !contactMatch && !emailMatch && !phoneMatch && !locMatch && !indMatch && !typeMatch) {
+          return false;
+        }
+      }
+
+      if (selectedType !== "all" && c.clientType !== selectedType) {
+        return false;
+      }
+
+      if (selectedRepeat === "repeat" && !c.repeatClient) {
+        return false;
+      }
+      if (selectedRepeat === "new" && c.repeatClient) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "revenue_desc":
+          return Number(b.lifetimeRevenue || 0) - Number(a.lifetimeRevenue || 0);
+        case "profit_desc":
+          return Number(b.lifetimeGrossProfit || 0) - Number(a.lifetimeGrossProfit || 0);
+        case "events_desc":
+          return Number(b.totalEvents || 0) - Number(a.totalEvents || 0);
+        case "newest":
+          return Number(b.id || 0) - Number(a.id || 0);
+        case "oldest":
+          return Number(a.id || 0) - Number(b.id || 0);
+        case "name_asc":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [data?.data, searchQuery, selectedType, selectedRepeat, sortBy]);
 
   const handleCreate = () => {
     if (!name || !clientType) {
@@ -71,11 +138,6 @@ export default function ClientsList() {
       onError: (err) => toast({ title: "Failed to create client", description: err.message, variant: "destructive" })
     });
   };
-
-  const filteredClients = data?.data?.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.company && c.company.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
 
   return (
     <div className="space-y-6">
@@ -155,16 +217,76 @@ export default function ClientsList() {
       </Dialog>
 
       <Card>
-        <CardHeader className="py-4 border-b">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="relative w-full sm:w-72">
+        <CardHeader className="py-4 border-b space-y-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search clients..." 
+                placeholder="Search clients, companies, contacts, email, phone..." 
                 className="pl-9 bg-background" 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Type Filter */}
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-[130px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Client Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {CLIENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Repeat Filter */}
+              <Select value={selectedRepeat} onValueChange={setSelectedRepeat}>
+                <SelectTrigger className="w-[130px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Relationship" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  <SelectItem value="repeat">Repeat Clients</SelectItem>
+                  <SelectItem value="new">First-Time Clients</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Sort Control */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[155px] bg-background h-9 text-xs">
+                  <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name_asc">Name: A → Z</SelectItem>
+                  <SelectItem value="name_desc">Name: Z → A</SelectItem>
+                  <SelectItem value="revenue_desc">Revenue: High → Low</SelectItem>
+                  <SelectItem value="profit_desc">Profit: High → Low</SelectItem>
+                  <SelectItem value="events_desc">Most Events</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Reset Action */}
+              {isFiltered && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -222,7 +344,7 @@ export default function ClientsList() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      No clients found.
+                      {isFiltered ? "No clients match your filters." : "No clients found."}
                     </TableCell>
                   </TableRow>
                 )}

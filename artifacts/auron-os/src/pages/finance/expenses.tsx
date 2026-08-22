@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   useListOperatingExpenses, 
   getListOperatingExpensesQueryKey,
@@ -9,11 +9,11 @@ import {
   getListEventsQueryKey,
   getGetEventQueryKey,
 } from "@workspace/api-client-react";
-import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Search, RotateCcw, ArrowUpDown, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const CATEGORIES = ['Rent', 'Salaries', 'Marketing', 'Admin', 'Utilities', 'Insurance', 'Software', 'Equipment', 'Other'];
+
+const MONTHS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
 
 export default function ExpensesList() {
   const queryClient = useQueryClient();
@@ -37,6 +52,14 @@ export default function ExpensesList() {
   const createExpense = useCreateOperatingExpense();
   const updateExpense = useUpdateOperatingExpense();
   const deleteExpense = useDeleteOperatingExpense();
+
+  // Search, Filter & Sort State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterYear, setFilterYear] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterEvent, setFilterEvent] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -201,6 +224,93 @@ export default function ExpensesList() {
     </div>
   );
 
+  const eventMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const e of events) {
+      if (e.id) map.set(e.id, e.name);
+    }
+    return map;
+  }, [events]);
+
+  const availableYears = useMemo(() => {
+    const yearSet = new Set<number>();
+    yearSet.add(new Date().getFullYear());
+    if (data) {
+      for (const exp of data) {
+        if (exp.year) yearSet.add(exp.year);
+      }
+    }
+    return Array.from(yearSet).sort((a, b) => b - a);
+  }, [data]);
+
+  const isFiltered = searchQuery !== "" || filterYear !== "all" || filterMonth !== "all" || filterCategory !== "all" || filterEvent !== "all" || sortBy !== "newest";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setFilterYear("all");
+    setFilterMonth("all");
+    setFilterCategory("all");
+    setFilterEvent("all");
+    setSortBy("newest");
+  };
+
+  const filteredExpenses = useMemo(() => {
+    if (!data) return [];
+    const q = searchQuery.trim().toLowerCase();
+
+    const result = data.filter((exp) => {
+      if (q) {
+        const descMatch = exp.description?.toLowerCase().includes(q);
+        const catMatch = exp.category?.toLowerCase().includes(q);
+        const refMatch = exp.referenceNumber?.toLowerCase().includes(q);
+        const eventName = exp.eventId ? eventMap.get(exp.eventId) : undefined;
+        const eventMatch = eventName?.toLowerCase().includes(q);
+        if (!descMatch && !catMatch && !refMatch && !eventMatch) return false;
+      }
+
+      if (filterYear !== "all" && String(exp.year) !== filterYear) {
+        return false;
+      }
+
+      if (filterMonth !== "all" && String(exp.month) !== filterMonth) {
+        return false;
+      }
+
+      if (filterCategory !== "all" && exp.category !== filterCategory) {
+        return false;
+      }
+
+      if (filterEvent === "operating" && exp.eventId != null) {
+        return false;
+      }
+      if (filterEvent !== "all" && filterEvent !== "operating" && String(exp.eventId) !== filterEvent) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest": {
+          const dateA = a.date ? new Date(a.date).getTime() : new Date(a.year, a.month - 1).getTime();
+          const dateB = b.date ? new Date(b.date).getTime() : new Date(b.year, b.month - 1).getTime();
+          return dateA - dateB;
+        }
+        case "amount_desc":
+          return Number(b.amount || 0) - Number(a.amount || 0);
+        case "amount_asc":
+          return Number(a.amount || 0) - Number(b.amount || 0);
+        case "newest":
+        default: {
+          const dateA = a.date ? new Date(a.date).getTime() : new Date(a.year, a.month - 1).getTime();
+          const dateB = b.date ? new Date(b.date).getTime() : new Date(b.year, b.month - 1).getTime();
+          return dateB - dateA;
+        }
+      }
+    });
+  }, [data, searchQuery, filterYear, filterMonth, filterCategory, filterEvent, sortBy, eventMap]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -214,6 +324,104 @@ export default function ExpensesList() {
       </div>
 
       <Card>
+        <CardHeader className="py-4 border-b space-y-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search expenses, categories, refs, events..." 
+                className="pl-9 bg-background" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Year Filter */}
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="w-[110px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Month Filter */}
+              <Select value={filterMonth} onValueChange={setFilterMonth}>
+                <SelectTrigger className="w-[120px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Months</SelectItem>
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Category Filter */}
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[125px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Event Filter */}
+              <Select value={filterEvent} onValueChange={setFilterEvent}>
+                <SelectTrigger className="w-[135px] bg-background h-9 text-xs truncate">
+                  <SelectValue placeholder="Event link" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Expenses</SelectItem>
+                  <SelectItem value="operating">Operating Only</SelectItem>
+                  {events.map((e) => (
+                    <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort Control */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[145px] bg-background h-9 text-xs">
+                  <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="amount_desc">Amount: High → Low</SelectItem>
+                  <SelectItem value="amount_asc">Amount: Low → High</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Reset Filter Action */}
+              {isFiltered && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -232,12 +440,20 @@ export default function ExpensesList() {
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">Loading expenses...</TableCell>
                   </TableRow>
-                ) : data && data.length > 0 ? (
-                  data.map((exp) => (
+                ) : filteredExpenses.length > 0 ? (
+                  filteredExpenses.map((exp) => (
                     <TableRow key={exp.id}>
                       <TableCell>{exp.date ? new Date(exp.date).toLocaleDateString() : `${exp.month}/${exp.year}`}</TableCell>
                       <TableCell className="font-medium">{exp.category}</TableCell>
-                      <TableCell>{exp.description}</TableCell>
+                      <TableCell>
+                        <div>{exp.description}</div>
+                        {exp.eventId && (
+                          <div className="text-xs text-primary/80 flex items-center gap-1 mt-0.5">
+                            <span>Event:</span>
+                            <span className="font-medium">{eventMap.get(exp.eventId) || `Event #${exp.eventId}`}</span>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{exp.referenceNumber || "—"}</TableCell>
                       <TableCell className="text-right font-medium text-orange-500">{formatCurrency(exp.amount)}</TableCell>
                       <TableCell>
@@ -254,7 +470,9 @@ export default function ExpensesList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No expenses recorded.</TableCell>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      {isFiltered ? "No expenses match your filters." : "No expenses recorded."}
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

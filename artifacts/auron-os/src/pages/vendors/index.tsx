@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   useListVendors, 
   getListVendorsQueryKey,
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ArrowUpDown, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,9 @@ const CATEGORIES = ['Catering', 'Décor', 'AV-Tech', 'Photography', 'Videography
 
 export default function VendorsList() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("name_asc");
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -121,10 +124,59 @@ export default function VendorsList() {
     });
   };
 
-  const filteredVendors = data?.filter((v: any) => 
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (v.category && v.category.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
+  const isFiltered = searchQuery !== "" || selectedCategory !== "all" || sortBy !== "name_asc";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setSortBy("name_asc");
+  };
+
+  const filteredVendors = useMemo(() => {
+    const raw = data || [];
+    const q = searchQuery.trim().toLowerCase();
+
+    const filtered = raw.filter((v: any) => {
+      if (q) {
+        const nameMatch = v.name?.toLowerCase().includes(q);
+        const catMatch = v.category?.toLowerCase().includes(q);
+        const contactMatch = v.contactPerson?.toLowerCase().includes(q);
+        const emailMatch = v.email?.toLowerCase().includes(q);
+        const phoneMatch = v.phone?.toLowerCase().includes(q);
+        const locMatch = v.location?.toLowerCase().includes(q);
+        const termsMatch = v.paymentTerms?.toLowerCase().includes(q);
+        if (!nameMatch && !catMatch && !contactMatch && !emailMatch && !phoneMatch && !locMatch && !termsMatch) {
+          return false;
+        }
+      }
+
+      if (selectedCategory !== "all" && v.category !== selectedCategory) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return filtered.sort((a: any, b: any) => {
+      switch (sortBy) {
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "spend_desc":
+          return Number(b.totalSpend || 0) - Number(a.totalSpend || 0);
+        case "outstanding_desc":
+          return Number(b.outstandingPayment || 0) - Number(a.outstandingPayment || 0);
+        case "rating_desc":
+          return Number(b.rating || 0) - Number(a.rating || 0);
+        case "newest":
+          return Number(b.id || 0) - Number(a.id || 0);
+        case "oldest":
+          return Number(a.id || 0) - Number(b.id || 0);
+        case "name_asc":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [data, searchQuery, selectedCategory, sortBy]);
 
   const FormContent = (
     <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
@@ -189,16 +241,64 @@ export default function VendorsList() {
       </div>
 
       <Card>
-        <CardHeader className="py-4 border-b">
-          <div className="flex items-center justify-between">
-            <div className="relative w-full sm:w-72">
+        <CardHeader className="py-4 border-b space-y-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search vendors..." 
+                placeholder="Search vendors, categories, contacts, email..." 
                 className="pl-9 bg-background" 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Category Filter */}
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[140px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort Control */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[160px] bg-background h-9 text-xs">
+                  <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name_asc">Name: A → Z</SelectItem>
+                  <SelectItem value="name_desc">Name: Z → A</SelectItem>
+                  <SelectItem value="spend_desc">Total Spend: High → Low</SelectItem>
+                  <SelectItem value="outstanding_desc">Outstanding: High → Low</SelectItem>
+                  <SelectItem value="rating_desc">Highest Rated</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Reset Action */}
+              {isFiltered && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -222,7 +322,7 @@ export default function VendorsList() {
                     <TableCell colSpan={7} className="h-24 text-center">Loading vendors...</TableCell>
                   </TableRow>
                 ) : filteredVendors.length > 0 ? (
-                  filteredVendors.map((vendor) => (
+                  filteredVendors.map((vendor: any) => (
                     <TableRow key={vendor.id}>
                       <TableCell className="font-medium">
                         {vendor.name}
@@ -253,7 +353,9 @@ export default function VendorsList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No vendors found.</TableCell>
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                      {isFiltered ? "No vendors match your filters." : "No vendors found."}
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

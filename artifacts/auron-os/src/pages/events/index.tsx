@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   useListEvents, 
   getListEventsQueryKey, 
@@ -18,7 +18,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, ArrowUpDown, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,6 +69,11 @@ const STATUSES = ['upcoming', 'in_progress', 'completed', 'cancelled'];
 
 export default function EventsList() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedClient, setSelectedClient] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc");
+
   const [createOpen, setCreateOpen] = useState(false);
   
   const [name, setName] = useState("");
@@ -91,6 +96,66 @@ export default function EventsList() {
   const clients = clientsData?.data || [];
 
   const createEvent = useCreateEvent();
+
+  const isFiltered = searchQuery !== "" || selectedStatus !== "all" || selectedType !== "all" || selectedClient !== "all" || sortBy !== "date_desc";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedStatus("all");
+    setSelectedType("all");
+    setSelectedClient("all");
+    setSortBy("date_desc");
+  };
+
+  const filteredEvents = useMemo(() => {
+    const raw = data?.data || [];
+    const q = searchQuery.trim().toLowerCase();
+
+    const filtered = raw.filter((e) => {
+      if (q) {
+        const nameMatch = e.name?.toLowerCase().includes(q);
+        const clientMatch = e.clientName?.toLowerCase().includes(q);
+        const venueMatch = e.venue?.toLowerCase().includes(q);
+        const locMatch = e.location?.toLowerCase().includes(q);
+        const typeMatch = e.eventType?.toLowerCase().includes(q);
+        if (!nameMatch && !clientMatch && !venueMatch && !locMatch && !typeMatch) {
+          return false;
+        }
+      }
+
+      if (selectedStatus !== "all" && e.status !== selectedStatus) {
+        return false;
+      }
+
+      if (selectedType !== "all" && e.eventType !== selectedType) {
+        return false;
+      }
+
+      if (selectedClient !== "all" && String(e.clientId) !== selectedClient) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+        case "revenue_desc":
+          return Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0);
+        case "revenue_asc":
+          return Number(a.totalRevenue || 0) - Number(b.totalRevenue || 0);
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "date_desc":
+        default:
+          return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
+      }
+    });
+  }, [data?.data, searchQuery, selectedStatus, selectedType, selectedClient, sortBy]);
 
   const handleSubmit = () => {
     if (!name || !clientId || !eventType || !status || !eventDate) {
@@ -123,11 +188,6 @@ export default function EventsList() {
       }
     });
   };
-
-  const filteredEvents = data?.data?.filter(e => 
-    e.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (e.clientName && e.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
 
   return (
     <div className="space-y-6">
@@ -205,16 +265,89 @@ export default function EventsList() {
       </Dialog>
 
       <Card>
-        <CardHeader className="py-4 border-b">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="relative w-full sm:w-72">
+        <CardHeader className="py-4 border-b space-y-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search events..." 
+                placeholder="Search events, clients, venues, locations..." 
                 className="pl-9 bg-background" 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status Filter */}
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-[125px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Event Type Filter */}
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-[130px] bg-background h-9 text-xs">
+                  <SelectValue placeholder="Event Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {EVENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Client Filter */}
+              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <SelectTrigger className="w-[135px] bg-background h-9 text-xs truncate">
+                  <SelectValue placeholder="Client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort Control */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[155px] bg-background h-9 text-xs">
+                  <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Newest Event</SelectItem>
+                  <SelectItem value="date_asc">Oldest Event</SelectItem>
+                  <SelectItem value="revenue_desc">Revenue: High → Low</SelectItem>
+                  <SelectItem value="revenue_asc">Revenue: Low → High</SelectItem>
+                  <SelectItem value="name_asc">Name: A → Z</SelectItem>
+                  <SelectItem value="name_desc">Name: Z → A</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Reset Action */}
+              {isFiltered && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -271,7 +404,7 @@ export default function EventsList() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      No events found.
+                      {isFiltered ? "No events match your filters." : "No events found."}
                     </TableCell>
                   </TableRow>
                 )}
