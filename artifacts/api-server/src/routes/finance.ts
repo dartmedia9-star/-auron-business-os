@@ -109,6 +109,46 @@ router.get("/fund-accounts/:id", async (req, res): Promise<void> => {
   res.json({ account, current_balance: computeBalance(account.opening_balance, transactions) });
 });
 
+// PATCH /fund-accounts/:id - Update the opening balance for a fund account.
+// This establishes the real starting/current cash position without creating
+// a transfer or affecting P&L.
+router.patch("/fund-accounts/:id", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid fund account id" });
+    return;
+  }
+
+  const openingBalance = toMoney(req.body?.opening_balance);
+  if (openingBalance < 0) {
+    res.status(400).json({ error: "Opening balance cannot be negative" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: fundAccountsTable.id })
+    .from(fundAccountsTable)
+    .where(eq(fundAccountsTable.id, id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Fund account not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(fundAccountsTable)
+    .set({ opening_balance: String(openingBalance) })
+    .where(eq(fundAccountsTable.id, id))
+    .returning();
+
+  res.json(updated);
+});
+
 // GET /fund-accounts/:id/transactions - List fund account transactions with running balance
 router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
