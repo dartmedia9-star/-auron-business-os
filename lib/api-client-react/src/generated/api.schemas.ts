@@ -824,6 +824,11 @@ export interface FundAccount {
   updated_at?: string;
 }
 
+export interface FundAccountInput {
+  name: string;
+  opening_balance: number;
+}
+
 export interface FundTransfer {
   id: number;
   from_account_id: number;

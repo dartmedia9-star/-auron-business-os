@@ -63,6 +63,7 @@ export * from './eventUpdate';
 export * from './eventUpdateStatus';
 export * from './financeSummary';
 export * from './fundAccount';
+export * from './fundAccountInput';
 export * from './fundTransaction';
 export * from './fundTransactionTransactionType';
 export * from './fundTransfer';

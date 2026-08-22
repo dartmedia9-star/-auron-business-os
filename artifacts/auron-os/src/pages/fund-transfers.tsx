@@ -3,6 +3,7 @@ import {
   useListFundAccounts,
   getListFundAccountsQueryKey,
   useCreateFundTransfer,
+  useCreateFundAccount,
   getGetFinanceSummaryQueryKey,
   getListFundTransactionsQueryKey,
 } from "@workspace/api-client-react";
@@ -12,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, Pencil, RefreshCw } from "lucide-react";
+import { Plus, ArrowRight, Pencil, RefreshCw, Landmark } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,10 @@ export default function FundTransfers() {
   const [openingBalance, setOpeningBalance] = useState("");
   const [savingBalance, setSavingBalance] = useState(false);
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountOpeningBalance, setNewAccountOpeningBalance] = useState("");
+
   const { data: accounts, isLoading } = useListFundAccounts({
     query: {
       queryKey: getListFundAccountsQueryKey(),
@@ -63,6 +68,7 @@ export default function FundTransfers() {
   const accountList: FundAccount[] = accounts ?? [];
 
   const createTransfer = useCreateFundTransfer();
+  const createAccount = useCreateFundAccount();
 
   /*
    * Load the current calculated balance for every fund account.
@@ -314,6 +320,81 @@ export default function FundTransfers() {
     }
   };
 
+  const handleCreateAccount = () => {
+    const trimmedName = newAccountName.trim();
+
+    if (!trimmedName) {
+      toast({
+        title: "Validation Error",
+        description: "Account name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const duplicate = accountList.some(
+      (account) =>
+        account.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    if (duplicate) {
+      toast({
+        title: "Validation Error",
+        description: `A fund account named "${trimmedName}" already exists`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newAccountOpeningBalance || !Number.isFinite(Number(newAccountOpeningBalance)) || Number(newAccountOpeningBalance) < 0) {
+      toast({
+        title: "Validation Error",
+        description: "Enter a valid non-negative opening balance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createAccount.mutate(
+      {
+        data: {
+          name: trimmedName,
+          opening_balance: Number(newAccountOpeningBalance),
+        },
+      },
+      {
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: getListFundAccountsQueryKey(),
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: getGetFinanceSummaryQueryKey(),
+          });
+
+          toast({
+            title: "Fund account created",
+            description: `${trimmedName} was created with an opening balance of ${formatCurrency(
+              Number(newAccountOpeningBalance),
+            )}. Opening balances establish starting funds and do not affect P&L.`,
+          });
+
+          setCreateOpen(false);
+          setNewAccountName("");
+          setNewAccountOpeningBalance("");
+        },
+
+        onError: (err) => {
+          toast({
+            title: "Failed to create fund account",
+            description: errorMessage(err),
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
   const accountName = (id: string) =>
     accountList.find((account) => String(account.id) === id)?.name;
 
@@ -336,20 +417,34 @@ export default function FundTransfers() {
           </p>
         </div>
 
-        <Button
-          onClick={() => {
-            if (accountList.length >= 2) {
-              if (!fromId) setFromId(String(accountList[0].id));
-              if (!toId) setToId(String(accountList[1].id));
-            }
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNewAccountName("");
+              setNewAccountOpeningBalance("");
+              setCreateOpen(true);
+            }}
+          >
+            <Landmark className="mr-2 h-4 w-4" />
+            Add Fund Account
+          </Button>
 
-            setOpen(true);
-          }}
-          disabled={accountList.length < 2}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Transfer
-        </Button>
+          <Button
+            onClick={() => {
+              if (accountList.length >= 2) {
+                if (!fromId) setFromId(String(accountList[0].id));
+                if (!toId) setToId(String(accountList[1].id));
+              }
+
+              setOpen(true);
+            }}
+            disabled={accountList.length < 2}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Transfer
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -358,7 +453,7 @@ export default function FundTransfers() {
             <p className="text-sm text-muted-foreground">
               {isLoading
                 ? "Loading fund accounts..."
-                : "No fund accounts found yet. Transfers become available once fund accounts exist."}
+                : "No fund accounts found yet. Use \"Add Fund Account\" to create one (e.g. Auron Event Productions, Rajesh PR) with its opening balance. Transfers become available once two or more fund accounts exist."}
             </p>
           ) : (
             <div className="space-y-3">
@@ -647,6 +742,94 @@ export default function FundTransfers() {
               {savingBalance ? "Saving..." : "Save Balance"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(value) => {
+          if (!value) {
+            setCreateOpen(false);
+            setNewAccountName("");
+            setNewAccountOpeningBalance("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Fund Account</DialogTitle>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateAccount();
+            }}
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Account Name *</Label>
+
+                <Input
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  placeholder="e.g. Auron Event Productions"
+                  maxLength={120}
+                />
+
+                {newAccountName.trim() &&
+                  accountList.some(
+                    (account) =>
+                      account.name.trim().toLowerCase() ===
+                      newAccountName.trim().toLowerCase(),
+                  ) && (
+                    <p className="text-sm text-destructive">
+                      A fund account with this name already exists.
+                    </p>
+                  )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Opening Balance *</Label>
+
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={newAccountOpeningBalance}
+                  onChange={(e) =>
+                    setNewAccountOpeningBalance(e.target.value)
+                  }
+                  placeholder="0.00"
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  Enter the company's starting/current funds for this
+                  account. Opening balances are not revenue and do not
+                  affect P&amp;L.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6 border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setNewAccountName("");
+                  setNewAccountOpeningBalance("");
+                }}
+              >
+                Cancel
+              </Button>
+
+              <Button type="submit" disabled={createAccount.isPending}>
+                {createAccount.isPending ? "Creating..." : "Create Account"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

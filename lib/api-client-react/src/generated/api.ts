@@ -53,6 +53,7 @@ import type {
   EventUpdate,
   FinanceSummary,
   FundAccount,
+  FundAccountInput,
   FundTransfer,
   FundTransferInput,
   GetDashboardSummaryParams,
@@ -3878,6 +3879,77 @@ export function useListFundAccounts<TData = Awaited<ReturnType<typeof listFundAc
 
 
 
+
+export const getCreateFundAccountUrl = () => {
+
+
+
+
+  return `/api/fund-accounts`
+}
+
+/**
+ * @summary Create a fund account
+ */
+export const createFundAccount = async (fundAccountInput: FundAccountInput, options?: Parameters<typeof customFetch>[1]): Promise<FundAccount> => {
+
+  return customFetch<FundAccount>(getCreateFundAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(fundAccountInput)
+  }
+);}
+
+
+
+
+
+export const getCreateFundAccountMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFundAccount>>, TError,{data: BodyType<FundAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFundAccount>>, TError,{data: BodyType<FundAccountInput>}, TContext> => {
+
+const mutationKey = ['createFundAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFundAccount>>, {data: BodyType<FundAccountInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFundAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFundAccountMutationResult = NonNullable<Awaited<ReturnType<typeof createFundAccount>>>
+    export type CreateFundAccountMutationBody = BodyType<FundAccountInput>
+    export type CreateFundAccountMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a fund account
+ */
+export const useCreateFundAccount = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFundAccount>>, TError,{data: BodyType<FundAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFundAccount>>,
+        TError,
+        {data: BodyType<FundAccountInput>},
+        TContext
+      > => {
+      return useMutation(getCreateFundAccountMutationOptions(options));
+    }
 
 export const getGetFundAccountUrl = (id: number,) => {
 

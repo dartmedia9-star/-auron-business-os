@@ -1123,6 +1123,29 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/FundAccount"
+    post:
+      operationId: createFundAccount
+      tags: [fundAccounts]
+      summary: Create a fund account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundAccountInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundAccount"
+        "400":
+          description: Invalid fund account data or duplicate name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /fund-accounts/{id}:
     get:
@@ -3076,6 +3099,15 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    FundAccountInput:
+      type: object
+      required: [name, opening_balance]
+      properties:
+        name:
+          type: string
+        opening_balance:
+          type: number
 
     FundTransfer:
       type: object

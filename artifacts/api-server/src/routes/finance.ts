@@ -95,6 +95,52 @@ router.get("/fund-accounts", async (req, res): Promise<void> => {
   res.json(accounts);
 });
 
+// POST /fund-accounts - Create a fund account. The opening balance establishes
+// the account's starting cash position directly (no ledger row is written and
+// P&L is untouched).
+router.post("/fund-accounts", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { name, opening_balance } = req.body ?? {};
+
+  const accountName = typeof name === "string" ? name.trim() : "";
+  if (!accountName) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+
+  if (!Number.isFinite(Number(opening_balance))) {
+    res.status(400).json({ error: "opening_balance must be a number" });
+    return;
+  }
+
+  const openingBalance = toMoney(opening_balance);
+  if (openingBalance < 0) {
+    res.status(400).json({ error: "opening_balance cannot be negative" });
+    return;
+  }
+
+  const [duplicate] = await db
+    .select({ id: fundAccountsTable.id })
+    .from(fundAccountsTable)
+    .where(sql`lower(${fundAccountsTable.name}) = ${accountName.toLowerCase()}`);
+
+  if (duplicate) {
+    res.status(400).json({ error: `A fund account named "${accountName}" already exists` });
+    return;
+  }
+
+  const [created] = await db
+    .insert(fundAccountsTable)
+    .values({
+      name: accountName,
+      opening_balance: String(openingBalance),
+    })
+    .returning();
+
+  res.status(201).json(created);
+});
+
 // GET /fund-accounts/:id - Get a fund account with its current balance
 router.get("/fund-accounts/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);

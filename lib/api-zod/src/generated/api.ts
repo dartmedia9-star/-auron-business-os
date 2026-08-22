@@ -1395,6 +1395,23 @@ export const ListFundAccountsResponse = zod.array(ListFundAccountsResponseItem)
 
 
 /**
+ * @summary Create a fund account
+ */
+export const CreateFundAccountBody = zod.object({
+  "name": zod.string(),
+  "opening_balance": zod.number()
+})
+
+export const CreateFundAccountResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "opening_balance": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
  * @summary Get a fund account with its current balance
  */
 export const GetFundAccountParams = zod.object({
