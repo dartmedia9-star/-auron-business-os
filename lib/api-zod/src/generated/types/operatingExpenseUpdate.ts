@@ -18,4 +18,8 @@ export interface OperatingExpenseUpdate {
   referenceNumber?: string;
   /** @nullable */
   eventId?: number | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
 }

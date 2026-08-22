@@ -12,6 +12,7 @@ import assetsRouter from "./assets";
 import employeesRouter from "./employees";
 import valuationRouter from "./valuation";
 import miscRouter from "./misc";
+import notesRouter from "./notes";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(assetsRouter);
 router.use(employeesRouter);
 router.use(valuationRouter);
 router.use(miscRouter);
+router.use(notesRouter);
 
 export default router;

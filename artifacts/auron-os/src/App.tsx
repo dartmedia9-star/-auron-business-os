@@ -23,6 +23,8 @@ import VendorsList from '@/pages/vendors/index';
 import TeamList from '@/pages/team/index';
 import MarketingList from '@/pages/marketing/index';
 import ExpensesList from '@/pages/finance/expenses';
+import FundTransfers from '@/pages/fund-transfers';
+import NotesList from '@/pages/notes';
 import ReportsList from '@/pages/reports/index';
 import AssetsList from '@/pages/assets/index';
 
@@ -66,6 +68,8 @@ function AuthenticatedApp() {
           <Route path="/finance" component={FinanceSummary} />
           <Route path="/finance/receivables" component={ReceivablesList} />
           <Route path="/finance/expenses" component={ExpensesList} />
+          <Route path="/fund-transfers" component={FundTransfers} />
+          <Route path="/notes" component={NotesList} />
           <Route path="/vendors" component={VendorsList} />
           <Route path="/assets" component={AssetsList} />
           <Route path="/team" component={TeamList} />

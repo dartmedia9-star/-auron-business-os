@@ -20,5 +20,11 @@ export interface OperatingExpense {
   referenceNumber?: string | null;
   /** @nullable */
   eventId?: number | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
   createdAt: Date;
 }

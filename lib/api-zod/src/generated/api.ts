@@ -1229,7 +1229,9 @@ export const GetFinanceSummaryResponse = zod.object({
   "netProfit": zod.number(),
   "netMarginPct": zod.number(),
   "totalReceivables": zod.number().optional(),
-  "overdueReceivables": zod.number().optional()
+  "overdueReceivables": zod.number().optional(),
+  "auronBalance": zod.number().optional(),
+  "rajeshBalance": zod.number().optional()
 })
 
 
@@ -1253,6 +1255,9 @@ export const ListOperatingExpensesResponseItem = zod.object({
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
   "eventId": zod.number().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const ListOperatingExpensesResponse = zod.array(ListOperatingExpensesResponseItem)
@@ -1274,7 +1279,9 @@ export const CreateOperatingExpenseBody = zod.object({
   "month": zod.number(),
   "date": zod.coerce.date().optional(),
   "referenceNumber": zod.string().optional(),
-  "eventId": zod.number().nullish()
+  "eventId": zod.number().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish()
 })
 
 export const CreateOperatingExpenseResponse = zod.object({
@@ -1288,6 +1295,9 @@ export const CreateOperatingExpenseResponse = zod.object({
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
   "eventId": zod.number().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -1311,7 +1321,9 @@ export const UpdateOperatingExpenseBody = zod.object({
   "month": zod.number().optional(),
   "date": zod.coerce.date().optional(),
   "referenceNumber": zod.string().optional(),
-  "eventId": zod.number().nullish()
+  "eventId": zod.number().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish()
 })
 
 export const UpdateOperatingExpenseResponse = zod.object({
@@ -1325,6 +1337,9 @@ export const UpdateOperatingExpenseResponse = zod.object({
   "date": zod.coerce.date().nullish(),
   "referenceNumber": zod.string().nullish(),
   "eventId": zod.number().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -1364,6 +1379,155 @@ export const GetReceivablesSummaryResponse = zod.object({
   "paymentStatus": zod.string()
 }))
 })
+
+
+/**
+ * @summary List fund accounts
+ */
+export const ListFundAccountsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "opening_balance": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+export const ListFundAccountsResponse = zod.array(ListFundAccountsResponseItem)
+
+
+/**
+ * @summary Get a fund account with its current balance
+ */
+export const GetFundAccountParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetFundAccountResponse = zod.object({
+  "account": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "opening_balance": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+}).optional(),
+  "current_balance": zod.number().optional()
+})
+
+
+/**
+ * @summary List fund account transactions with running balance
+ */
+export const ListFundTransactionsParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListFundTransactionsResponse = zod.object({
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "fund_account_id": zod.number(),
+  "transaction_type": zod.enum(['expense', 'expense_reversal', 'transfer_in', 'transfer_out', 'adjustment']),
+  "amount": zod.number(),
+  "description": zod.string().optional(),
+  "related_expense_id": zod.number().nullish(),
+  "related_transfer_id": zod.number().nullish(),
+  "created_at": zod.coerce.date(),
+  "created_by": zod.string().optional()
+})).optional(),
+  "current_balance": zod.number().optional()
+})
+
+
+/**
+ * @summary Create a fund transfer between accounts
+ */
+export const CreateFundTransferBody = zod.object({
+  "from_account_id": zod.number(),
+  "to_account_id": zod.number(),
+  "amount": zod.number(),
+  "date": zod.coerce.date(),
+  "description": zod.string()
+})
+
+export const CreateFundTransferResponse = zod.object({
+  "id": zod.number(),
+  "from_account_id": zod.number(),
+  "to_account_id": zod.number(),
+  "amount": zod.number(),
+  "date": zod.coerce.date(),
+  "description": zod.string(),
+  "created_by": zod.string(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary List notes
+ */
+export const ListNotesQueryParams = zod.object({
+  "unreadOnly": zod.coerce.boolean().optional()
+})
+
+export const ListNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "is_pinned": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+export const ListNotesResponse = zod.array(ListNotesResponseItem)
+
+
+/**
+ * @summary Create a new note
+ */
+
+
+
+export const CreateNoteBody = zod.object({
+  "content": zod.string().min(1),
+  "is_pinned": zod.boolean().optional()
+})
+
+export const CreateNoteResponse = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "is_pinned": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Update a note
+ */
+export const UpdateNoteParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+
+
+export const UpdateNoteBody = zod.object({
+  "content": zod.string().min(1).optional(),
+  "is_pinned": zod.boolean().optional()
+})
+
+export const UpdateNoteResponse = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "is_pinned": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Delete a note
+ */
+export const DeleteNoteParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteNoteResponse = zod.void()
 
 
 /**

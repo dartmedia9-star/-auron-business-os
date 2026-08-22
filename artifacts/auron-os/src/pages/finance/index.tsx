@@ -1,7 +1,8 @@
 import { useGetFinanceSummary, getGetFinanceSummaryQueryKey } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, Target } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FinanceSummary() {
   const { data, isLoading } = useGetFinanceSummary(undefined, {
@@ -113,6 +114,46 @@ export default function FinanceSummary() {
           </CardContent>
         </Card>
 
+        {/* Capital & Funds */}
+        <Card className="border-l-4 border-l-emerald-500/50 shadow-sm ml-8">
+          <CardContent className="flex items-center justify-between p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <ArrowUp className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Auron Event Productions</h3>
+                <p className="text-sm text-muted-foreground">Bank balance</p>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-emerald-500">₹{formatCurrency(data?.auronBalance ?? 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-amber-500/50 shadow-sm ml-8">
+          <CardContent className="flex items-center justify-between p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                <Target className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Rajesh PR — Funds Held</h3>
+                <p className="text-sm text-muted-foreground">Business expenses account</p>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-amber-500">₹{formatCurrency(data?.rajeshBalance ?? 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-muted border-none shadow-inner mt-8">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <h3 className="text-lg font-medium">Total Available Funds</h3>
+              <p className="text-sm text-muted-foreground">Sum of both fund accounts</p>
+            </div>
+            <div className="text-2xl font-bold">₹{formatCurrency((data?.auronBalance ?? 0) + (data?.rajeshBalance ?? 0))}</div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

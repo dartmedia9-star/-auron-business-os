@@ -1,10 +1,408 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, gte, lte, isNull } from "drizzle-orm";
-import { db, operatingExpensesTable, eventsTable, eventRevenueTable } from "@workspace/db";
+import { eq, desc, asc, sql, and, gte, lte, isNull } from "drizzle-orm";
+import {
+  db,
+  operatingExpensesTable,
+  eventsTable,
+  eventRevenueTable,
+  fundAccountsTable,
+  fundTransfersTable,
+  fundTransactionsTable,
+} from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
 
+// ---------------------------------------------------------------------------
+// Fund ledger model
+//
+// transaction_type  | effect on the fund's balance
+// ------------------+--------------------------------------------------------
+// expense           | -amount   money OUT (operating expense paid from fund)
+// expense_reversal  | +amount   money IN  (reversal/correction of an expense)
+// transfer_out      | -amount   money OUT (sent to another fund account)
+// transfer_in       | +amount   money IN  (received from another fund account)
+// adjustment        | ±amount   signed value (positive = in, negative = out)
+//
+// Stored amounts ALWAYS represent the actual cash movement. For expenses this
+// includes GST (see expenseCashOut below). Balance =
+// account.opening_balance + sum(signed effects). Unknown transaction types
+// contribute 0 so legacy/noise rows cannot silently corrupt balances.
+// ---------------------------------------------------------------------------
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+const AURON_ACCOUNT_NAME = "Auron Event Productions";
+const RAJESH_ACCOUNT_NAME = "Rajesh PR";
+
+// GST handling: `operating_expenses.amount` is the base (pre-tax) value and
+// `gst` is an additional tax amount actually paid on top (the UI collects them
+// as separate fields and event profitability already treats cost as
+// amount + gst). The actual cash leaving a fund is therefore amount + gst.
+function expenseCashOut(amount: number, gst: number): number {
+  return Math.round((amount + gst) * 100) / 100;
+}
+
+function toMoney(value: unknown): number {
+  const n = parseFloat(String(value));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function signedEffect(transactionType: string, amount: number): number {
+  switch (transactionType) {
+    case "expense":
+    case "transfer_out":
+      return -amount;
+    case "expense_reversal":
+    case "transfer_in":
+      return amount;
+    case "adjustment":
+      return amount;
+    default:
+      return 0;
+  }
+}
+
+function computeBalance(openingBalance: unknown, transactions: Array<{ transaction_type: string; amount: unknown }>): number {
+  let balance = toMoney(openingBalance);
+  for (const t of transactions) {
+    balance += signedEffect(t.transaction_type, toMoney(t.amount));
+  }
+  return Math.round(balance * 100) / 100;
+}
+
+// Resolves a payer label to a tracked fund account id. Returns null for any
+// payer that does not map to one of the tracked accounts (e.g. "Other" or
+// null) — those expenses must not deduct either fund.
+async function resolveTrackedFundAccountId(tx: Tx, paidBy: string | null | undefined): Promise<number | null> {
+  if (paidBy !== AURON_ACCOUNT_NAME && paidBy !== RAJESH_ACCOUNT_NAME) return null;
+  const [account] = await tx.select({ id: fundAccountsTable.id }).from(fundAccountsTable).where(eq(fundAccountsTable.name, paidBy));
+  return account?.id ?? null;
+}
+
+async function requireFundAccount(tx: Tx, id: number): Promise<boolean> {
+  const [account] = await tx.select({ id: fundAccountsTable.id }).from(fundAccountsTable).where(eq(fundAccountsTable.id, id));
+  return !!account;
+}
+
+// ---------------------------------------------------------------------------
+// Fund accounts
+// ---------------------------------------------------------------------------
+
+// GET /fund-accounts - List fund accounts
+router.get("/fund-accounts", async (req, res): Promise<void> => {
+  const accounts = await db.select().from(fundAccountsTable).orderBy(desc(fundAccountsTable.created_at));
+  res.json(accounts);
+});
+
+// GET /fund-accounts/:id - Get a fund account with its current balance
+router.get("/fund-accounts/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [account] = await db.select().from(fundAccountsTable).where(eq(fundAccountsTable.id, id));
+  if (!account) { res.status(404).json({ error: "Fund account not found" }); return; }
+
+  const transactions = await db.select({
+    transaction_type: fundTransactionsTable.transaction_type,
+    amount: fundTransactionsTable.amount,
+  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id));
+
+  res.json({ account, current_balance: computeBalance(account.opening_balance, transactions) });
+});
+
+// GET /fund-accounts/:id/transactions - List fund account transactions with running balance
+router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [account] = await db.select().from(fundAccountsTable).where(eq(fundAccountsTable.id, id));
+  if (!account) { res.status(404).json({ error: "Fund account not found" }); return; }
+
+  // Running balances are computed chronologically, then reversed so the API
+  // keeps returning newest-first rows.
+  const transactions = await db.select({
+    id: fundTransactionsTable.id,
+    transaction_type: fundTransactionsTable.transaction_type,
+    amount: fundTransactionsTable.amount,
+    description: fundTransactionsTable.description,
+    related_expense_id: fundTransactionsTable.related_expense_id,
+    related_transfer_id: fundTransactionsTable.related_transfer_id,
+    created_at: fundTransactionsTable.created_at,
+  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
+
+  let runningBalance = toMoney(account.opening_balance);
+  const result = transactions.map((t) => {
+    const amount = toMoney(t.amount);
+    const effect = signedEffect(t.transaction_type, amount);
+    runningBalance += effect;
+    return {
+      ...t,
+      amount: amount,
+      moneyIn: effect > 0 ? effect : 0,
+      moneyOut: effect < 0 ? -effect : 0,
+      running_balance: Math.round(runningBalance * 100) / 100,
+    };
+  }).reverse();
+
+  res.json({ account, transactions: result, current_balance: Math.round(runningBalance * 100) / 100 });
+});
+
+// ---------------------------------------------------------------------------
+// Fund transfers
+// ---------------------------------------------------------------------------
+
+class TransferError extends Error {}
+
+// POST /fund-transfers - Create a fund transfer (atomic: transfer record +
+// transfer_out + transfer_in are committed together; transfers have no P&L impact).
+router.post("/fund-transfers", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { from_account_id, to_account_id, amount, date, description } = req.body;
+  if (from_account_id == null || to_account_id == null || amount == null || !date) {
+    res.status(400).json({ error: "from_account_id, to_account_id, amount, and date are required" }); return;
+  }
+  if (from_account_id === to_account_id) {
+    res.status(400).json({ error: "From and to accounts must be different" }); return;
+  }
+
+  const amountNum = toMoney(amount);
+  if (amountNum <= 0) {
+    res.status(400).json({ error: "amount must be greater than zero" }); return;
+  }
+
+  try {
+    const transfer = await db.transaction(async (tx) => {
+      if (!(await requireFundAccount(tx, from_account_id)) || !(await requireFundAccount(tx, to_account_id))) {
+        throw new TransferError("From or to fund account was not found");
+      }
+
+      // Create the fund transfer record
+      const [transferRecord] = await tx.insert(fundTransfersTable).values({
+        from_account_id,
+        to_account_id,
+        amount: String(amountNum),
+        date,
+        description,
+        created_by: req.user.id,
+      }).returning();
+
+      // Debit the source account
+      await tx.insert(fundTransactionsTable).values({
+        fund_account_id: from_account_id,
+        transaction_type: "transfer_out",
+        amount: String(amountNum),
+        description: description || "Fund transfer",
+        related_transfer_id: transferRecord.id,
+        created_by: req.user.id,
+      });
+
+      // Credit the destination account
+      await tx.insert(fundTransactionsTable).values({
+        fund_account_id: to_account_id,
+        transaction_type: "transfer_in",
+        amount: String(amountNum),
+        description: description || "Fund transfer",
+        related_transfer_id: transferRecord.id,
+        created_by: req.user.id,
+      });
+
+      return transferRecord;
+    });
+
+    res.status(201).json(transfer);
+  } catch (err) {
+    if (err instanceof TransferError) { res.status(400).json({ error: err.message }); return; }
+    throw err;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Operating expenses
+// ---------------------------------------------------------------------------
+
+// GET /finance/expenses - List operating expenses
+router.get("/finance/expenses", async (req, res): Promise<void> => {
+  const { year, month, category } = req.query as Record<string, string>;
+  const conditions = [];
+  if (year) conditions.push(eq(operatingExpensesTable.year, parseInt(year, 10)));
+  if (month) conditions.push(eq(operatingExpensesTable.month, parseInt(month, 10)));
+  if (category) conditions.push(eq(operatingExpensesTable.category, category));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const expenses = await db.select().from(operatingExpensesTable).where(where).orderBy(desc(operatingExpensesTable.createdAt));
+  res.json(expenses.map(e => ({ ...e, amount: parseFloat(String(e.amount)), gst: parseFloat(String(e.gst)) })));
+});
+
+// POST /finance/expenses - Create an operating expense (atomic: the expense
+// row and its fund transaction are committed together).
+router.post("/finance/expenses", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { category, description, amount, year, month, gst = 0, eventId, paidBy, paymentMethod, ...rest } = req.body;
+  if (!category || !description || !amount || !year || !month) {
+    res.status(400).json({ error: "category, description, amount, year, month are required" }); return;
+  }
+  const amountNum = toMoney(amount);
+  const gstNum = toMoney(gst);
+  if (amountNum < 0) { res.status(400).json({ error: "amount must be zero or greater" }); return; }
+  if (gstNum < 0) { res.status(400).json({ error: "gst must be zero or greater" }); return; }
+
+  const linkedEventId = eventId == null ? null : parseInt(String(eventId), 10);
+  if (linkedEventId !== null) {
+    if (!Number.isInteger(linkedEventId)) { res.status(400).json({ error: "eventId must be a valid event id" }); return; }
+    const [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, linkedEventId));
+    if (!event) { res.status(400).json({ error: "Selected event was not found" }); return; }
+  }
+
+  // Actual cash leaving the fund = amount + gst.
+  const cashOut = expenseCashOut(amountNum, gstNum);
+
+  const expense = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(operatingExpensesTable).values({
+      category, description, amount: String(amountNum), gst: String(gstNum), year: parseInt(String(year), 10), month: parseInt(String(month), 10), eventId: linkedEventId, paidBy, paymentMethod, ...rest, createdBy: req.user.id,
+    }).returning();
+
+    // Deduct from the payer's tracked fund account. Payers that do not map to
+    // a tracked account (e.g. "Other"/null) do not touch either fund.
+    const accountId = await resolveTrackedFundAccountId(tx, paidBy);
+    if (accountId !== null && cashOut > 0) {
+      await tx.insert(fundTransactionsTable).values({
+        fund_account_id: accountId,
+        transaction_type: "expense",
+        amount: String(cashOut),
+        description: description || "Expense",
+        related_expense_id: created.id,
+        created_by: req.user.id,
+      });
+    }
+
+    return created;
+  });
+
+  res.status(201).json({ ...expense, amount: parseFloat(String(expense.amount)), gst: parseFloat(String(expense.gst)) });
+});
+
+// PATCH /finance/expenses/:id - Update an operating expense (atomic: expense
+// changes and any fund corrections are committed together). Payment method is
+// metadata only and never affects balances.
+router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { id: _id, createdAt, updatedAt, eventId, createdBy, ...data } = req.body;
+  const updateData: Record<string, unknown> = data;
+
+  // Validate event linkage BEFORE touching the expense or the ledger so a
+  // validation failure can never leave half-applied corrections behind.
+  if (eventId !== undefined) {
+    const linkedEventId = eventId == null ? null : parseInt(String(eventId), 10);
+    if (linkedEventId !== null) {
+      if (!Number.isInteger(linkedEventId)) { res.status(400).json({ error: "eventId must be a valid event id" }); return; }
+      const [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, linkedEventId));
+      if (!event) { res.status(400).json({ error: "Selected event was not found" }); return; }
+    }
+    updateData.eventId = linkedEventId;
+  }
+
+  if (data.amount !== undefined) {
+    const amountNum = toMoney(data.amount);
+    if (amountNum < 0) { res.status(400).json({ error: "amount must be zero or greater" }); return; }
+    updateData.amount = String(amountNum);
+  }
+  if (data.gst !== undefined) {
+    const gstNum = toMoney(data.gst);
+    if (gstNum < 0) { res.status(400).json({ error: "gst must be zero or greater" }); return; }
+    updateData.gst = String(gstNum);
+  }
+
+  const hasFieldUpdates = Object.keys(updateData).length > 0;
+
+  const [expense] = await db.transaction(async (tx) => {
+    const [old] = await tx.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
+    if (!old) return [undefined];
+
+    const updated = hasFieldUpdates
+      ? (await tx.update(operatingExpensesTable).set(updateData).where(eq(operatingExpensesTable.id, id)).returning())[0]
+      : old;
+    if (!updated) return [undefined];
+
+    // --- Fund corrections -------------------------------------------------
+    const oldPayer = old.paidBy ?? null;
+    const newPayer = updated.paidBy ?? null;
+    const oldCash = expenseCashOut(toMoney(old.amount), toMoney(old.gst));
+    const newCash = expenseCashOut(toMoney(updated.amount), toMoney(updated.gst));
+
+    const fundRelevantChanged =
+      oldPayer !== newPayer ||
+      Math.round(oldCash * 100) !== Math.round(newCash * 100);
+
+    if (fundRelevantChanged) {
+      // Reverse the old effect: money goes back into the previously charged fund.
+      const oldAccountId = await resolveTrackedFundAccountId(tx, oldPayer);
+      if (oldAccountId !== null && oldCash > 0) {
+        await tx.insert(fundTransactionsTable).values({
+          fund_account_id: oldAccountId,
+          transaction_type: "expense_reversal",
+          amount: String(oldCash),
+          description: `Reversal of expense #${old.id} paid by ${oldPayer}`,
+          related_expense_id: old.id,
+          created_by: req.user.id,
+        });
+      }
+
+      // Apply the new effect: money leaves the newly responsible fund.
+      const newAccountId = await resolveTrackedFundAccountId(tx, newPayer);
+      if (newAccountId !== null && newCash > 0) {
+        await tx.insert(fundTransactionsTable).values({
+          fund_account_id: newAccountId,
+          transaction_type: "expense",
+          amount: String(newCash),
+          description: updated.description || "Expense",
+          related_expense_id: updated.id,
+          created_by: req.user.id,
+        });
+      }
+    }
+
+    return [updated];
+  });
+
+  if (!expense) { res.status(404).json({ error: "Expense not found" }); return; }
+  res.json({ ...expense, amount: parseFloat(String(expense.amount)), gst: parseFloat(String(expense.gst)) });
+});
+
+// DELETE /finance/expenses/:id - Delete an operating expense (atomic: the
+// deletion and the fund reversal are committed together).
+router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+
+  await db.transaction(async (tx) => {
+    const [expense] = await tx.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
+    if (!expense) return;
+
+    const cashOut = expenseCashOut(toMoney(expense.amount), toMoney(expense.gst));
+    const accountId = await resolveTrackedFundAccountId(tx, expense.paidBy);
+
+    // Reverse the fund transaction (money back into the fund it was paid from).
+    if (accountId !== null && cashOut > 0) {
+      await tx.insert(fundTransactionsTable).values({
+        fund_account_id: accountId,
+        transaction_type: "expense_reversal",
+        amount: String(cashOut),
+        description: `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`,
+        related_expense_id: expense.id,
+        created_by: req.user.id,
+      });
+    }
+
+    await tx.delete(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
+  });
+
+  res.sendStatus(204);
+});
+
+// ---------------------------------------------------------------------------
+// Finance summary & receivables
+// ---------------------------------------------------------------------------
+
+// GET /finance/summary
 router.get("/finance/summary", async (req, res): Promise<void> => {
   const { year, month } = req.query as Record<string, string>;
   const currentYear = parseInt(year || String(new Date().getFullYear()), 10);
@@ -45,63 +443,34 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
   const totalReceivables = revenues.reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
   const overdueReceivables = revenues.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
 
-  res.json({ revenue, directCosts, grossProfit, grossMarginPct, operatingExpenses, ebitda, ebitdaMarginPct, netProfit, netMarginPct, totalReceivables, overdueReceivables });
-});
+  // Capital & funds: current balance of each tracked fund account.
+  const fundAccounts = await db.select().from(fundAccountsTable);
+  const fundTxs = await db.select({
+    fund_account_id: fundTransactionsTable.fund_account_id,
+    transaction_type: fundTransactionsTable.transaction_type,
+    amount: fundTransactionsTable.amount,
+  }).from(fundTransactionsTable);
 
-router.get("/finance/expenses", async (req, res): Promise<void> => {
-  const { year, month, category } = req.query as Record<string, string>;
-  const conditions = [];
-  if (year) conditions.push(eq(operatingExpensesTable.year, parseInt(year, 10)));
-  if (month) conditions.push(eq(operatingExpensesTable.month, parseInt(month, 10)));
-  if (category) conditions.push(eq(operatingExpensesTable.category, category));
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const expenses = await db.select().from(operatingExpensesTable).where(where).orderBy(desc(operatingExpensesTable.createdAt));
-  res.json(expenses.map(e => ({ ...e, amount: parseFloat(String(e.amount)), gst: parseFloat(String(e.gst)) })));
-});
-
-router.post("/finance/expenses", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { category, description, amount, year, month, gst = 0, eventId, ...rest } = req.body;
-  if (!category || !description || !amount || !year || !month) { res.status(400).json({ error: "category, description, amount, year, month are required" }); return; }
-  const linkedEventId = eventId == null ? null : parseInt(String(eventId), 10);
-  if (linkedEventId !== null) {
-    if (!Number.isInteger(linkedEventId)) { res.status(400).json({ error: "eventId must be a valid event id" }); return; }
-    const [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, linkedEventId));
-    if (!event) { res.status(400).json({ error: "Selected event was not found" }); return; }
+  const balancesByAccount = new Map<number, number>();
+  for (const account of fundAccounts) {
+    balancesByAccount.set(account.id, toMoney(account.opening_balance));
   }
-  const [expense] = await db.insert(operatingExpensesTable).values({ category, description, amount: String(amount), gst: String(gst), year: parseInt(String(year), 10), month: parseInt(String(month), 10), eventId: linkedEventId, ...rest, createdBy: req.user.id }).returning();
-  res.status(201).json({ ...expense, amount: parseFloat(String(expense.amount)), gst: parseFloat(String(expense.gst)) });
-});
-
-router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  const { id: _id, createdAt, updatedAt, eventId, ...data } = req.body;
-  const updateData: Record<string, unknown> = data;
-  if (eventId !== undefined) {
-    const linkedEventId = eventId == null ? null : parseInt(String(eventId), 10);
-    if (linkedEventId !== null) {
-      if (!Number.isInteger(linkedEventId)) { res.status(400).json({ error: "eventId must be a valid event id" }); return; }
-      const [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, linkedEventId));
-      if (!event) { res.status(400).json({ error: "Selected event was not found" }); return; }
-    }
-    updateData.eventId = linkedEventId;
+  for (const t of fundTxs) {
+    balancesByAccount.set(t.fund_account_id, (balancesByAccount.get(t.fund_account_id) ?? 0) + signedEffect(t.transaction_type, toMoney(t.amount)));
   }
-  const [expense] = await db.update(operatingExpensesTable).set(updateData).where(eq(operatingExpensesTable.id, id)).returning();
-  if (!expense) { res.status(404).json({ error: "Expense not found" }); return; }
-  res.json({ ...expense, amount: parseFloat(String(expense.amount)), gst: parseFloat(String(expense.gst)) });
+  const balanceOf = (name: string) => {
+    const account = fundAccounts.find(a => a.name === name);
+    return account ? Math.round((balancesByAccount.get(account.id) ?? 0) * 100) / 100 : 0;
+  };
+
+  res.json({
+    revenue, directCosts, grossProfit, grossMarginPct, operatingExpenses, ebitda, ebitdaMarginPct, netProfit, netMarginPct, totalReceivables, overdueReceivables,
+    auronBalance: balanceOf(AURON_ACCOUNT_NAME),
+    rajeshBalance: balanceOf(RAJESH_ACCOUNT_NAME),
+  });
 });
 
-router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  const [expense] = await db.delete(operatingExpensesTable).where(eq(operatingExpensesTable.id, id)).returning();
-  if (!expense) { res.status(404).json({ error: "Expense not found" }); return; }
-  res.sendStatus(204);
-});
-
+// GET /finance/receivables
 router.get("/finance/receivables", async (req, res): Promise<void> => {
   const revenues = await db.select({ r: eventRevenueTable, e: eventsTable }).from(eventRevenueTable)
     .leftJoin(eventsTable, eq(eventsTable.id, eventRevenueTable.eventId))

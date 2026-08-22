@@ -8,6 +8,7 @@ import {
   useListEvents,
   getListEventsQueryKey,
   getGetEventQueryKey,
+  getGetFinanceSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -76,11 +77,34 @@ export default function ExpensesList() {
   const [date, setDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [eventId, setEventId] = useState("");
+  const [paidBy, setPaidBy] = useState<string>("Auron Event Productions");
+  const [paymentMethod, setPaymentMethod] = useState<string>("GPay / UPI");
+  const [otherPaidByName, setOtherPaidByName] = useState("");
+  const [otherPaymentMethodName, setOtherPaymentMethodName] = useState("");
 
   const resetForm = () => {
     setCategory("Admin"); setDescription(""); setAmount(""); setGst("0");
     setYear(new Date().getFullYear().toString()); setMonth((new Date().getMonth() + 1).toString());
     setDate(""); setReferenceNumber(""); setEventId("");
+    setOtherPaidByName(""); setOtherPaymentMethodName("");
+  };
+
+  // "Other - <name>" values are round-tripped into the dedicated name inputs.
+  const loadPayerFields = (paidByValue: string | null | undefined, methodValue: string | null | undefined) => {
+    if (paidByValue?.startsWith("Other")) {
+      setPaidBy("Other");
+      setOtherPaidByName(paidByValue.slice("Other".length).replace(/^[\s\-–—]+/, ""));
+    } else {
+      setPaidBy(paidByValue ?? "");
+      setOtherPaidByName("");
+    }
+    if (methodValue?.startsWith("Other")) {
+      setPaymentMethod("Other");
+      setOtherPaymentMethodName(methodValue.slice("Other".length).replace(/^[\s\-–—]+/, ""));
+    } else {
+      setPaymentMethod(methodValue ?? "");
+      setOtherPaymentMethodName("");
+    }
   };
 
   const openEdit = (exp: any) => {
@@ -94,28 +118,34 @@ export default function ExpensesList() {
     setDate(exp.date ? exp.date.split('T')[0] : "");
     setReferenceNumber(exp.referenceNumber || "");
     setEventId(exp.eventId ? String(exp.eventId) : "");
+    loadPayerFields(exp.paidBy, exp.paymentMethod);
     setEditOpen(true);
   };
 
   const invalidateExpenseAndEventQueries = (eventIds: Array<number | null | undefined>) => {
     queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetFinanceSummaryQueryKey() });
     for (const id of new Set(eventIds.filter((id): id is number => typeof id === "number"))) {
       queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(id) });
     }
   };
 
   const handleCreate = () => {
-    if (!category || !description || !amount || !year || !month) {
+    if (!category || !description || !amount || !year || !month || !paidBy) {
       toast({ title: "Validation Error", description: "Required fields missing", variant: "destructive" });
       return;
     }
     const linkedEventId = eventId ? Number(eventId) : null;
+    const effectivePaidBy = paidBy === "Other" && otherPaidByName.trim() ? `Other - ${otherPaidByName.trim()}` : paidBy;
+    const effectivePaymentMethod = paymentMethod === "Other" && otherPaymentMethodName.trim() ? `Other - ${otherPaymentMethodName.trim()}` : paymentMethod;
     createExpense.mutate({
       data: {
         category, description, amount: Number(amount), gst: Number(gst),
         year: Number(year), month: Number(month), date: date || undefined, referenceNumber,
         eventId: linkedEventId,
+        paidBy: paidBy ? effectivePaidBy : null,
+        paymentMethod: paymentMethod ? effectivePaymentMethod : null,
       }
     }, {
       onSuccess: () => {
@@ -130,15 +160,22 @@ export default function ExpensesList() {
 
   const handleUpdate = () => {
     if (!selectedExpense) return;
-    if (!category || !description || !amount || !year || !month) return;
+    if (!category || !description || !amount || !year || !month) {
+      toast({ title: "Validation Error", description: "Required fields missing", variant: "destructive" });
+      return;
+    }
     
     const linkedEventId = eventId ? Number(eventId) : null;
+    const effectivePaidBy = paidBy === "Other" && otherPaidByName.trim() ? `Other - ${otherPaidByName.trim()}` : paidBy;
+    const effectivePaymentMethod = paymentMethod === "Other" && otherPaymentMethodName.trim() ? `Other - ${otherPaymentMethodName.trim()}` : paymentMethod;
     updateExpense.mutate({
       id: selectedExpense.id,
       data: {
         category, description, amount: Number(amount), gst: Number(gst),
         year: Number(year), month: Number(month), date: date || undefined, referenceNumber,
         eventId: linkedEventId,
+        paidBy: paidBy ? effectivePaidBy : null,
+        paymentMethod: paymentMethod ? effectivePaymentMethod : null,
       }
     }, {
       onSuccess: () => {
@@ -220,6 +257,42 @@ export default function ExpensesList() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Paid By *</Label>
+        <Select value={paidBy} onValueChange={setPaidBy}>
+          <SelectTrigger><SelectValue placeholder="Select paid by" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Auron Event Productions">Auron Event Productions</SelectItem>
+            <SelectItem value="Rajesh PR">Rajesh PR</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        {paidBy === "Other" && (
+          <div className="mt-2">
+            <Label>Paid By Name</Label>
+            <Input value={otherPaidByName} onChange={e => setOtherPaidByName(e.target.value)} placeholder="e.g. John Doe" />
+          </div>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label>Payment Method *</Label>
+        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+          <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="GPay / UPI">GPay / UPI</SelectItem>
+            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+            <SelectItem value="Cheque">Cheque</SelectItem>
+            <SelectItem value="Cash">Cash</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        {paymentMethod === "Other" && (
+          <div className="mt-2">
+            <Label>Payment Method Name</Label>
+            <Input value={otherPaymentMethodName} onChange={e => setOtherPaymentMethodName(e.target.value)} placeholder="e.g. Cash" />
+          </div>
+        )}
       </div>
     </div>
   );

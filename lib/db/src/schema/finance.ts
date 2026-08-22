@@ -14,6 +14,8 @@ export const operatingExpensesTable = pgTable("operating_expenses", {
   date: date("date", { mode: "string" }),
   referenceNumber: text("reference_number"),
   eventId: integer("event_id").references(() => eventsTable.id, { onDelete: "set null" }),
+  paidBy: text("paid_by"),
+  paymentMethod: text("payment_method"),
   createdBy: text("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -18,4 +18,6 @@ export interface FinanceSummary {
   netMarginPct: number;
   totalReceivables?: number;
   overdueReceivables?: number;
+  auronBalance?: number;
+  rajeshBalance?: number;
 }

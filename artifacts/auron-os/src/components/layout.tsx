@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { 
-  BarChart3, 
-  Users, 
-  CalendarDays, 
-  Target, 
-  TrendingUp, 
-  Wallet, 
+import {
+  ArrowUpDown,
+  BarChart3,
+  Users,
+  CalendarDays,
+  Target,
+  TrendingUp,
+  Wallet,
   Receipt,
   ReceiptIndianRupee,
   Briefcase,
@@ -15,7 +16,8 @@ import {
   Settings,
   BellRing,
   Search,
-  Menu
+  Menu,
+  Text
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,8 @@ const NAV_ITEMS = [
   { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/finance/receivables", label: "Receivables", icon: ReceiptIndianRupee },
   { href: "/finance/expenses", label: "Expenses", icon: Receipt },
+  { href: "/fund-transfers", label: "Fund Transfers", icon: ArrowUpDown },
+  { href: "/notes", label: "Notes", icon: Text },
   { href: "/vendors", label: "Vendors", icon: Briefcase },
   { href: "/team", label: "Team", icon: Users2 },
   { href: "/reports", label: "Reports", icon: PieChart },
@@ -53,14 +57,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {NAV_ITEMS.map((item) => {
           const isActive = location === item.href || (location.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/finance");
           return (
-            <Link 
-              key={item.href} 
+            <Link
+              key={item.href}
               href={item.href}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                isActive 
-                  ? "bg-muted text-foreground font-medium" 
+                isActive
+                  ? "bg-muted text-foreground font-medium"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 item.isGold && !isActive && "text-primary/90 hover:text-primary"
               )}
@@ -75,14 +79,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {BOTTOM_NAV_ITEMS.map((item) => {
           const isActive = location === item.href;
           return (
-            <Link 
-              key={item.href} 
+            <Link
+              key={item.href}
               href={item.href}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                isActive 
-                  ? "bg-muted text-foreground font-medium" 
+                isActive
+                  ? "bg-muted text-foreground font-medium"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
@@ -91,7 +95,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </Link>
           );
         })}
-        <button 
+        <button
           onClick={logout}
           className="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-muted-foreground hover:bg-muted/50 hover:text-foreground w-full text-left"
         >
@@ -111,10 +115,10 @@ function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
         </button>
         <div className="relative w-64 max-w-md hidden md:block">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input 
-            type="search" 
-            placeholder="Search OS... (Cmd+K)" 
-            className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-4 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground" 
+          <input
+            type="search"
+            placeholder="Search OS... (Cmd+K)"
+            className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-4 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -133,21 +137,21 @@ function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   return (
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
       {/* Desktop sidebar - hidden on mobile */}
       <aside className="hidden md:flex w-64 border-r bg-sidebar flex-shrink-0 flex-col h-[100dvh] overflow-hidden">
         <SidebarContent />
       </aside>
-      
+
       {/* Mobile drawer using Sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="w-64 p-0 bg-sidebar border-r">
           <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
-      
+
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <AppHeader onMenuClick={() => setMobileMenuOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">

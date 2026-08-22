@@ -752,6 +752,8 @@ export interface FinanceSummary {
   netMarginPct: number;
   totalReceivables?: number;
   overdueReceivables?: number;
+  auronBalance?: number;
+  rajeshBalance?: number;
 }
 
 export interface OperatingExpense {
@@ -768,6 +770,12 @@ export interface OperatingExpense {
   referenceNumber?: string | null;
   /** @nullable */
   eventId?: number | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
   createdAt: string;
 }
 
@@ -784,6 +792,10 @@ export interface OperatingExpenseInput {
   referenceNumber?: string;
   /** @nullable */
   eventId?: number | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
 }
 
 export interface OperatingExpenseUpdate {
@@ -798,6 +810,82 @@ export interface OperatingExpenseUpdate {
   referenceNumber?: string;
   /** @nullable */
   eventId?: number | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+}
+
+export interface FundAccount {
+  id: number;
+  name: string;
+  opening_balance: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface FundTransfer {
+  id: number;
+  from_account_id: number;
+  to_account_id: number;
+  amount: number;
+  date: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface FundTransferInput {
+  from_account_id: number;
+  to_account_id: number;
+  amount: number;
+  date: string;
+  description: string;
+}
+
+export type FundTransactionTransactionType = typeof FundTransactionTransactionType[keyof typeof FundTransactionTransactionType];
+
+
+export const FundTransactionTransactionType = {
+  expense: 'expense',
+  expense_reversal: 'expense_reversal',
+  transfer_in: 'transfer_in',
+  transfer_out: 'transfer_out',
+  adjustment: 'adjustment',
+} as const;
+
+export interface FundTransaction {
+  id: number;
+  fund_account_id: number;
+  transaction_type: FundTransactionTransactionType;
+  amount: number;
+  description?: string;
+  /** @nullable */
+  related_expense_id?: number | null;
+  /** @nullable */
+  related_transfer_id?: number | null;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface Note {
+  id: number;
+  content: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface NoteInput {
+  /** @minLength 1 */
+  content: string;
+  is_pinned?: boolean;
+}
+
+export interface NoteUpdate {
+  /** @minLength 1 */
+  content?: string;
+  is_pinned?: boolean;
 }
 
 export type ReceivablesSummaryByClientItem = {
@@ -1406,6 +1494,20 @@ export type ListOperatingExpensesParams = {
 year?: number;
 month?: number;
 category?: string;
+};
+
+export type GetFundAccount200 = {
+  account?: FundAccount;
+  current_balance?: number;
+};
+
+export type ListFundTransactions200 = {
+  transactions?: FundTransaction[];
+  current_balance?: number;
+};
+
+export type ListNotesParams = {
+unreadOnly?: boolean;
 };
 
 export type ListVendorsParams = {

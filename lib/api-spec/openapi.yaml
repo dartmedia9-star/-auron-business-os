@@ -27,6 +27,12 @@ tags:
     description: Marketing channels and CAC tracking
   - name: finance
     description: Finance and operating expenses
+  - name: fundAccounts
+    description: Capital and funds account management
+  - name: fundTransfers
+    description: Money transfers between fund accounts
+  - name: notes
+    description: In-app notes and reminders
   - name: vendors
     description: Vendor management
   - name: assets
@@ -1102,6 +1108,191 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReceivablesSummary"
+
+  /fund-accounts:
+    get:
+      operationId: listFundAccounts
+      tags: [fundAccounts]
+      summary: List fund accounts
+      responses:
+        "200":
+          description: Fund accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FundAccount"
+
+  /fund-accounts/{id}:
+    get:
+      operationId: getFundAccount
+      tags: [fundAccounts]
+      summary: Get a fund account with its current balance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Fund account with balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: "#/components/schemas/FundAccount"
+                  current_balance:
+                    type: number
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /fund-accounts/{id}/transactions:
+    get:
+      operationId: listFundTransactions
+      tags: [fundAccounts]
+      summary: List fund account transactions with running balance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Fund transactions with balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FundTransaction"
+                  current_balance:
+                    type: number
+        "404":
+          description: Fund account not found
+
+  /fund-transfers:
+    post:
+      operationId: createFundTransfer
+      tags: [fundTransfers]
+      summary: Create a fund transfer between accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundTransferInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundTransfer"
+        "400":
+          description: Invalid transfer data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      summary: List notes
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+    post:
+      operationId: createNote
+      tags: [notes]
+      summary: Create a new note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+  /notes/{id}:
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      summary: Update a note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteUpdate"
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      summary: Delete a note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   # Vendors
   /vendors:
@@ -2770,6 +2961,10 @@ components:
           type: number
         overdueReceivables:
           type: number
+        auronBalance:
+          type: number
+        rajeshBalance:
+          type: number
 
     OperatingExpense:
       type: object
@@ -2796,6 +2991,12 @@ components:
           type: ["string", "null"]
         eventId:
           type: ["integer", "null"]
+        paidBy:
+          type: ["string", "null"]
+        paymentMethod:
+          type: ["string", "null"]
+        createdBy:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2825,6 +3026,10 @@ components:
           type: string
         eventId:
           type: ["integer", "null"]
+        paidBy:
+          type: ["string", "null"]
+        paymentMethod:
+          type: ["string", "null"]
 
     OperatingExpenseUpdate:
       type: object
@@ -2849,6 +3054,129 @@ components:
           type: string
         eventId:
           type: ["integer", "null"]
+        paidBy:
+          type: ["string", "null"]
+        paymentMethod:
+          type: ["string", "null"]
+
+    # Fund schemas
+    FundAccount:
+      type: object
+      required: [id, name, opening_balance, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        opening_balance:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FundTransfer:
+      type: object
+      required: [id, from_account_id, to_account_id, amount, date, description, created_by, created_at]
+      properties:
+        id:
+          type: integer
+        from_account_id:
+          type: integer
+        to_account_id:
+          type: integer
+        amount:
+          type: number
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    FundTransferInput:
+      type: object
+      required: [from_account_id, to_account_id, amount, date, description]
+      properties:
+        from_account_id:
+          type: integer
+        to_account_id:
+          type: integer
+        amount:
+          type: number
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    FundTransaction:
+      type: object
+      required: [id, fund_account_id, transaction_type, amount, created_at]
+      properties:
+        id:
+          type: integer
+        fund_account_id:
+          type: integer
+        transaction_type:
+          type: string
+          enum: [expense, expense_reversal, transfer_in, transfer_out, adjustment]
+        amount:
+          type: number
+        description:
+          type: string
+        related_expense_id:
+          type: ["integer", "null"]
+        related_transfer_id:
+          type: ["integer", "null"]
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+
+    # Note schemas
+    Note:
+      type: object
+      required: [id, content, is_pinned, created_at]
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        is_pinned:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    NoteInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+        is_pinned:
+          type: boolean
+
+    NoteUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+        is_pinned:
+          type: boolean
 
     ReceivablesSummary:
       type: object
