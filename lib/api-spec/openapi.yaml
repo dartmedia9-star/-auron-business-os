@@ -2964,6 +2964,26 @@ components:
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        allocations:
+          type: array
+          description: Event allocations. Empty means the whole payment is client-level / unallocated.
+          items:
+            type: object
+            required: [paymentId, eventId, amount]
+            properties:
+              id:
+                type: number
+              paymentId:
+                type: number
+              eventId:
+                type: number
+              amount:
+                type: number
+              eventName:
+                type: ["string", "null"]
 
     ClientPaymentDetail:
       allOf:
@@ -3006,6 +3026,17 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+        allocations:
+          type: array
+          description: When present, replaces the payment's event allocations atomically. An empty array makes the payment client-level / unallocated.
+          items:
+            type: object
+            required: [eventId, amount]
+            properties:
+              eventId:
+                type: number
+              amount:
+                type: number
 
     ClientPaymentListResponse:
       type: object
@@ -4066,6 +4097,9 @@ components:
           type: number
         overdue90:
           type: number
+        unallocatedPaymentsApplied:
+          type: number
+          description: Client-level unallocated payments that reduce totalReceivables but cannot be attributed to an event's due date (aging buckets exclude them)
         byClient:
           type: array
           items:
@@ -4076,7 +4110,16 @@ components:
                 type: number
               clientName:
                 type: string
+              totalBilled:
+                type: number
+              totalReceived:
+                type: number
               outstanding:
+                type: number
+              credit:
+                type: number
+                description: Overpayment / client credit (received above billed)
+              unallocated:
                 type: number
         byEvent:
           type: array

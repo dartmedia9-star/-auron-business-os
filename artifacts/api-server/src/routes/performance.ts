@@ -14,6 +14,7 @@ import {
   clientPaymentsTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
+import { getReceivablesLedger, receivablesForEvents } from "../lib/client-receivables";
 
 const router: IRouter = Router();
 
@@ -237,10 +238,8 @@ async function computeMonthlyPnL(year: number, month: number) {
   const netProfit = ebitda;
   const netMarginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-  const totalReceivables = revenues.reduce((s, r) => s + toMoney(r.outstandingAmount), 0);
-  const overdueReceivables = revenues
-    .filter((r) => r.paymentStatus === "overdue")
-    .reduce((s, r) => s + toMoney(r.outstandingAmount), 0);
+  // Same receivables calculation as /finance/summary (net of client payments).
+  const { total: totalReceivables, overdue: overdueReceivables } = receivablesForEvents(await getReceivablesLedger(), eventIds);
 
   return {
     year,

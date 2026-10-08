@@ -5,6 +5,7 @@
  * Auron Business OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientPaymentUpdateAllocationsItem } from './clientPaymentUpdateAllocationsItem';
 
 export interface ClientPaymentUpdate {
   /** @exclusiveMinimum 0 */
@@ -17,4 +18,6 @@ export interface ClientPaymentUpdate {
   reference?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** When present, replaces the payment's event allocations atomically. An empty array makes the payment client-level / unallocated. */
+  allocations?: ClientPaymentUpdateAllocationsItem[];
 }

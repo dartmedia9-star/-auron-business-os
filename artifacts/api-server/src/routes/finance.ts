@@ -11,8 +11,10 @@ import {
   fundTransactionsTable,
   usersTable,
   clientPaymentsTable,
+  clientsTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
+import { getReceivablesLedger, receivablesForEvents, totalOutstanding } from "../lib/client-receivables";
 
 const router: IRouter = Router();
 
@@ -704,8 +706,9 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
   const netProfit = ebitda;
   const netMarginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-  const totalReceivables = revenues.reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
-  const overdueReceivables = revenues.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
+  // Receivables for the period's events, net of client payments (allocated
+  // and client-level). Payments never change revenue or profit above.
+  const { total: totalReceivables, overdue: overdueReceivables } = receivablesForEvents(await getReceivablesLedger(), eventIds);
 
   // Capital & funds: current balance of every fund account.
   const fundAccounts = await db.select().from(fundAccountsTable).orderBy(desc(fundAccountsTable.created_at));
@@ -741,20 +744,30 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
 });
 
 // GET /finance/receivables
+// totalReceivables is client-level: legacy event collections AND client
+// payments (allocated or client-level) both reduce it. Aging buckets and
+// byEvent use event-level outstanding after allocations; client-level
+// unallocated payments cannot be attributed to a due date, so they are
+// reported separately as unallocatedPaymentsApplied (buckets sum may exceed
+// the total by exactly that amount).
 router.get("/finance/receivables", async (req, res): Promise<void> => {
-  const revenues = await db.select({ r: eventRevenueTable, e: eventsTable }).from(eventRevenueTable)
-    .leftJoin(eventsTable, eq(eventsTable.id, eventRevenueTable.eventId))
-    .where(sql`${eventRevenueTable.outstandingAmount} > 0`);
+  const [ledger, events, clients] = await Promise.all([
+    getReceivablesLedger(),
+    db.select({ id: eventsTable.id, name: eventsTable.name }).from(eventsTable),
+    db.select({ id: clientsTable.id, name: clientsTable.name }).from(clientsTable),
+  ]);
+  const eventNames = new Map(events.map(e => [e.id, e.name]));
+  const clientNames = new Map(clients.map(c => [c.id, c.name]));
 
   const today = new Date();
-  let totalReceivables = 0, dueToday = 0, dueThisWeek = 0, dueThisMonth = 0;
+  let dueToday = 0, dueThisWeek = 0, dueThisMonth = 0;
   let overdue = 0, overdue30 = 0, overdue60 = 0, overdue90 = 0;
 
-  for (const row of revenues) {
-    const outstanding = parseFloat(String(row.r.outstandingAmount));
-    totalReceivables += outstanding;
-    if (row.r.dueDate) {
-      const due = new Date(row.r.dueDate);
+  const openEvents = [...ledger.events.values()].filter(e => e.outstanding > 0);
+  for (const e of openEvents) {
+    const outstanding = e.outstanding;
+    if (e.dueDate) {
+      const due = new Date(e.dueDate);
       const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays === 0) dueToday += outstanding;
       if (diffDays <= 7 && diffDays >= 0) dueThisWeek += outstanding;
@@ -763,13 +776,30 @@ router.get("/finance/receivables", async (req, res): Promise<void> => {
     }
   }
 
-  const byEvent = revenues.map(row => ({
-    eventId: row.r.eventId, eventName: row.e?.name ?? "Unknown",
-    outstanding: parseFloat(String(row.r.outstandingAmount)),
-    dueDate: row.r.dueDate, paymentStatus: row.r.paymentStatus,
+  const totalReceivables = totalOutstanding(ledger);
+  const eventOutstandingTotal = openEvents.reduce((s, e) => s + e.outstanding, 0);
+  const unallocatedPaymentsApplied = Math.round(Math.max(0, eventOutstandingTotal - totalReceivables) * 100) / 100;
+
+  const byClient = [...ledger.clients.values()]
+    .filter(c => c.outstanding > 0 || c.credit > 0)
+    .map(c => ({
+      clientId: c.clientId,
+      clientName: clientNames.get(c.clientId) ?? "Unknown",
+      totalBilled: c.totalBilled,
+      totalReceived: c.totalReceived,
+      outstanding: c.outstanding,
+      credit: c.credit,
+      unallocated: c.unallocated,
+    }))
+    .sort((a, b) => b.outstanding - a.outstanding || b.credit - a.credit);
+
+  const byEvent = openEvents.map(e => ({
+    eventId: e.eventId, eventName: eventNames.get(e.eventId) ?? "Unknown",
+    outstanding: e.outstanding,
+    dueDate: e.dueDate, paymentStatus: e.paymentStatus ?? "pending",
   }));
 
-  res.json({ totalReceivables, dueToday, dueThisWeek, dueThisMonth, overdue, overdue30, overdue60, overdue90, byClient: [], byEvent });
+  res.json({ totalReceivables, unallocatedPaymentsApplied, dueToday, dueThisWeek, dueThisMonth, overdue, overdue30, overdue60, overdue90, byClient, byEvent });
 });
 
 export default router;

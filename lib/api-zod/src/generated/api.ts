@@ -485,7 +485,15 @@ export const ListClientPaymentsResponse = zod.object({
   "unallocated": zod.number().optional(),
   "fundAccountName": zod.string().optional(),
   "createdBy": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional(),
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})).optional().describe('Event allocations. Empty means the whole payment is client-level \/ unallocated.')
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -530,7 +538,15 @@ export const CreateClientPaymentResponse = zod.object({
   "unallocated": zod.number().optional(),
   "fundAccountName": zod.string().optional(),
   "createdBy": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional(),
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})).optional().describe('Event allocations. Empty means the whole payment is client-level \/ unallocated.')
 })
 
 
@@ -586,7 +602,15 @@ export const GetClientPaymentResponse = zod.object({
   "unallocated": zod.number().optional(),
   "fundAccountName": zod.string().optional(),
   "createdBy": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional(),
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})).optional().describe('Event allocations. Empty means the whole payment is client-level \/ unallocated.')
 }).and(zod.object({
   "clientName": zod.string().optional(),
   "allocations": zod.array(zod.object({
@@ -616,7 +640,11 @@ export const UpdateClientPaymentBody = zod.object({
   "fund_account_id": zod.number().optional(),
   "payment_method": zod.string().nullish(),
   "reference": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "allocations": zod.array(zod.object({
+  "eventId": zod.number(),
+  "amount": zod.number()
+})).optional().describe('When present, replaces the payment\'s event allocations atomically. An empty array makes the payment client-level \/ unallocated.')
 })
 
 export const UpdateClientPaymentResponse = zod.object({
@@ -632,7 +660,15 @@ export const UpdateClientPaymentResponse = zod.object({
   "unallocated": zod.number().optional(),
   "fundAccountName": zod.string().optional(),
   "createdBy": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional(),
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})).optional().describe('Event allocations. Empty means the whole payment is client-level \/ unallocated.')
 })
 
 
@@ -1655,10 +1691,15 @@ export const GetReceivablesSummaryResponse = zod.object({
   "overdue30": zod.number(),
   "overdue60": zod.number(),
   "overdue90": zod.number(),
+  "unallocatedPaymentsApplied": zod.number().optional().describe('Client-level unallocated payments that reduce totalReceivables but cannot be attributed to an event\'s due date (aging buckets exclude them)'),
   "byClient": zod.array(zod.object({
   "clientId": zod.number(),
   "clientName": zod.string(),
-  "outstanding": zod.number()
+  "totalBilled": zod.number().optional(),
+  "totalReceived": zod.number().optional(),
+  "outstanding": zod.number(),
+  "credit": zod.number().optional().describe('Overpayment \/ client credit (received above billed)'),
+  "unallocated": zod.number().optional()
 })),
   "byEvent": zod.array(zod.object({
   "eventId": zod.number(),

@@ -287,6 +287,15 @@ export interface ClientPaymentInput {
   allocations?: ClientPaymentInputAllocationsItem[];
 }
 
+export type ClientPaymentAllocationsItem = {
+  id?: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
 export interface ClientPayment {
   id: number;
   clientId: number;
@@ -305,6 +314,9 @@ export interface ClientPayment {
   /** @nullable */
   createdBy?: string | null;
   createdAt?: string;
+  updatedAt?: string;
+  /** Event allocations. Empty means the whole payment is client-level / unallocated. */
+  allocations?: ClientPaymentAllocationsItem[];
 }
 
 export type ClientPaymentDetailAllocationsItem = {
@@ -321,6 +333,11 @@ export type ClientPaymentDetail = ClientPayment & {
   allocations?: ClientPaymentDetailAllocationsItem[];
 };
 
+export type ClientPaymentUpdateAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
 export interface ClientPaymentUpdate {
   /** @exclusiveMinimum 0 */
   amount?: number;
@@ -332,6 +349,8 @@ export interface ClientPaymentUpdate {
   reference?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** When present, replaces the payment's event allocations atomically. An empty array makes the payment client-level / unallocated. */
+  allocations?: ClientPaymentUpdateAllocationsItem[];
 }
 
 export interface ClientPaymentListResponse {
@@ -1081,7 +1100,12 @@ export interface NoteUpdate {
 export type ReceivablesSummaryByClientItem = {
   clientId: number;
   clientName: string;
+  totalBilled?: number;
+  totalReceived?: number;
   outstanding: number;
+  /** Overpayment / client credit (received above billed) */
+  credit?: number;
+  unallocated?: number;
 };
 
 export type ReceivablesSummaryByEventItem = {
@@ -1102,6 +1126,8 @@ export interface ReceivablesSummary {
   overdue30: number;
   overdue60: number;
   overdue90: number;
+  /** Client-level unallocated payments that reduce totalReceivables but cannot be attributed to an event's due date (aging buckets exclude them) */
+  unallocatedPaymentsApplied?: number;
   byClient: ReceivablesSummaryByClientItem[];
   byEvent: ReceivablesSummaryByEventItem[];
 }

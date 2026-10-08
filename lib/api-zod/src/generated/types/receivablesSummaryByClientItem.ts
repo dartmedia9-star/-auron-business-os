@@ -9,5 +9,10 @@
 export type ReceivablesSummaryByClientItem = {
   clientId: number;
   clientName: string;
+  totalBilled?: number;
+  totalReceived?: number;
   outstanding: number;
+  /** Overpayment / client credit (received above billed) */
+  credit?: number;
+  unallocated?: number;
 };

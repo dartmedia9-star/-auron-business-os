@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { ClientPayments } from "@/components/client-payments";
 
 const CLIENT_TYPES = ['individual', 'corporate', 'government', 'ngo', 'association', 'school'];
 
@@ -321,6 +322,8 @@ export default function ClientDetail() {
           </Card>
         </div>
       </div>
+
+      <ClientPayments clientId={id} />
     </div>
   );
 }

@@ -5,6 +5,7 @@
  * Auron Business OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientPaymentAllocationsItem } from './clientPaymentAllocationsItem';
 
 export interface ClientPayment {
   id: number;
@@ -24,4 +25,7 @@ export interface ClientPayment {
   /** @nullable */
   createdBy?: string | null;
   createdAt?: Date;
+  updatedAt?: Date;
+  /** Event allocations. Empty means the whole payment is client-level / unallocated. */
+  allocations?: ClientPaymentAllocationsItem[];
 }

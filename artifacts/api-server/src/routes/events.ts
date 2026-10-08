@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { db, eventsTable, clientsTable, eventRevenueTable, eventCostsTable, companySettingsTable } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
+import { getReceivablesLedger } from "../lib/client-receivables";
 
 const router: IRouter = Router();
 
@@ -25,8 +26,11 @@ async function getEventWithProfitability(eventId: number) {
   const totalCost = directCostsByEvent.get(eventId) ?? 0;
   const grossProfit = netRevenue - totalCost;
   const grossMarginPct = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
-  const totalCollected = parseFloat(String(revenue?.totalCollected ?? 0));
-  const totalOutstanding = parseFloat(String(revenue?.outstandingAmount ?? 0));
+  // Collected/outstanding include client payments allocated to this event
+  // (client-level unallocated payments are shown on the client, not here).
+  const receivable = (await getReceivablesLedger([event.event.clientId])).events.get(eventId);
+  const totalCollected = parseFloat(String(revenue?.totalCollected ?? 0)) + (receivable?.allocated ?? 0);
+  const totalOutstanding = receivable?.outstanding ?? parseFloat(String(revenue?.outstandingAmount ?? 0));
 
   let profitabilityIndicator: string;
   if (netRevenue === 0 && totalCost === 0) profitabilityIndicator = "awaiting_data";
@@ -76,6 +80,7 @@ router.get("/events", async (req, res): Promise<void> => {
   ]);
 
   const directCostsByEvent = await getEventDirectCostTotals(events.map(row => row.event.id));
+  const receivables = await getReceivablesLedger([...new Set(events.map(row => row.event.clientId))]);
   const enriched = await Promise.all(events.map(async (row) => {
     const [revenue] = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, row.event.id));
     const netRevenue = parseFloat(String(revenue?.netRevenue ?? 0));
@@ -101,8 +106,8 @@ router.get("/events", async (req, res): Promise<void> => {
       grossProfit,
       grossMarginPct,
       profitabilityIndicator,
-      totalCollected: parseFloat(String(revenue?.totalCollected ?? 0)),
-      totalOutstanding: parseFloat(String(revenue?.outstandingAmount ?? 0)),
+      totalCollected: parseFloat(String(revenue?.totalCollected ?? 0)) + (receivables.events.get(row.event.id)?.allocated ?? 0),
+      totalOutstanding: receivables.events.get(row.event.id)?.outstanding ?? parseFloat(String(revenue?.outstandingAmount ?? 0)),
     };
   }));
 

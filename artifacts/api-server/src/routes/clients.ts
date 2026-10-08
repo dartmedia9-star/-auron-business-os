@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, ilike, or, sql, inArray } from "drizzle-orm";
-import { db, clientsTable, eventsTable, eventRevenueTable, clientPaymentsTable, paymentAllocationsTable } from "@workspace/db";
+import { eq, desc, ilike, or, sql } from "drizzle-orm";
+import { db, clientsTable, eventsTable, eventRevenueTable } from "@workspace/db";
+import { getReceivablesLedger } from "../lib/client-receivables";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
@@ -8,38 +9,22 @@ const router: IRouter = Router();
 async function computeClientStats(clientId: number) {
   const events = await db.select().from(eventsTable).where(eq(eventsTable.clientId, clientId));
   const eventIds = events.map(event => event.id);
-  const [revenues, directCostsByEvent, clientPayments] = await Promise.all([
+  const [revenues, directCostsByEvent, ledger] = await Promise.all([
     db.select().from(eventRevenueTable),
     getEventDirectCostTotals(eventIds),
-    db.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.clientId, clientId)),
+    getReceivablesLedger([clientId]),
   ]);
   const clientRevenues = revenues.filter(revenue => eventIds.includes(revenue.eventId));
   const lifetimeRevenue = clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.netRevenue)), 0);
   const totalDirectCost = eventIds.reduce((sum, eventId) => sum + (directCostsByEvent.get(eventId) ?? 0), 0);
 
-  // Compatibility-safe "received" calculation:
-  // - legacyCollected: historical event-level totalCollected (existing data)
-  // - newReceived: newly recorded client-level payments (client_payments)
-  // These are distinct pools and NEVER both update for the same new payment, so
-  // adding them does not double count.
-  const legacyCollected = clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.totalCollected)), 0);
-  const newReceived = clientPayments.reduce((sum, p) => sum + parseFloat(String(p.amount)), 0);
-  const totalReceived = legacyCollected + newReceived;
-  // Outstanding cannot fall below zero; excess becomes a credit/advance.
-  let totalOutstanding = lifetimeRevenue - totalReceived;
-  let creditBalance = 0;
-  if (totalOutstanding < 0) {
-    creditBalance = -totalOutstanding;
-    totalOutstanding = 0;
-  }
-
-  // Unallocated amount: new client payments minus what's been allocated to events.
-  const paymentIds = clientPayments.map((p) => p.id);
-  const allocs = paymentIds.length > 0
-    ? await db.select().from(paymentAllocationsTable).where(inArray(paymentAllocationsTable.paymentId, paymentIds))
-    : [];
-  const allocatedTotal = allocs.reduce((sum, a) => sum + parseFloat(String(a.amount)), 0);
-  const unallocatedAmount = newReceived - allocatedTotal;
+  // Received / outstanding / credit come from the shared receivables ledger
+  // (legacy event collections + client payments, see lib/client-receivables).
+  const receivable = ledger.clients.get(clientId);
+  const totalReceived = receivable?.totalReceived ?? 0;
+  const totalOutstanding = receivable?.outstanding ?? 0;
+  const creditBalance = receivable?.credit ?? 0;
+  const unallocatedAmount = receivable?.unallocated ?? 0;
 
   return [{
     clientId,
