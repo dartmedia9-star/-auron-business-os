@@ -2581,6 +2581,7 @@ components:
           type: number
         outstandingReceivables:
           type: number
+          description: Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month)
         repeatClientRate:
           type: number
         cac:
@@ -3795,6 +3796,7 @@ components:
           type: number
         totalReceivables:
           type: number
+          description: Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month)
         overdueReceivables:
           type: number
         auronBalance:
@@ -4025,9 +4027,13 @@ components:
           type: integer
         transaction_type:
           type: string
-          enum: [expense, expense_reversal, transfer_in, transfer_out, adjustment]
+          enum: [expense, expense_reversal, transfer_in, transfer_out, adjustment, client_payment, client_payment_reversal]
         amount:
           type: number
+        transaction_date:
+          type: string
+          format: date
+          description: Effective business date of the cash movement (payment, expense or transfer date)
         description:
           type: string
         related_expense_id:
@@ -4913,6 +4919,7 @@ components:
           type: number
         totalReceivables:
           type: number
+          description: Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month)
         overdueReceivables:
           type: number
         eventCount:
@@ -5162,6 +5169,10 @@ components:
           type: number
         description:
           type: ["string", "null"]
+        transactionDate:
+          type: string
+          format: date
+          description: Effective business date (payment, expense or transfer date) used to bucket cash flow
         createdAt:
           type: string
         createdBy:

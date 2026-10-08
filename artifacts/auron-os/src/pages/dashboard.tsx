@@ -253,7 +253,12 @@ export default function Dashboard() {
                 <span className="font-medium text-emerald-500">{formatCurrency(summary.avgProfitPerEvent)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Outstanding Receivables</span>
+                <span
+                  className="text-sm text-muted-foreground underline decoration-dotted underline-offset-4 cursor-help"
+                  title="Outstanding on this period's events after payments. Client-level payments and client credit can't be assigned to a month, so each client's share is capped at what that client owes overall. See Receivables for full client balances."
+                >
+                  Outstanding Receivables
+                </span>
                 <span className="font-medium text-amber-500">{formatCurrency(summary.outstandingReceivables)}</span>
               </div>
             </div>

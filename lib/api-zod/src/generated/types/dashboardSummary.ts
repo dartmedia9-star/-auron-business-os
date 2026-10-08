@@ -21,6 +21,7 @@ export interface DashboardSummary {
   avgProfitPerEvent: number;
   pipelineValue: number;
   weightedPipeline: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   outstandingReceivables: number;
   repeatClientRate: number;
   /** @nullable */

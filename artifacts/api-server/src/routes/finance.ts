@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 import { getReceivablesLedger, receivablesForEvents, totalOutstanding } from "../lib/client-receivables";
+import { businessToday, isValidDate } from "../lib/business-date";
 
 const router: IRouter = Router();
 
@@ -28,6 +29,13 @@ const router: IRouter = Router();
 // transfer_out      | -amount   money OUT (sent to another fund account)
 // transfer_in       | +amount   money IN  (received from another fund account)
 // adjustment        | ±amount   signed value (positive = in, negative = out)
+//
+// client_payment    | +amount   money IN  (client payment received)
+// client_payment_reversal | -amount money OUT (client payment reversed/edited)
+//
+// transaction_date is the effective business date (transfer date, expense
+// date, payment date); reports bucket by it, never by created_at. A reversal
+// carries the date of the entry it reverses.
 //
 // Stored amounts ALWAYS represent the actual cash movement. For expenses this
 // includes GST (see expenseCashOut below). Balance =
@@ -87,6 +95,18 @@ async function resolveTrackedFundAccountId(tx: Tx, paidBy: string | null | undef
   if (paidBy !== AURON_ACCOUNT_NAME && paidBy !== RAJESH_ACCOUNT_NAME) return null;
   const [account] = await tx.select({ id: fundAccountsTable.id }).from(fundAccountsTable).where(eq(fundAccountsTable.name, paidBy));
   return account?.id ?? null;
+}
+
+// Date of the expense's latest posted ledger entry, so a reversal lands on
+// the same date as the entry it reverses. Falls back to the expense date.
+async function currentExpenseLedgerDate(tx: Tx, expenseId: number, expenseDate: string | null): Promise<string> {
+  const [row] = await tx
+    .select({ transaction_date: fundTransactionsTable.transaction_date })
+    .from(fundTransactionsTable)
+    .where(and(eq(fundTransactionsTable.related_expense_id, expenseId), eq(fundTransactionsTable.transaction_type, "expense")))
+    .orderBy(desc(fundTransactionsTable.id))
+    .limit(1);
+  return row?.transaction_date ?? expenseDate ?? businessToday();
 }
 
 async function requireFundAccount(tx: Tx, id: number): Promise<boolean> {
@@ -322,11 +342,12 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
     id: fundTransactionsTable.id,
     transaction_type: fundTransactionsTable.transaction_type,
     amount: fundTransactionsTable.amount,
+    transaction_date: fundTransactionsTable.transaction_date,
     description: fundTransactionsTable.description,
     related_expense_id: fundTransactionsTable.related_expense_id,
     related_transfer_id: fundTransactionsTable.related_transfer_id,
     created_at: fundTransactionsTable.created_at,
-  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
+  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.transaction_date), asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
 
   let runningBalance = toMoney(account.opening_balance);
   const result = transactions.map((t) => {
@@ -413,6 +434,9 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
   if (from_account_id === to_account_id) {
     res.status(400).json({ error: "From and to accounts must be different" }); return;
   }
+  if (!isValidDate(date)) {
+    res.status(400).json({ error: "date must be a valid date (YYYY-MM-DD)" }); return;
+  }
 
   const amountNum = toMoney(amount);
   if (amountNum <= 0) {
@@ -440,6 +464,7 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
         fund_account_id: from_account_id,
         transaction_type: "transfer_out",
         amount: String(amountNum),
+        transaction_date: date,
         description: description || "Fund transfer",
         related_transfer_id: transferRecord.id,
         created_by: req.user.id,
@@ -450,6 +475,7 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
         fund_account_id: to_account_id,
         transaction_type: "transfer_in",
         amount: String(amountNum),
+        transaction_date: date,
         description: description || "Fund transfer",
         related_transfer_id: transferRecord.id,
         created_by: req.user.id,
@@ -531,6 +557,7 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
         fund_account_id: accountId,
         transaction_type: "expense",
         amount: String(cashOut),
+        transaction_date: created.date ?? businessToday(),
         description: description || "Expense",
         related_expense_id: created.id,
         created_by: req.user.id,
@@ -593,9 +620,15 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
     const oldCash = expenseCashOut(toMoney(old.amount), toMoney(old.gst));
     const newCash = expenseCashOut(toMoney(updated.amount), toMoney(updated.gst));
 
+    // Effective date of the cash movement currently on the ledger. A date
+    // change alone also moves the ledger entry (reverse + re-apply).
+    const oldDate = await currentExpenseLedgerDate(tx, old.id, old.date);
+    const newDate = updated.date ?? oldDate;
+
     const fundRelevantChanged =
       oldPayer !== newPayer ||
-      Math.round(oldCash * 100) !== Math.round(newCash * 100);
+      Math.round(oldCash * 100) !== Math.round(newCash * 100) ||
+      oldDate !== newDate;
 
     if (fundRelevantChanged) {
       // Reverse the old effect: money goes back into the previously charged fund.
@@ -605,6 +638,7 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
           fund_account_id: oldAccountId,
           transaction_type: "expense_reversal",
           amount: String(oldCash),
+          transaction_date: oldDate,
           description: `Reversal of expense #${old.id} paid by ${oldPayer}`,
           related_expense_id: old.id,
           created_by: req.user.id,
@@ -618,6 +652,7 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
           fund_account_id: newAccountId,
           transaction_type: "expense",
           amount: String(newCash),
+          transaction_date: newDate,
           description: updated.description || "Expense",
           related_expense_id: updated.id,
           created_by: req.user.id,
@@ -652,6 +687,7 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
         fund_account_id: accountId,
         transaction_type: "expense_reversal",
         amount: String(cashOut),
+        transaction_date: await currentExpenseLedgerDate(tx, expense.id, expense.date),
         description: `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`,
         related_expense_id: expense.id,
         created_by: req.user.id,

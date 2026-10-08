@@ -283,18 +283,17 @@ router.get("/performance/monthly", async (req, res): Promise<void> => {
   const pnl = await computeMonthlyPnL(year, month);
 
   // Fund account balances as of end of selected month (not current all-time).
-  // Fund transactions use created_at as their effective date per existing ledger semantics.
+  // Fund ledger rows count by their effective business date (transaction_date).
   const fundAccounts = await db
     .select()
     .from(fundAccountsTable)
     .orderBy(desc(fundAccountsTable.created_at));
-  const monthEndTs = new Date(`${pnl.toDate}T23:59:59.999Z`);
   const fundTxs = await db.select({
     fund_account_id: fundTransactionsTable.fund_account_id,
     transaction_type: fundTransactionsTable.transaction_type,
     amount: fundTransactionsTable.amount,
   }).from(fundTransactionsTable)
-    .where(lte(fundTransactionsTable.created_at, monthEndTs));
+    .where(lte(fundTransactionsTable.transaction_date, pnl.toDate));
 
   const balancesByAccount = new Map<number, number>();
   for (const account of fundAccounts) {
@@ -604,7 +603,8 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
   const fromDate = `${year}-${String(month).padStart(2, "0")}-01`;
   const toDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
-  // Fund transactions are dated by created_at
+  // Fund ledger rows are bucketed by their effective business date
+  // (payment / expense / transfer date), not by when they were entered.
   const fundTxs = await db
     .select({
       id: fundTransactionsTable.id,
@@ -612,17 +612,18 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
       transaction_type: fundTransactionsTable.transaction_type,
       amount: fundTransactionsTable.amount,
       description: fundTransactionsTable.description,
+      transaction_date: fundTransactionsTable.transaction_date,
       created_at: fundTransactionsTable.created_at,
       created_by: fundTransactionsTable.created_by,
     })
     .from(fundTransactionsTable)
     .where(
       and(
-        gte(fundTransactionsTable.created_at, new Date(fromDate)),
-        lte(fundTransactionsTable.created_at, new Date(`${toDate}T23:59:59.999Z`)),
+        gte(fundTransactionsTable.transaction_date, fromDate),
+        lte(fundTransactionsTable.transaction_date, toDate),
       ),
     )
-    .orderBy(desc(fundTransactionsTable.created_at));
+    .orderBy(desc(fundTransactionsTable.transaction_date), desc(fundTransactionsTable.created_at), desc(fundTransactionsTable.id));
 
   // Fund transfers in this month
   const transfers = await db
@@ -645,6 +646,7 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
     moneyIn: signedEffect(t.transaction_type, toMoney(t.amount)) > 0 ? toMoney(t.amount) : 0,
     moneyOut: signedEffect(t.transaction_type, toMoney(t.amount)) < 0 ? toMoney(t.amount) : 0,
     description: t.description,
+    transactionDate: t.transaction_date,
     createdAt: t.created_at,
     createdBy: t.created_by,
   }));

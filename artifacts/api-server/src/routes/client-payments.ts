@@ -11,6 +11,7 @@ import {
   fundTransactionsTable,
 } from "@workspace/db";
 import { getReceivablesLedger, round2, type ClientReceivable } from "../lib/client-receivables";
+import { isValidDate } from "../lib/business-date";
 
 const router: IRouter = Router();
 
@@ -22,9 +23,10 @@ const router: IRouter = Router();
 // never automatic (no FIFO). Any unallocated part stays client-level.
 //
 // Fund ledger: every payment posts a `client_payment` (+amount) row to its
-// receiving fund. An edit that changes amount or fund posts a
-// `client_payment_reversal` (-old amount) on the old fund and a new
-// `client_payment` on the new fund; a delete posts the reversal only. The
+// receiving fund, dated with the payment date. An edit that changes amount,
+// fund or date posts a `client_payment_reversal` (-old amount) on the old fund
+// and old date and a new `client_payment` on the new fund and date; a delete
+// posts the reversal on the payment's date. The
 // payment record, allocations, ledger rows and audit log are always written in
 // ONE database transaction.
 // ---------------------------------------------------------------------------
@@ -38,12 +40,6 @@ function parseId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : null;
-}
-
-function isValidDate(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const d = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
 
 class PaymentError extends Error {
@@ -326,6 +322,7 @@ router.post("/clients/:id/payments", async (req, res): Promise<void> => {
         fund_account_id: fundAccount.id,
         transaction_type: "client_payment",
         amount: String(amountNum),
+        transaction_date: payment_date,
         description: `Client payment #${payment.id} from ${client.name}`,
         created_by: req.user.id,
       });
@@ -379,6 +376,7 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
     const updateData: Record<string, unknown> = { updatedBy: req.user.id };
     let newAmount = toMoney(payment.amount);
     let newFundId = payment.fundAccountId;
+    let newDate = payment.paymentDate;
 
     if (amount !== undefined) {
       const amt = round2(toMoney(amount));
@@ -389,6 +387,7 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
     if (payment_date !== undefined) {
       if (!isValidDate(payment_date)) throw new PaymentError(400, "payment_date must be a valid date (YYYY-MM-DD)");
       updateData.paymentDate = payment_date;
+      newDate = payment_date;
     }
     if (fund_account_id !== undefined) {
       const fid = parseId(fund_account_id);
@@ -416,7 +415,9 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
 
     const oldAmount = toMoney(payment.amount);
     const oldFundId = payment.fundAccountId;
-    const fundChanged = oldFundId !== newFundId || Math.round(oldAmount * 100) !== Math.round(newAmount * 100);
+    // A change of amount, fund or payment date reverses the old ledger entry
+    // (on its original date) and posts a new one (on the new date).
+    const fundChanged = oldFundId !== newFundId || Math.round(oldAmount * 100) !== Math.round(newAmount * 100) || payment.paymentDate !== newDate;
 
     await db.transaction(async (tx) => {
       const [result] = await tx.update(clientPaymentsTable).set(updateData).where(eq(clientPaymentsTable.id, id)).returning();
@@ -427,6 +428,7 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
           fund_account_id: oldFundId,
           transaction_type: "client_payment_reversal",
           amount: String(oldAmount),
+          transaction_date: payment.paymentDate,
           description: `Reversal of client payment #${id} (edited)`,
           created_by: req.user.id,
         });
@@ -434,6 +436,7 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
           fund_account_id: newFundId,
           transaction_type: "client_payment",
           amount: String(newAmount),
+          transaction_date: newDate,
           description: `Client payment #${id} (edited)`,
           created_by: req.user.id,
         });
@@ -480,6 +483,7 @@ router.delete("/payments/:id", async (req, res): Promise<void> => {
       fund_account_id: payment.fundAccountId,
       transaction_type: "client_payment_reversal",
       amount: String(toMoney(payment.amount)),
+      transaction_date: payment.paymentDate,
       description: `Reversal of deleted client payment #${id}`,
       created_by: req.user.id,
     });

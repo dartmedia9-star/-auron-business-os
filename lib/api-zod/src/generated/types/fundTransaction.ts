@@ -12,6 +12,8 @@ export interface FundTransaction {
   fund_account_id: number;
   transaction_type: FundTransactionTransactionType;
   amount: number;
+  /** Effective business date of the cash movement (payment, expense or transfer date) */
+  transaction_date?: Date;
   description?: string;
   /** @nullable */
   related_expense_id?: number | null;

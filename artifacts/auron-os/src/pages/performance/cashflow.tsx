@@ -18,6 +18,8 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   transfer_in: { label: "Transfer In", color: "text-emerald-500" },
   transfer_out: { label: "Transfer Out", color: "text-red-500" },
   adjustment: { label: "Adjustment", color: "text-amber-500" },
+  client_payment: { label: "Client Payment", color: "text-emerald-500" },
+  client_payment_reversal: { label: "Payment Reversal", color: "text-red-500" },
 };
 
 export default function PerformanceCashflow() {
@@ -161,7 +163,7 @@ export default function PerformanceCashflow() {
                           {t.description || "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
-                          {formatDate(String(t.createdAt))}
+                          {formatDate(String(t.transactionDate ?? t.createdAt))}
                         </TableCell>
                       </TableRow>
                     );

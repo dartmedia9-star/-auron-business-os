@@ -188,6 +188,37 @@ async function main(): Promise<number> {
   const legacyEv = (await api("GET", `/events/${legacyEvent.id}`)).data;
   check("Legacy event record itself is untouched", eq(legacyEv.revenue?.totalCollected ?? legacyEv.totalCollected, 10000), legacyEv);
 
+  // ── Backdated payments: cash flow uses the payment date ───────────────
+  const cashflow = async (y: number, m: number) => (await api("GET", `/performance/monthly/cashflow?year=${y}&month=${m}`)).data;
+  const monthEnd = async (y: number, m: number, fundId: number) =>
+    ((await api("GET", `/performance/monthly?year=${y}&month=${m}`)).data.fundAccounts as Json[]).find((a) => a.id === fundId)?.balance as number;
+  const now = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).format(new Date());
+  const [entryYear, entryMonth] = now.split("-").map(Number);
+  const fundABefore = await balance(fundA.id);
+  const pnlBeforeBackdated = pnl(await summary());
+
+  const p5 = await api("POST", `/clients/${client.id}/payments`, { amount: 1234, payment_date: `${year}-02-10`, fund_account_id: fundA.id });
+  const ledgerRow = (rows: Json[], type: string) => rows.find((t) => t.type === type && eq(t.amount, 1234));
+  let feb = await cashflow(year, 2);
+  check("Backdated payment appears in its payment month (Feb)", p5.status === 201 && ledgerRow(feb.transactions, "client_payment")?.transactionDate === `${year}-02-10`, feb.transactions);
+  const entry = await cashflow(entryYear, entryMonth);
+  check("Backdated payment does not appear in the entry month", !(entry.transactions as Json[]).some((t) => String(t.description).startsWith(`Client payment #${p5.data.id} `)), entry.transactions);
+  check("Feb month-end balance of Fund A includes it", eq(await monthEnd(year, 2, fundA.id), 1234));
+  check("Jan month-end balance of Fund A excludes it", eq(await monthEnd(year, 1, fundA.id), 0));
+
+  const moved = await api("PATCH", `/payments/${p5.data.id}`, { payment_date: `${year}-05-15` });
+  feb = await cashflow(year, 2);
+  const may = await cashflow(year, 5);
+  check("Date edit: reversal posted on the original date (Feb)", moved.status === 200 && ledgerRow(feb.transactions, "client_payment_reversal")?.transactionDate === `${year}-02-10`, feb.transactions);
+  check("Date edit: new entry posted on the new date (May)", ledgerRow(may.transactions, "client_payment")?.transactionDate === `${year}-05-15`, may.transactions);
+  check("Date edit: Feb month-end back to 0, May includes it", eq(await monthEnd(year, 2, fundA.id), 0) && eq(await monthEnd(year, 5, fundA.id) - (await monthEnd(year, 4, fundA.id)), 1234));
+
+  const delP5 = await api("DELETE", `/payments/${p5.data.id}`);
+  const mayAfter = await cashflow(year, 5);
+  check("Delete: reversal posted on the payment date (May)", delP5.status === 204 && ledgerRow(mayAfter.transactions, "client_payment_reversal")?.transactionDate === `${year}-05-15`, mayAfter.transactions);
+  check("Backdated payment round trip leaves Fund A balance unchanged", eq(await balance(fundA.id), fundABefore));
+  check("Backdated payment round trip leaves P&L unchanged", JSON.stringify(pnl(await summary())) === JSON.stringify(pnlBeforeBackdated));
+
   // ── Fund transfer is internal ──────────────────────────────────────────
   const preTransfer = await summary();
   const transfer = await api("POST", "/fund-transfers", { from_account_id: fundB.id, to_account_id: fundA.id, amount: 5000, date: `${year}-06-02`, description: "Test settlement" });
@@ -196,6 +227,10 @@ async function main(): Promise<number> {
   check("Transfer: P&L unchanged", JSON.stringify(pnl(preTransfer)) === JSON.stringify(pnl(postTransfer)));
   const history = (await api("GET", "/fund-transfers")).data as Json[];
   check("Transfer appears first in history with fund names", history[0]?.id === transfer.data.id && history[0].from_account_name === fundB.name, history[0]);
+  const june = await cashflow(year, 6);
+  const legs = (june.transactions as Json[]).filter((t) => t.type === "transfer_in" || t.type === "transfer_out");
+  check("Transfer ledger legs use the transfer date", legs.length === 2 && legs.every((t) => t.transactionDate === `${year}-06-02`), legs);
+  check("Transfer listed in its month's cash flow", (june.transfers as Json[]).some((t) => t.id === transfer.data.id));
 
   // ── Final reconciliation ───────────────────────────────────────────────
   const final = await summary();

@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, numeric, integer } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, serial, timestamp, numeric, integer, date, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { fundAccountsTable } from "./fundAccounts";
@@ -10,12 +11,18 @@ export const fundTransactionsTable = pgTable("fund_transactions", {
   fund_account_id: integer("fund_account_id").notNull().references(() => fundAccountsTable.id, { onDelete: "restrict" }),
   transaction_type: text("transaction_type").notNull(), // expense | expense_reversal | transfer_in | transfer_out | adjustment
   amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
+  // Effective business date of the cash movement (payment date, expense date,
+  // transfer date). Reporting buckets by this, never by created_at. Added in
+  // migration 0004; historical rows were backfilled from their source record.
+  transaction_date: date("transaction_date", { mode: "string" }).notNull().default(sql`CURRENT_DATE`),
   description: text("description"),
   related_expense_id: integer("related_expense_id").references(() => operatingExpensesTable.id, { onDelete: "set null" }),
   related_transfer_id: integer("related_transfer_id").references(() => fundTransfersTable.id, { onDelete: "set null" }),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   created_by: text("created_by"),
-});
+}, (table) => [
+  index("fund_transactions_transaction_date_idx").on(table.transaction_date),
+]);
 
 export const insertFundTransactionSchema = createInsertSchema(fundTransactionsTable).omit({ id: true, created_at: true });
 export type InsertFundTransaction = z.infer<typeof insertFundTransactionSchema>;

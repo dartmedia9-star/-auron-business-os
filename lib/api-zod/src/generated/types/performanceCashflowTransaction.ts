@@ -16,6 +16,8 @@ export interface PerformanceCashflowTransaction {
   moneyOut: number;
   /** @nullable */
   description?: string | null;
+  /** Effective business date (payment, expense or transfer date) used to bucket cash flow */
+  transactionDate?: Date;
   createdAt?: string;
   /** @nullable */
   createdBy?: string | null;

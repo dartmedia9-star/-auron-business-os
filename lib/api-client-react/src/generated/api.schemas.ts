@@ -75,6 +75,7 @@ export interface DashboardSummary {
   avgProfitPerEvent: number;
   pipelineValue: number;
   weightedPipeline: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   outstandingReceivables: number;
   repeatClientRate: number;
   /** @nullable */
@@ -921,6 +922,7 @@ export interface FinanceSummary {
   ebitdaMarginPct: number;
   netProfit: number;
   netMarginPct: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   totalReceivables?: number;
   overdueReceivables?: number;
   /** Legacy convenience field — current balance of the "Auron Event Productions" account (0 when absent) */
@@ -1061,6 +1063,8 @@ export const FundTransactionTransactionType = {
   transfer_in: 'transfer_in',
   transfer_out: 'transfer_out',
   adjustment: 'adjustment',
+  client_payment: 'client_payment',
+  client_payment_reversal: 'client_payment_reversal',
 } as const;
 
 export interface FundTransaction {
@@ -1068,6 +1072,8 @@ export interface FundTransaction {
   fund_account_id: number;
   transaction_type: FundTransactionTransactionType;
   amount: number;
+  /** Effective business date of the cash movement (payment, expense or transfer date) */
+  transaction_date?: string;
   description?: string;
   /** @nullable */
   related_expense_id?: number | null;
@@ -1647,6 +1653,7 @@ export interface PerformanceMonthly {
   ebitdaMarginPct?: number;
   netProfit: number;
   netMarginPct?: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   totalReceivables?: number;
   overdueReceivables?: number;
   eventCount: number;
@@ -1785,6 +1792,8 @@ export interface PerformanceCashflowTransaction {
   moneyOut: number;
   /** @nullable */
   description?: string | null;
+  /** Effective business date (payment, expense or transfer date) used to bucket cash flow */
+  transactionDate?: string;
   createdAt?: string;
   /** @nullable */
   createdBy?: string | null;

@@ -21,6 +21,7 @@ export interface PerformanceMonthly {
   ebitdaMarginPct?: number;
   netProfit: number;
   netMarginPct?: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   totalReceivables?: number;
   overdueReceivables?: number;
   eventCount: number;

@@ -15,4 +15,6 @@ export const FundTransactionTransactionType = {
   transfer_in: 'transfer_in',
   transfer_out: 'transfer_out',
   adjustment: 'adjustment',
+  client_payment: 'client_payment',
+  client_payment_reversal: 'client_payment_reversal',
 } as const;
