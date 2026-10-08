@@ -7,7 +7,7 @@ import {
   getGetClientProfitabilityQueryKey,
   useUpdateClient
 } from "@workspace/api-client-react";
-import { formatCurrency, formatDate, formatPercentage, formatCompactCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Edit, Mail, Phone, MapPin, Building, Briefcase } from "lucide-react";
@@ -303,8 +303,8 @@ export default function ClientDetail() {
                             </Link>
                           </TableCell>
                           <TableCell>{formatDate(event.date)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCompactCurrency(event.revenue)}</TableCell>
-                          <TableCell className="text-right text-primary font-medium">{formatCompactCurrency(event.grossProfit)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(event.revenue)}</TableCell>
+                          <TableCell className="text-right text-primary font-medium">{formatCurrency(event.grossProfit)}</TableCell>
                           <TableCell className="text-center">{formatPercentage(event.grossMarginPct)}</TableCell>
                         </TableRow>
                       ))

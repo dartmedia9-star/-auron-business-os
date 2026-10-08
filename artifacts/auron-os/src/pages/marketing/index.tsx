@@ -110,7 +110,7 @@ export default function MarketingList() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {hasData ? formatCurrency(data.totalSpend) : "₹0"}
+                  {hasData ? formatCurrency(data.totalSpend) : formatCurrency(0)}
                 </div>
               </CardContent>
             </Card>
@@ -120,7 +120,7 @@ export default function MarketingList() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-primary">
-                  {hasData ? formatCurrency(data.totalRevenue) : "₹0"}
+                  {hasData ? formatCurrency(data.totalRevenue) : formatCurrency(0)}
                 </div>
               </CardContent>
             </Card>

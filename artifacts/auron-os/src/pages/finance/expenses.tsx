@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { invalidateFinance } from "@/lib/finance-queries";
 import {
   useListOperatingExpenses,
@@ -249,11 +250,11 @@ export default function ExpensesList() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Amount *</Label>
-          <Input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} />
+          <MoneyInput value={amount} onValueChange={setAmount} />
         </div>
         <div className="space-y-2">
           <Label>GST Amount</Label>
-          <Input type="number" inputMode="decimal" value={gst} onChange={e => setGst(e.target.value)} />
+          <MoneyInput value={gst} onValueChange={setGst} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">

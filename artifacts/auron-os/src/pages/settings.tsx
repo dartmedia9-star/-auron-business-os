@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,8 +135,8 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid gap-2">
             <Label>Exit Valuation Target</Label>
-            <Input type="number" value={valuationTarget} onChange={e => setValuationTarget(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Enter raw number (e.g. 900000000 for ₹90 Cr)</p>
+            <MoneyInput value={valuationTarget} onValueChange={setValuationTarget} />
+            <p className="text-xs text-muted-foreground">e.g. 900,000,000.00 for ₹90 Cr</p>
           </div>
           <Button onClick={handleSave} disabled={updateSettings.isPending}>Save Targets</Button>
         </CardContent>

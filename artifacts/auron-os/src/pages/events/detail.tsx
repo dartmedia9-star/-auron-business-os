@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { parseAmount, sumMoney } from "@/lib/money";
+import { MoneyInput } from "@/components/ds/money-input";
 import { useRoute, Link, useLocation } from "wouter";
 import { 
   useGetEvent, 
@@ -205,20 +207,32 @@ export default function EventDetail() {
     });
   };
 
+  // Same rule as the API: contract (excl. GST) - discount = taxable value
+  // (P&L revenue); + GST = final invoice value (what the client is billed).
+  const revContractNum = parseAmount(revContract) ?? 0;
+  const revDiscountNum = parseAmount(revDiscount) ?? 0;
+  const revGstNum = parseAmount(revGst) ?? 0;
+  const revTaxable = sumMoney(revContractNum, -revDiscountNum);
+  const revInvoiceTotal = sumMoney(revTaxable, revGstNum);
+
   const handleUpdateRevenue = () => {
-    if (!revContract) {
-      toast({ title: "Validation Error", description: "Contract value is required", variant: "destructive" });
+    if (parseAmount(revContract) == null) {
+      toast({ title: "Validation Error", description: "Contract value (excl. GST) is required", variant: "destructive" });
+      return;
+    }
+    if (revDiscountNum > revContractNum) {
+      toast({ title: "Validation Error", description: "Discount can't be more than the contract value", variant: "destructive" });
       return;
     }
     upsertRevenue.mutate({
       eventId: id,
       data: {
-        contractValue: Number(revContract),
-        gst: Number(revGst),
-        discount: Number(revDiscount),
-        advanceReceived: Number(revAdvance),
-        secondPayment: Number(revSecond),
-        finalPayment: Number(revFinal),
+        contractValue: revContractNum,
+        gst: revGstNum,
+        discount: revDiscountNum,
+        advanceReceived: parseAmount(revAdvance) ?? 0,
+        secondPayment: parseAmount(revSecond) ?? 0,
+        finalPayment: parseAmount(revFinal) ?? 0,
         paymentStatus: revStatus as any,
         invoiceNumber: revInvoice,
         dueDate: revDueDate || undefined
@@ -280,7 +294,7 @@ export default function EventDetail() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="Revenue (billed)" value={event.totalRevenue ?? 0} icon={TrendingUp} tone="primary" />
+        <KpiCard label="Revenue (excl. GST)" value={event.totalRevenue ?? 0} icon={TrendingUp} tone="primary" />
         <KpiCard label="Total cost" value={event.totalCost ?? 0} icon={Receipt} tone="neutral" />
         <KpiCard label="Gross profit" value={event.grossProfit ?? 0} icon={Banknote} tone={(event.grossProfit ?? 0) < 0 ? "out" : "in"} hint={`Margin ${formatPercentage(event.grossMarginPct)}`} />
         <KpiCard
@@ -297,7 +311,7 @@ export default function EventDetail() {
           <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
             <div className="space-y-1">
               <CardTitle>Revenue Breakdown</CardTitle>
-              <CardDescription>Contract value and payment schedules</CardDescription>
+              <CardDescription>Revenue excludes GST; the client is invoiced including GST</CardDescription>
             </div>
             <Button size="sm" variant="outline" onClick={() => setRevenueOpen(true)}>
               {event.revenue ? "Edit Revenue" : "Add Revenue"}
@@ -306,15 +320,15 @@ export default function EventDetail() {
           <CardContent className="pt-6">
             {event.revenue ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Contract Value</div>
-                    <div className="text-lg font-medium">{formatCurrency(event.revenue.contractValue)}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Net Revenue</div>
-                    <div className="text-lg font-medium">{formatCurrency(event.revenue.netRevenue)}</div>
-                  </div>
+                <InvoiceBreakdown
+                  contractValue={event.revenue.contractValue}
+                  discount={event.revenue.discount ?? 0}
+                  gst={event.revenue.gst}
+                  invoiceValue={event.revenue.totalInvoiceValue}
+                />
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Revenue for P&amp;L (excl. GST)</span>
+                  <span className="font-semibold tabular-nums">{formatCurrency(event.revenue.netRevenue)}</span>
                 </div>
                 <div className="border-t pt-4">
                   <h4 className="text-sm font-semibold">Money received</h4>
@@ -512,7 +526,7 @@ export default function EventDetail() {
             </div>
             <div className="space-y-2">
               <Label>Amount *</Label>
-              <Input type="number" inputMode="decimal" value={costAmount} onChange={e => setCostAmount(e.target.value)} />
+              <MoneyInput value={costAmount} onValueChange={setCostAmount} />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
@@ -531,7 +545,7 @@ export default function EventDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>GST Amount</Label>
-                <Input type="number" inputMode="decimal" value={costGst} onChange={e => setCostGst(e.target.value)} />
+                <MoneyInput value={costGst} onValueChange={setCostGst} />
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
@@ -587,19 +601,26 @@ export default function EventDetail() {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
             <div className="space-y-2">
-              <Label>Contract Value *</Label>
-              <Input type="number" inputMode="decimal" value={revContract} onChange={e => setRevContract(e.target.value)} />
+              <Label htmlFor="rev-contract">Contract Value (Excl. GST) *</Label>
+              <MoneyInput id="rev-contract" value={revContract} onValueChange={setRevContract} />
+              <p className="text-xs text-muted-foreground">The taxable amount before GST.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>GST Amount</Label>
-                <Input type="number" inputMode="decimal" value={revGst} onChange={e => setRevGst(e.target.value)} />
+                <Label htmlFor="rev-discount">Discount</Label>
+                <MoneyInput id="rev-discount" value={revDiscount} onValueChange={setRevDiscount} />
+                <p className="text-xs text-muted-foreground">Reduces the taxable value.</p>
               </div>
               <div className="space-y-2">
-                <Label>Discount</Label>
-                <Input type="number" inputMode="decimal" value={revDiscount} onChange={e => setRevDiscount(e.target.value)} />
+                <Label htmlFor="rev-gst">GST Amount</Label>
+                <MoneyInput id="rev-gst" value={revGst} onValueChange={setRevGst} />
+                <p className="text-xs text-muted-foreground">GST on the value after discount.</p>
               </div>
             </div>
+            <InvoiceBreakdown contractValue={revContractNum} discount={revDiscountNum} gst={revGstNum} invoiceValue={revInvoiceTotal} live />
+            {revDiscountNum > revContractNum && (
+              <p className="text-xs text-destructive">Discount can't be more than the contract value.</p>
+            )}
             <div className="border-t pt-4 mt-2">
               <h4 className="text-sm font-medium">Legacy collections</h4>
               <p className="mb-3 mt-1 text-xs text-muted-foreground">
@@ -608,16 +629,16 @@ export default function EventDetail() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Advance Received</Label>
-                  <Input type="number" inputMode="decimal" value={revAdvance} onChange={e => setRevAdvance(e.target.value)} />
+                  <MoneyInput value={revAdvance} onValueChange={setRevAdvance} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Second Payment</Label>
-                    <Input type="number" inputMode="decimal" value={revSecond} onChange={e => setRevSecond(e.target.value)} />
+                    <MoneyInput value={revSecond} onValueChange={setRevSecond} />
                   </div>
                   <div className="space-y-2">
                     <Label>Final Payment</Label>
-                    <Input type="number" inputMode="decimal" value={revFinal} onChange={e => setRevFinal(e.target.value)} />
+                    <MoneyInput value={revFinal} onValueChange={setRevFinal} />
                   </div>
                 </div>
               </div>
@@ -650,6 +671,54 @@ export default function EventDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/*
+ * Contract (excl. GST) - discount + GST = final invoice value (incl. GST).
+ * The invoice is what the client owes; P&L revenue is the taxable value.
+ */
+function InvoiceBreakdown({
+  contractValue,
+  discount,
+  gst,
+  invoiceValue,
+  live = false,
+}: {
+  contractValue: number;
+  discount: number;
+  gst: number;
+  invoiceValue: number;
+  live?: boolean;
+}) {
+  const row = "flex items-center justify-between gap-3 py-1.5 text-sm";
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2" aria-live={live ? "polite" : undefined}>
+      <div className={row}>
+        <span className="text-muted-foreground">Contract Value (Excl. GST)</span>
+        <span className="tabular-nums">{formatCurrency(contractValue)}</span>
+      </div>
+      {discount > 0 && (
+        <>
+          <div className={row}>
+            <span className="text-muted-foreground">Less: Discount</span>
+            <span className="tabular-nums">−{formatCurrency(discount)}</span>
+          </div>
+          <div className={row}>
+            <span className="text-muted-foreground">Taxable Value</span>
+            <span className="tabular-nums">{formatCurrency(sumMoney(contractValue, -discount))}</span>
+          </div>
+        </>
+      )}
+      <div className={row}>
+        <span className="text-muted-foreground">Add: GST Amount</span>
+        <span className="tabular-nums">{formatCurrency(gst)}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-3 border-t pt-2.5 pb-1">
+        <span className="text-sm font-semibold">Final Invoice Value (Incl. GST)</span>
+        <span className="text-base font-semibold tabular-nums">{formatCurrency(invoiceValue)}</span>
+      </div>
     </div>
   );
 }

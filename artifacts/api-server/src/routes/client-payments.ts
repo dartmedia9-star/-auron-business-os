@@ -12,7 +12,7 @@ import {
 } from "@workspace/db";
 import { getReceivablesLedger, round2, type ClientReceivable } from "../lib/client-receivables";
 import { isValidDate } from "../lib/business-date";
-import { toMoney, type DbExecutor, type Tx } from "../lib/fund-ledger";
+import { formatMoneyText, toMoney, type DbExecutor, type Tx } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
@@ -133,7 +133,7 @@ async function validateAllocations(
     const remaining = round2((ledger.events.get(r.eventId)?.outstanding ?? 0) + (ownByEvent.get(r.eventId) ?? 0));
     if (r.amount > remaining) {
       const ev = eventMap.get(r.eventId)!;
-      throw new PaymentError(400, `Allocation to "${ev.name}" exceeds its outstanding amount (₹${remaining.toLocaleString("en-IN")}). Leave the excess client-level instead.`);
+      throw new PaymentError(400, `Allocation to "${ev.name}" exceeds its outstanding amount (${formatMoneyText(remaining)}). Leave the excess client-level instead.`);
     }
   }
 

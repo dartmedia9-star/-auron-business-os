@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListAssets, 
   getListAssetsQueryKey,
@@ -152,17 +153,17 @@ export default function AssetsList() {
         </div>
         <div className="space-y-2">
           <Label>Purchase Cost *</Label>
-          <Input type="number" inputMode="decimal" value={purchaseCost} onChange={e => setPurchaseCost(e.target.value)} />
+          <MoneyInput value={purchaseCost} onValueChange={setPurchaseCost} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Current Book Value</Label>
-          <Input type="number" inputMode="decimal" value={currentBookValue} onChange={e => setCurrentBookValue(e.target.value)} />
+          <MoneyInput value={currentBookValue} onValueChange={setCurrentBookValue} />
         </div>
         <div className="space-y-2">
           <Label>Maintenance Cost</Label>
-          <Input type="number" inputMode="decimal" value={maintenanceCost} onChange={e => setMaintenanceCost(e.target.value)} />
+          <MoneyInput value={maintenanceCost} onValueChange={setMaintenanceCost} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">

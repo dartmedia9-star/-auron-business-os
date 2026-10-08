@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListLeads, 
   useGetPipelineSummary, 
@@ -8,7 +9,7 @@ import {
   useUpdateLead,
   useDeleteLead
 } from "@workspace/api-client-react";
-import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Target, TrendingUp, ListTodo, Plus, Trash2, Search, ArrowUpDown, RotateCcw } from "lucide-react";
@@ -240,7 +241,7 @@ export default function LeadsPipeline() {
               <Target className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold truncate">{formatCompactCurrency(summary.pipelineValue)}</div>
+              <div className="text-xl sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.pipelineValue)}</div>
               <p className="text-xs text-muted-foreground mt-1">{summary.totalLeads} active deals</p>
             </CardContent>
           </Card>
@@ -250,7 +251,7 @@ export default function LeadsPipeline() {
               <TrendingUp className="h-4 w-4 text-primary hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-primary truncate">{formatCompactCurrency(summary.weightedPipeline)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-primary tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.weightedPipeline)}</div>
               <p className="text-xs text-muted-foreground mt-1">Prob adjusted</p>
             </CardContent>
           </Card>
@@ -270,7 +271,7 @@ export default function LeadsPipeline() {
               <ListTodo className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold truncate">{formatCompactCurrency(summary.avgDealSize)}</div>
+              <div className="text-xl sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.avgDealSize)}</div>
             </CardContent>
           </Card>
         </div>
@@ -356,7 +357,7 @@ export default function LeadsPipeline() {
                     </span>
                     <span className="text-xs text-muted-foreground">{stageLeads.length}</span>
                   </div>
-                  <div className="text-sm font-medium">{formatCompactCurrency(stageValue)}</div>
+                  <div className="text-sm font-medium">{formatCurrency(stageValue)}</div>
                 </div>
                 
                 <div className="flex-1 p-3 overflow-y-auto space-y-3">
@@ -405,7 +406,7 @@ export default function LeadsPipeline() {
                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold border", stage.color)}>
                   {stage.label} ({stageLeads.length})
                 </span>
-                <span className="text-sm font-medium">{formatCompactCurrency(stageValue)}</span>
+                <span className="text-sm font-medium">{formatCurrency(stageValue)}</span>
               </div>
               <div className="space-y-3">
                 {stageLeads.map(lead => (
@@ -475,7 +476,7 @@ export default function LeadsPipeline() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Expected Value</Label>
-                <Input type="number" inputMode="decimal" value={expectedValue} onChange={e => setExpectedValue(e.target.value)} />
+                <MoneyInput value={expectedValue} onValueChange={setExpectedValue} />
               </div>
               <div className="space-y-2">
                 <Label>Probability (%)</Label>

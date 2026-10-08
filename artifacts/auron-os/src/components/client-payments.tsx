@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
+import { formatMoney } from "@/lib/money";
 import {
   useGetClientReceivables,
   getGetClientReceivablesQueryKey,
@@ -43,8 +45,7 @@ import { invalidateFinance } from "@/lib/finance-queries";
 
 const PAYMENT_METHODS = ["Bank Transfer", "UPI", "Cheque", "Cash", "Card", "Other"];
 
-const money = (value: number | null | undefined) =>
-  `₹${(value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const money = (value: number | null | undefined) => formatMoney(value ?? 0);
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -136,11 +137,11 @@ export function ClientPayments({ clientId }: { clientId: number }) {
           <ErrorState title="Couldn't load receivables" error={receivables.error} onRetry={() => void receivables.refetch()} />
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="Total Revenue" value={money(r.totalBilled)} />
+            <Stat label="Total Invoiced" value={money(r.totalBilled)} hint="Incl. GST" />
             <Stat label="Total Received" value={money(r.totalReceived)} />
             <Stat label="Outstanding" value={money(r.outstanding)} tone={r.outstanding > 0 ? "warning" : undefined} />
             {r.credit > 0 ? (
-              <Stat label="Client Credit" value={money(r.credit)} tone="success" hint="Received more than billed" />
+              <Stat label="Client Credit" value={money(r.credit)} tone="success" hint="Received more than invoiced" />
             ) : (
               <Stat label="Unallocated" value={money(r.unallocated)} hint="Client-level payments" />
             )}
@@ -389,7 +390,7 @@ function PaymentDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Amount *</Label>
-                <Input type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" autoFocus />
+                <MoneyInput value={amount} onValueChange={setAmount} autoFocus />
               </div>
               <div className="space-y-2">
                 <Label>Payment Date *</Label>
@@ -469,17 +470,14 @@ function PaymentDialog({
                             {ev.eventDate ? `${formatDate(ev.eventDate)} · ` : ""}{max > 0 ? `${money(max)} outstanding` : "Fully paid"}
                           </div>
                         </div>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          className="h-8 w-28"
-                          disabled={!row}
-                          value={row?.amount ?? ""}
-                          onChange={(e) => setAllocations((rows) => rows.map((a) => (a.eventId === ev.eventId ? { ...a, amount: e.target.value } : a)))}
-                          placeholder="0"
-                        />
+                        <div className="w-32 shrink-0">
+                          <MoneyInput
+                            className="h-8"
+                            disabled={!row}
+                            value={row?.amount ?? ""}
+                            onValueChange={(v) => setAllocations((rows) => rows.map((a) => (a.eventId === ev.eventId ? { ...a, amount: v } : a)))}
+                          />
+                        </div>
                       </div>
                     );
                   })}

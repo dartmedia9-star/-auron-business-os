@@ -1,5 +1,5 @@
 import { useGetEventProfitabilityReport, getGetEventProfitabilityReportQueryKey } from "@workspace/api-client-react";
-import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -27,7 +27,7 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-muted-foreground">Total Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCompactCurrency(data.summary.totalRevenue)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(data.summary.totalRevenue)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -35,7 +35,7 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-primary">Total Gross Profit</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-primary">{formatCompactCurrency(data.summary.totalGrossProfit)}</div>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(data.summary.totalGrossProfit)}</div>
               </CardContent>
             </Card>
             <Card>

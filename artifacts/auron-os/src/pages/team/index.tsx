@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListEmployees, 
   getListEmployeesQueryKey,
@@ -151,7 +152,7 @@ export default function TeamList() {
         </div>
         <div className="space-y-2">
           <Label>Salary</Label>
-          <Input type="number" inputMode="decimal" value={salary} onChange={e => setSalary(e.target.value)} />
+          <MoneyInput value={salary} onValueChange={setSalary} />
         </div>
       </div>
       <div className="space-y-2">

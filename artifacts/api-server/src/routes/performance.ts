@@ -14,7 +14,7 @@ import {
   clientPaymentsTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
-import { getReceivablesLedger, receivablesForEvents } from "../lib/client-receivables";
+import { getReceivablesLedger, receivablesForEvents, eventInvoiceValue, legacyEventOutstanding } from "../lib/client-receivables";
 import { isInternalTransfer, round2, signedEffect, toMoney } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
@@ -347,6 +347,7 @@ router.get("/performance/monthly/revenue", async (req, res): Promise<void> => {
     .where(inArray(eventRevenueTable.eventId, eventIds))
     .orderBy(desc(eventsTable.eventDate));
 
+  const revLedger = await getReceivablesLedger([...new Set(revenueRows.map((r) => r.clientId).filter((id): id is number => id != null))]);
   const result = revenueRows.map((r) => ({
     eventId: r.revenue.eventId,
     eventName: r.eventName,
@@ -358,8 +359,9 @@ router.get("/performance/monthly/revenue", async (req, res): Promise<void> => {
     discount: toMoney(r.revenue.discount),
     gst: toMoney(r.revenue.gst),
     netRevenue: toMoney(r.revenue.netRevenue),
+    totalInvoiceValue: eventInvoiceValue(r.revenue),
     totalCollected: toMoney(r.revenue.totalCollected),
-    outstandingAmount: toMoney(r.revenue.outstandingAmount),
+    outstandingAmount: revLedger.events.get(r.revenue.eventId)?.outstanding ?? legacyEventOutstanding(r.revenue),
     paymentStatus: r.revenue.paymentStatus,
     invoiceNumber: r.revenue.invoiceNumber,
     dueDate: r.revenue.dueDate,
@@ -478,6 +480,7 @@ router.get("/performance/monthly/profitability", async (req, res): Promise<void>
   const revenueByEvent = new Map<number, any>();
   for (const r of allRevenues) revenueByEvent.set(r.eventId, r);
 
+  const monthLedger = await getReceivablesLedger([...new Set(monthEvents.map((r) => r.event.clientId))]);
   const events = monthEvents.map((row) => {
     const rev = revenueByEvent.get(row.event.id);
     const revenue = rev ? toMoney(rev.netRevenue) : 0;
@@ -497,7 +500,7 @@ router.get("/performance/monthly/profitability", async (req, res): Promise<void>
       directCost: cost,
       profit,
       marginPct,
-      outstandingAmount: rev ? toMoney(rev.outstandingAmount) : 0,
+      outstandingAmount: monthLedger.events.get(row.event.id)?.outstanding ?? legacyEventOutstanding(rev),
     };
   });
 
@@ -539,6 +542,7 @@ router.get("/performance/monthly/events", async (req, res): Promise<void> => {
   const revenueByEvent = new Map<number, any>();
   for (const r of allRevenues) revenueByEvent.set(r.eventId, r);
 
+  const monthLedger = await getReceivablesLedger([...new Set(monthEvents.map((r) => r.event.clientId))]);
   const events = monthEvents.map((row) => {
     const rev = revenueByEvent.get(row.event.id);
     const revenue = rev ? toMoney(rev.netRevenue) : 0;
@@ -559,8 +563,8 @@ router.get("/performance/monthly/events", async (req, res): Promise<void> => {
       directCost: cost,
       profit,
       marginPct,
-      totalCollected: rev ? toMoney(rev.totalCollected) : 0,
-      outstandingAmount: rev ? toMoney(rev.outstandingAmount) : 0,
+      totalCollected: (rev ? toMoney(rev.totalCollected) : 0) + (monthLedger.events.get(row.event.id)?.allocated ?? 0),
+      outstandingAmount: monthLedger.events.get(row.event.id)?.outstanding ?? legacyEventOutstanding(rev),
     };
   });
 

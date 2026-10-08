@@ -1,3 +1,4 @@
+import { formatAxisMoney } from "@/lib/money";
 import { useState } from "react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import {
   getGetEventTypeBreakdownQueryKey,
   getGetDashboardInsightsQueryKey
 } from "@workspace/api-client-react";
-import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { TrendingUp, TrendingDown, ArrowUpRight, DollarSign, Wallet, Target, Activity, Plus } from "lucide-react";
 import { 
   LineChart, 
@@ -46,7 +47,7 @@ function MetricCard({
         <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       </CardHeader>
       <CardContent>
-        <div className="text-xl sm:text-2xl font-bold truncate">{value}</div>
+        <div className="text-xl sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere]">{value}</div>
         {trend != null && (
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 flex flex-wrap items-center">
             <span className={trend >= 0 ? "text-money-in flex items-center mr-1" : "text-money-out flex items-center mr-1"}>
@@ -123,30 +124,30 @@ export default function Dashboard() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <MetricCard 
           title="Total Revenue" 
-          value={formatCompactCurrency(summary.revenue)} 
+          value={formatCurrency(summary.revenue)}
           trend={summary.revenueGrowthPct} 
           icon={DollarSign} 
         />
         <MetricCard 
           title="Gross Profit" 
-          value={formatCompactCurrency(summary.grossProfit)} 
+          value={formatCurrency(summary.grossProfit)}
           trend={null} 
           icon={Wallet} 
           trendLabel={`${formatPercentage(summary.grossMarginPct)} margin`}
         />
         <MetricCard 
           title="EBITDA" 
-          value={formatCompactCurrency(summary.ebitda)} 
+          value={formatCurrency(summary.ebitda)}
           trend={null} 
           icon={Activity} 
           trendLabel={`${formatPercentage(summary.ebitdaMarginPct)} margin`}
         />
         <MetricCard 
           title="Weighted Pipeline" 
-          value={formatCompactCurrency(summary.weightedPipeline)} 
+          value={formatCurrency(summary.weightedPipeline)}
           trend={null} 
           icon={Target} 
-          trendLabel={`from ${formatCompactCurrency(summary.pipelineValue)} total`}
+          trendLabel={`from ${formatCurrency(summary.pipelineValue)} total`}
         />
       </div>
 
@@ -173,7 +174,7 @@ export default function Dashboard() {
                     fontSize={10} 
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `₹${value / 100000}L`}
+                    tickFormatter={(value: number) => formatAxisMoney(value)}
                     width={40}
                   />
                   <RechartsTooltip 

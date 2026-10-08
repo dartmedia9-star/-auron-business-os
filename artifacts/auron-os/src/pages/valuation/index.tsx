@@ -1,5 +1,6 @@
+import { formatAxisMoney } from "@/lib/money";
 import { useGetValuationCommandCenter, getGetValuationCommandCenterQueryKey } from "@workspace/api-client-react";
-import { formatCompactCurrency, formatCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Target, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -47,15 +48,15 @@ export default function ValuationCommand() {
             <CardTitle className="text-sm text-primary">Target Valuation</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold text-primary">{formatCompactCurrency(data.targetValuation)}</div>
+            <div className="text-4xl font-bold text-primary">{formatCurrency(data.targetValuation)}</div>
             <div className="mt-4 pt-4 border-t border-primary/20 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Current Revenue</span>
-                <span className="font-medium">{formatCompactCurrency(data.currentMetrics.revenue)}</span>
+                <span className="font-medium">{formatCurrency(data.currentMetrics.revenue)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Current EBITDA</span>
-                <span className="font-medium">{formatCompactCurrency(data.currentMetrics.ebitda)}</span>
+                <span className="font-medium">{formatCurrency(data.currentMetrics.ebitda)}</span>
               </div>
             </div>
           </CardContent>
@@ -71,10 +72,10 @@ export default function ValuationCommand() {
                 <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="year" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val/10000000}Cr`} />
+                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val: number) => formatAxisMoney(val)} />
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-                    formatter={(value: number) => [formatCompactCurrency(value), undefined]}
+                    formatter={(value: number) => [formatCurrency(value), undefined]}
                   />
                   <Line type="monotone" dataKey="Base" stroke="var(--color-chart-3)" strokeWidth={2} dot={{ r: 4 }} />
                   <Line type="monotone" dataKey="Aggressive" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 4 }} />
@@ -99,11 +100,11 @@ export default function ValuationCommand() {
             <CardContent className="space-y-6">
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Estimated Valuation</div>
-                <div className="text-3xl font-bold">{formatCompactCurrency(scenario.estimatedValuation)}</div>
+                <div className="text-3xl font-bold">{formatCurrency(scenario.estimatedValuation)}</div>
                 {scenario.gapToTarget && scenario.gapToTarget > 0 ? (
                   <div className="text-sm text-amber-500 mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    Gap: {formatCompactCurrency(scenario.gapToTarget)}
+                    Gap: {formatCurrency(scenario.gapToTarget)}
                   </div>
                 ) : (
                   <div className="text-sm text-money-in mt-1 flex items-center gap-1">
@@ -116,11 +117,11 @@ export default function ValuationCommand() {
                 <h4 className="text-sm font-semibold">Required Metrics</h4>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Annual Revenue</span>
-                  <span className="font-medium">{formatCompactCurrency(scenario.requiredRevenue)}</span>
+                  <span className="font-medium">{formatCurrency(scenario.requiredRevenue)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">EBITDA</span>
-                  <span className="font-medium">{formatCompactCurrency(scenario.requiredEbitda)}</span>
+                  <span className="font-medium">{formatCurrency(scenario.requiredEbitda)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Required Growth</span>

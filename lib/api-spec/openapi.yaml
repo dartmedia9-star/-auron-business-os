@@ -5276,6 +5276,10 @@ components:
           type: number
         netRevenue:
           type: number
+          description: P&L revenue, excluding GST (contract value - discount)
+        totalInvoiceValue:
+          type: number
+          description: Invoice value including GST (contract value - discount + GST)
         totalCollected:
           type: number
         outstandingAmount:

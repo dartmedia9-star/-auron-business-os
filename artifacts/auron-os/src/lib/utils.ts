@@ -1,33 +1,14 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatMoney } from "./money"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | null | undefined): string {
-  if (amount == null) return "—"
-  
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(amount)
-}
-
-export function formatCompactCurrency(amount: number | null | undefined): string {
-  if (amount == null) return "—"
-  
-  const abs = Math.abs(amount)
-  if (abs >= 10000000) {
-    return `₹${(amount / 10000000).toFixed(2)}Cr`
-  }
-  if (abs >= 100000) {
-    return `₹${(amount / 100000).toFixed(2)}L`
-  }
-  
-  return formatCurrency(amount)
+/** ₹10,000.00: the app-wide money format (see lib/money.ts). */
+export function formatCurrency(amount: number | string | null | undefined): string {
+  return formatMoney(amount)
 }
 
 export function formatPercentage(value: number | null | undefined): string {

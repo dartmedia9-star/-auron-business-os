@@ -77,3 +77,10 @@ export function computeBalance(openingBalance: unknown, transactions: Array<{ tr
   }
   return round2(balance);
 }
+
+const MONEY_TEXT = new Intl.NumberFormat("en-US", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** ₹10,000.00: same display format as the web app, for messages the server writes. */
+export function formatMoneyText(value: number): string {
+  return MONEY_TEXT.format(round2(value));
+}

@@ -77,7 +77,7 @@ export default function ReceivablesList() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Client</TableHead>
-                  <TableHead className="text-right">Billed</TableHead>
+                  <TableHead className="text-right">Invoiced (incl. GST)</TableHead>
                   <TableHead className="text-right">Received</TableHead>
                   <TableHead className="text-right">Outstanding</TableHead>
                   <TableHead className="w-[1%]" />
@@ -93,7 +93,7 @@ export default function ReceivablesList() {
                     <TableCell className="text-right"><Money value={c.totalReceived ?? 0} tone="neutral" exact={false} /></TableCell>
                     <TableCell className="text-right font-semibold">
                       {(c.credit ?? 0) > 0 ? (
-                        <span className="text-money-in" title="Received more than billed">{formatINR(c.credit)} credit</span>
+                        <span className="text-money-in" title="Received more than invoiced">{formatINR(c.credit)} credit</span>
                       ) : (
                         <span className="text-warning">{formatINR(c.outstanding)}</span>
                       )}

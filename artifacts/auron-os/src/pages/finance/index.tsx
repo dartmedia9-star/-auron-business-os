@@ -80,7 +80,7 @@ export default function FinanceSummary() {
   const maxBar = Math.max(data.revenue, 1);
 
   const waterfall: Array<{ label: string; value: number; kind: "total" | "less" | "result"; hint?: string }> = [
-    { label: "Revenue", value: data.revenue, kind: "total", hint: "Billed on events dated this year" },
+    { label: "Revenue", value: data.revenue, kind: "total", hint: "Excl. GST, on events dated this year" },
     { label: "Direct costs", value: data.directCosts, kind: "less", hint: "Vendor and event-linked costs incl. GST" },
     { label: "Gross profit", value: data.grossProfit, kind: "result", hint: `Margin ${formatPercentage(data.grossMarginPct)}` },
     { label: "Operating expenses", value: data.operatingExpenses, kind: "less", hint: "Overheads, excl. GST" },
@@ -93,7 +93,7 @@ export default function FinanceSummary() {
       {header}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Revenue (billed)" value={data.revenue} icon={TrendingUp} tone="primary" hint={`${year} events`} href={`/performance/${year}`} />
+        <KpiCard label="Revenue (excl. GST)" value={data.revenue} icon={TrendingUp} tone="primary" hint={`${year} events`} href={`/performance/${year}`} />
         <KpiCard label="Gross profit" value={data.grossProfit} icon={Banknote} tone={data.grossProfit < 0 ? "out" : "in"} hint={`Margin ${formatPercentage(data.grossMarginPct)}`} />
         <KpiCard label="EBITDA" value={data.ebitda} icon={Landmark} tone={data.ebitda < 0 ? "out" : "in"} hint={`Margin ${formatPercentage(data.ebitdaMarginPct)}`} />
         <KpiCard

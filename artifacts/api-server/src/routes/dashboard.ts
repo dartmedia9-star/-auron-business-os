@@ -3,6 +3,7 @@ import { eq, desc, sql, gte, lte, and, isNull } from "drizzle-orm";
 import { db, eventsTable, clientsTable, eventRevenueTable, leadsTable, operatingExpensesTable, marketingSpendTable, notificationsTable } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 import { getReceivablesLedger, receivablesForEvents, totalOutstanding as totalOutstandingReceivables } from "../lib/client-receivables";
+import { formatMoneyText } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
@@ -226,7 +227,7 @@ router.get("/dashboard/insights", async (req, res): Promise<void> => {
   // Outstanding receivables
   const totalOutstanding = totalOutstandingReceivables(await getReceivablesLedger());
   if (totalOutstanding > 0) {
-    insights.push({ id: "receivables", type: "receivables", message: `Total outstanding receivables: ₹${(totalOutstanding / 100000).toFixed(1)} lakh. Review overdue accounts.`, severity: totalOutstanding > 500000 ? "warning" : "info", value: totalOutstanding, changeDirection: null });
+    insights.push({ id: "receivables", type: "receivables", message: `Total outstanding receivables: ${formatMoneyText(totalOutstanding)}. Review overdue accounts.`, severity: totalOutstanding > 500000 ? "warning" : "info", value: totalOutstanding, changeDirection: null });
   }
 
   // Win rate

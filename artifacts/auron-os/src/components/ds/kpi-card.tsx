@@ -52,7 +52,7 @@ export function KpiCard({
           </span>
         )}
       </div>
-      <AnimatedNumber value={value} format={format} className={cn("mt-2 block truncate text-xl font-semibold tabular-nums tracking-tight sm:text-2xl", t.value)} />
+      <AnimatedNumber value={value} format={format} className={cn("mt-2 block text-xl [overflow-wrap:anywhere] font-semibold tabular-nums tracking-tight sm:text-2xl", t.value)} />
       {hint && <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

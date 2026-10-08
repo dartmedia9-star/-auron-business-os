@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
+import { formatMoney } from "@/lib/money";
 import {
   useListFundAccounts,
   getListFundAccountsQueryKey,
@@ -265,11 +267,7 @@ export default function FundTransfers() {
     );
   };
 
-  const formatCurrency = (value: number) =>
-    `₹${value.toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const formatCurrency = (value: number) => formatMoney(value);
 
   return (
     <div className="space-y-6">
@@ -401,15 +399,7 @@ export default function FundTransfers() {
             <div className="space-y-2">
               <Label>Opening Balance *</Label>
 
-              <Input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={openingBalance}
-                onChange={(e) => setOpeningBalance(e.target.value)}
-                placeholder="0.00"
-              />
+              <MoneyInput value={openingBalance} onValueChange={setOpeningBalance} />
 
               <p className="text-xs text-muted-foreground">
                 Enter the amount that should be treated as the
@@ -486,17 +476,7 @@ export default function FundTransfers() {
               <div className="space-y-2">
                 <Label>Opening Balance *</Label>
 
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={newAccountOpeningBalance}
-                  onChange={(e) =>
-                    setNewAccountOpeningBalance(e.target.value)
-                  }
-                  placeholder="0.00"
-                />
+                <MoneyInput value={newAccountOpeningBalance} onValueChange={setNewAccountOpeningBalance} />
 
                 <p className="text-xs text-muted-foreground">
                   Enter the company's starting/current funds for this

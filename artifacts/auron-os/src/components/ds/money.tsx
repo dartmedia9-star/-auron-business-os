@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
-const inr0 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
-const inr2 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
-
-/** ₹ amount for display; whole rupees by default, paise kept when present. */
-export function formatINR(value: number | null | undefined, opts: { exact?: boolean } = {}): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return (opts.exact ? inr2 : inr0).format(value);
+/**
+ * ₹10,000.00: the app-wide money format (see lib/money.ts). `exact` is kept
+ * for existing callers; every amount now shows two decimals.
+ */
+export function formatINR(value: number | null | undefined, _opts: { exact?: boolean } = {}): string {
+  return formatMoney(value);
 }
 
 /*

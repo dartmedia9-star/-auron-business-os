@@ -14,12 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowRight, History, RefreshCw } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
-const formatAmount = (value: number) =>
-  `₹${value.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const formatAmount = (value: number) => formatMoney(value);
 
 const fundName = (name: string | null, id: number) =>
   name ?? `Fund account #${id}`;

@@ -15,20 +15,24 @@ export { round2 };
 //
 // Two payment sources exist and are kept additive, never merged:
 //  - Legacy event-level collections: event_revenue.totalCollected (and its
-//    derived outstandingAmount). These predate client_payments and are never
-//    rewritten.
+//    outstanding). These predate client_payments and are never rewritten.
 //  - Client payments: client_payments.amount. A payment is either fully or
 //    partly allocated to events (payment_allocations) or left client-level /
 //    unallocated. Recording one never touches event_revenue, so the two sources
 //    cannot double count the same money.
 //
+// Two values per event, never mixed:
+//   revenue (P&L)        = netRevenue = contract value - discount, excl. GST
+//   invoice (receivable) = totalInvoiceValue = contract - discount + GST
+// What the client owes is the GST-inclusive invoice; profit uses revenue.
+//
 // Client level (authoritative):
-//   billed      = sum of event_revenue.netRevenue for the client's events
+//   billed      = sum of event invoice values (incl. GST) for the client's events
 //   received    = legacy collected + all client payments (allocated or not)
 //   outstanding = max(0, billed - received); any excess is client credit.
 //
 // Event level (for aging and per-event views):
-//   outstanding = max(0, legacy outstandingAmount - allocations to the event)
+//   outstanding = max(0, invoice - legacy collected - allocations to the event)
 //   Unallocated payments reduce the client total but are never assigned to an
 //   event, so sum(event outstanding) >= client outstanding. The difference is
 //   reported as unallocated payments applied.
@@ -37,10 +41,39 @@ export { round2 };
 // here affects revenue or profit.
 // ---------------------------------------------------------------------------
 
+type RevenueAmounts = Pick<
+  typeof eventRevenueTable.$inferSelect,
+  "contractValue" | "discount" | "gst" | "netRevenue" | "totalInvoiceValue" | "totalCollected"
+>;
+
+/**
+ * GST-inclusive invoice value of an event (what the client is billed):
+ * contract value (excl. GST) - discount + GST amount. The stored
+ * totalInvoiceValue is used when present; records saved without it fall back
+ * to the same formula from their components.
+ */
+export function eventInvoiceValue(rev: RevenueAmounts | null | undefined): number {
+  if (!rev) return 0;
+  const stored = toMoney(rev.totalInvoiceValue);
+  if (stored !== 0) return round2(stored);
+  const contract = toMoney(rev.contractValue);
+  const base = contract !== 0 ? contract - toMoney(rev.discount) : toMoney(rev.netRevenue);
+  return round2(base + toMoney(rev.gst));
+}
+
+/** Invoice still due from legacy event-level collections alone (before client payments). */
+export function legacyEventOutstanding(rev: RevenueAmounts | null | undefined): number {
+  if (!rev) return 0;
+  return round2(Math.max(0, eventInvoiceValue(rev) - toMoney(rev.totalCollected)));
+}
+
 export type EventReceivable = {
   eventId: number;
   clientId: number;
+  /** P&L revenue, excl. GST. */
   revenue: number;
+  /** Invoice value, incl. GST: what the client owes for the event. */
+  invoiceValue: number;
   legacyCollected: number;
   allocated: number;
   outstanding: number;
@@ -127,13 +160,15 @@ export async function getReceivablesLedger(clientIds?: number[], executor: DbExe
     const rev = revenueByEvent.get(ev.id);
     const revenue = rev ? toMoney(rev.netRevenue) : 0;
     const legacyCollected = rev ? toMoney(rev.totalCollected) : 0;
-    const legacyOutstanding = rev ? toMoney(rev.outstandingAmount) : 0;
+    const invoiceValue = eventInvoiceValue(rev);
+    const legacyOutstanding = legacyEventOutstanding(rev);
     const allocated = allocatedByEvent.get(ev.id) ?? 0;
     const outstanding = round2(Math.max(0, legacyOutstanding - allocated));
     events.set(ev.id, {
       eventId: ev.id,
       clientId: ev.clientId,
       revenue,
+      invoiceValue,
       legacyCollected,
       allocated: round2(allocated),
       outstanding,
@@ -141,7 +176,7 @@ export async function getReceivablesLedger(clientIds?: number[], executor: DbExe
       paymentStatus: rev?.paymentStatus ?? null,
     });
     const c = client(ev.clientId);
-    c.totalBilled += revenue;
+    c.totalBilled += invoiceValue;
     c.legacyCollected += legacyCollected;
     c.eventOutstanding += outstanding;
   }

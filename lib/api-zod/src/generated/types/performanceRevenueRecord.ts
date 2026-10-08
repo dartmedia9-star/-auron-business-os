@@ -17,7 +17,10 @@ export interface PerformanceRevenueRecord {
   contractValue?: number;
   discount?: number;
   gst?: number;
+  /** P&L revenue, excluding GST (contract value - discount) */
   netRevenue: number;
+  /** Invoice value including GST (contract value - discount + GST) */
+  totalInvoiceValue?: number;
   totalCollected?: number;
   outstandingAmount?: number;
   paymentStatus?: string;

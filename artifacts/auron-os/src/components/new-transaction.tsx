@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { MoneyInput } from "@/components/ds/money-input";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -129,20 +130,13 @@ function Field({ label, required, hint, children, htmlFor }: { label: string; re
 
 function AmountInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">₹</span>
-      <Input
-        id={id}
-        inputMode="decimal"
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="0"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-12 pl-8 text-xl font-semibold tabular-nums"
-      />
-    </div>
+    <MoneyInput
+      id={id}
+      value={value}
+      onValueChange={onChange}
+      symbolClassName="text-lg font-medium"
+      className="h-12 pl-8 text-xl font-semibold"
+    />
   );
 }
 
@@ -379,7 +373,7 @@ function MoneyReceivedForm({ initialClientId, initialEventId, onClose }: { initi
                 <span className="text-destructive">Couldn't load this client's balance: {errorMessage(receivables.error)}</span>
               ) : r ? (
                 <>
-                  <span>Billed <span className="font-medium text-foreground tabular-nums">{formatINR(r.totalBilled)}</span></span>
+                  <span>Invoiced (incl. GST) <span className="font-medium text-foreground tabular-nums">{formatINR(r.totalBilled)}</span></span>
                   <span>Received <span className="font-medium text-foreground tabular-nums">{formatINR(r.totalReceived)}</span></span>
                   <span>Outstanding <span className="font-medium text-foreground tabular-nums">{formatINR(r.outstanding)}</span></span>
                   {r.credit > 0 && <span>Credit <span className="font-medium text-money-in tabular-nums">{formatINR(r.credit)}</span></span>}

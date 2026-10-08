@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useListClients, getListClientsQueryKey, useCreateClient } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { formatCurrency, formatCompactCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -329,8 +329,8 @@ export default function ClientsList() {
                         </span>
                       </TableCell>
                       <TableCell className="text-center font-medium">{client.totalEvents || 0}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCompactCurrency(client.lifetimeRevenue)}</TableCell>
-                      <TableCell className="text-right text-primary font-medium">{formatCompactCurrency(client.lifetimeGrossProfit)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(client.lifetimeRevenue)}</TableCell>
+                      <TableCell className="text-right text-primary font-medium">{formatCurrency(client.lifetimeGrossProfit)}</TableCell>
                       <TableCell className={cn("text-right font-medium", client.totalOutstanding && client.totalOutstanding > 0 ? "text-amber-500" : "")}>
                         {formatCurrency(client.totalOutstanding)}
                       </TableCell>

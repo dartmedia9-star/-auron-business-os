@@ -1,3 +1,4 @@
+import { formatAxisMoney } from "@/lib/money";
 import { useMemo } from "react";
 import { useGetPerformanceAnnual } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
@@ -71,7 +72,7 @@ export default function PerformanceAnnual() {
                 <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}k`} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatAxisMoney(v)} />
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
                   <Legend />
                   <Bar dataKey="Revenue" fill="#3b82f6" radius={[2, 2, 0, 0]} />
