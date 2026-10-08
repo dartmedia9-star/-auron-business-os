@@ -8,6 +8,11 @@
 
 export type PerformanceMonthlyCashflowClientPaymentsItem = {
   id: number;
+  clientId?: number;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  fundAccountName?: string | null;
   amount: number;
   paymentDate: Date;
   fundAccountId: number;

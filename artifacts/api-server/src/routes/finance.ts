@@ -16,35 +16,21 @@ import {
 import { getEventDirectCostTotals } from "../lib/event-financials";
 import { getReceivablesLedger, receivablesForEvents, totalOutstanding } from "../lib/client-receivables";
 import { businessToday, isValidDate } from "../lib/business-date";
+import { loadUserNames } from "../lib/user-names";
+import { computeBalance, round2, signedEffect, toMoney, type Tx } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// Fund ledger model
-//
-// transaction_type  | effect on the fund's balance
-// ------------------+--------------------------------------------------------
-// expense           | -amount   money OUT (operating expense paid from fund)
-// expense_reversal  | +amount   money IN  (reversal/correction of an expense)
-// transfer_out      | -amount   money OUT (sent to another fund account)
-// transfer_in       | +amount   money IN  (received from another fund account)
-// adjustment        | ±amount   signed value (positive = in, negative = out)
-//
-// client_payment    | +amount   money IN  (client payment received)
-// client_payment_reversal | -amount money OUT (client payment reversed/edited)
+// Fund ledger model: see lib/fund-ledger.ts for the per-type effects.
 //
 // transaction_date is the effective business date (transfer date, expense
 // date, payment date); reports bucket by it, never by created_at. A reversal
 // carries the date of the entry it reverses.
-//
-// Stored amounts ALWAYS represent the actual cash movement. For expenses this
-// includes GST (see expenseCashOut below). Balance =
-// account.opening_balance + sum(signed effects). Unknown transaction types
-// contribute 0 so legacy/noise rows cannot silently corrupt balances.
 // ---------------------------------------------------------------------------
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
+// Legacy finance-summary fields (auronBalance / rajeshBalance) still report
+// these two accounts by name. Nothing else depends on fund names.
 const AURON_ACCOUNT_NAME = "Auron Event Productions";
 const RAJESH_ACCOUNT_NAME = "Rajesh PR";
 
@@ -56,45 +42,63 @@ function expenseCashOut(amount: number, gst: number): number {
   return Math.round((amount + gst) * 100) / 100;
 }
 
-function toMoney(value: unknown): number {
-  const n = parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
+// "Other" / "Other - <name>" is the untracked payer label used by the expense
+// form, so no fund account may be named like it.
+const UNTRACKED_PAYER_PATTERN = /^other(\s*[-–—].*)?$/i;
 
-function signedEffect(transactionType: string, amount: number): number {
-  switch (transactionType) {
-    case "expense":
-    case "transfer_out":
-      return -amount;
-    case "expense_reversal":
-    case "transfer_in":
-      return amount;
-    case "client_payment":
-      return amount;
-    case "client_payment_reversal":
-      return -amount;
-    case "adjustment":
-      return amount;
-    default:
-      return 0;
-  }
-}
-
-function computeBalance(openingBalance: unknown, transactions: Array<{ transaction_type: string; amount: unknown }>): number {
-  let balance = toMoney(openingBalance);
-  for (const t of transactions) {
-    balance += signedEffect(t.transaction_type, toMoney(t.amount));
-  }
-  return Math.round(balance * 100) / 100;
-}
-
-// Resolves a payer label to a tracked fund account id. Returns null for any
-// payer that does not map to one of the tracked accounts (e.g. "Other" or
-// null) — those expenses must not deduct either fund.
-async function resolveTrackedFundAccountId(tx: Tx, paidBy: string | null | undefined): Promise<number | null> {
-  if (paidBy !== AURON_ACCOUNT_NAME && paidBy !== RAJESH_ACCOUNT_NAME) return null;
+// Resolves an expense's Paid By label to the fund account with exactly that
+// name. Every fund account, including ones created later, is a valid payer.
+// Labels that are not a fund account ("Other", "Other - X", null) are
+// untracked and never touch a fund.
+async function resolvePayerFundAccountId(tx: Tx, paidBy: string | null | undefined): Promise<number | null> {
+  if (typeof paidBy !== "string" || paidBy.trim() === "" || UNTRACKED_PAYER_PATTERN.test(paidBy.trim())) return null;
   const [account] = await tx.select({ id: fundAccountsTable.id }).from(fundAccountsTable).where(eq(fundAccountsTable.name, paidBy));
   return account?.id ?? null;
+}
+
+// What an expense has actually taken out of each fund so far, from its own
+// ledger rows (expense minus expense_reversal), with the date of its latest
+// expense row there. Edits and deletes reverse exactly this, so an expense
+// that never posted (e.g. paid from a fund before dynamic payers existed)
+// cannot credit money back that was never deducted.
+async function postedExpenseByFund(tx: Tx, expenseId: number): Promise<Map<number, { net: number; date: string | null }>> {
+  const rows = await tx
+    .select({
+      id: fundTransactionsTable.id,
+      fund_account_id: fundTransactionsTable.fund_account_id,
+      transaction_type: fundTransactionsTable.transaction_type,
+      amount: fundTransactionsTable.amount,
+      transaction_date: fundTransactionsTable.transaction_date,
+    })
+    .from(fundTransactionsTable)
+    .where(eq(fundTransactionsTable.related_expense_id, expenseId))
+    .orderBy(asc(fundTransactionsTable.id));
+  const byFund = new Map<number, { net: number; date: string | null }>();
+  for (const r of rows) {
+    if (r.transaction_type !== "expense" && r.transaction_type !== "expense_reversal") continue;
+    const entry = byFund.get(r.fund_account_id) ?? { net: 0, date: null };
+    entry.net = round2(entry.net - signedEffect(r.transaction_type, toMoney(r.amount)));
+    if (r.transaction_type === "expense") entry.date = r.transaction_date;
+    byFund.set(r.fund_account_id, entry);
+  }
+  return byFund;
+}
+
+// Posts an expense_reversal for everything the expense currently has on the
+// ledger, fund by fund, each on the date of the entry it reverses.
+async function reversePostedExpense(tx: Tx, expense: { id: number; date: string | null }, description: string, userId: string): Promise<void> {
+  for (const [fundAccountId, posted] of await postedExpenseByFund(tx, expense.id)) {
+    if (posted.net <= 0) continue;
+    await tx.insert(fundTransactionsTable).values({
+      fund_account_id: fundAccountId,
+      transaction_type: "expense_reversal",
+      amount: String(posted.net),
+      transaction_date: posted.date ?? expense.date ?? businessToday(),
+      description,
+      related_expense_id: expense.id,
+      created_by: userId,
+    });
+  }
 }
 
 // Date of the expense's latest posted ledger entry, so a reversal lands on
@@ -150,6 +154,10 @@ router.post("/fund-accounts", async (req, res): Promise<void> => {
   const accountName = typeof name === "string" ? name.trim() : "";
   if (!accountName) {
     res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (UNTRACKED_PAYER_PATTERN.test(accountName)) {
+    res.status(400).json({ error: `"${accountName}" is reserved for untracked expense payers. Choose another name.` });
     return;
   }
 
@@ -346,6 +354,7 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
     description: fundTransactionsTable.description,
     related_expense_id: fundTransactionsTable.related_expense_id,
     related_transfer_id: fundTransactionsTable.related_transfer_id,
+    related_client_payment_id: fundTransactionsTable.related_client_payment_id,
     created_at: fundTransactionsTable.created_at,
   }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.transaction_date), asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
 
@@ -371,11 +380,6 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
 // ---------------------------------------------------------------------------
 
 class TransferError extends Error {}
-
-function userDisplayName(user: { firstName: string | null; lastName: string | null; username: string | null; email: string | null }): string | null {
-  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-  return fullName || user.username || user.email || null;
-}
 
 // GET /fund-transfers - Transfer history feed, newest first. Reads the existing
 // fund_transfers records (the single source of truth for transfers) and
@@ -405,14 +409,7 @@ router.get("/fund-transfers", async (req, res): Promise<void> => {
   const accounts = await db.select({ id: fundAccountsTable.id, name: fundAccountsTable.name }).from(fundAccountsTable);
   const accountNames = new Map(accounts.map((a) => [a.id, a.name]));
 
-  const creatorIds = [...new Set(transfers.map((t) => t.created_by).filter((id): id is string => !!id))];
-  const creators = creatorIds.length > 0
-    ? await db
-        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, username: usersTable.username, email: usersTable.email })
-        .from(usersTable)
-        .where(inArray(usersTable.id, creatorIds))
-    : [];
-  const creatorNames = new Map(creators.map((u) => [u.id, userDisplayName(u)]));
+  const creatorNames = await loadUserNames(transfers.map((t) => t.created_by));
 
   res.json(transfers.map((t) => ({
     ...t,
@@ -549,9 +546,9 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
       category, description, amount: String(amountNum), gst: String(gstNum), year: parseInt(String(year), 10), month: parseInt(String(month), 10), eventId: linkedEventId, paidBy, paymentMethod, ...rest, createdBy: req.user.id,
     }).returning();
 
-    // Deduct from the payer's tracked fund account. Payers that do not map to
-    // a tracked account (e.g. "Other"/null) do not touch either fund.
-    const accountId = await resolveTrackedFundAccountId(tx, paidBy);
+    // Deduct from the paying fund account (any fund, matched by its name).
+    // Untracked payers ("Other"/null) do not touch any fund.
+    const accountId = await resolvePayerFundAccountId(tx, paidBy);
     if (accountId !== null && cashOut > 0) {
       await tx.insert(fundTransactionsTable).values({
         fund_account_id: accountId,
@@ -563,6 +560,15 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
         created_by: req.user.id,
       });
     }
+
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "create",
+      entityType: "operating_expense",
+      entityId: created.id,
+      newValues: { ...created, fundAccountId: accountId, cashOut: accountId !== null ? cashOut : 0 },
+    });
 
     return created;
   });
@@ -631,22 +637,11 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
       oldDate !== newDate;
 
     if (fundRelevantChanged) {
-      // Reverse the old effect: money goes back into the previously charged fund.
-      const oldAccountId = await resolveTrackedFundAccountId(tx, oldPayer);
-      if (oldAccountId !== null && oldCash > 0) {
-        await tx.insert(fundTransactionsTable).values({
-          fund_account_id: oldAccountId,
-          transaction_type: "expense_reversal",
-          amount: String(oldCash),
-          transaction_date: oldDate,
-          description: `Reversal of expense #${old.id} paid by ${oldPayer}`,
-          related_expense_id: old.id,
-          created_by: req.user.id,
-        });
-      }
+      // Reverse what the expense actually took out so far (fund by fund).
+      await reversePostedExpense(tx, old, `Reversal of expense #${old.id} paid by ${oldPayer}`, req.user.id);
 
       // Apply the new effect: money leaves the newly responsible fund.
-      const newAccountId = await resolveTrackedFundAccountId(tx, newPayer);
+      const newAccountId = await resolvePayerFundAccountId(tx, newPayer);
       if (newAccountId !== null && newCash > 0) {
         await tx.insert(fundTransactionsTable).values({
           fund_account_id: newAccountId,
@@ -659,6 +654,16 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
         });
       }
     }
+
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "update",
+      entityType: "operating_expense",
+      entityId: old.id,
+      oldValues: old,
+      newValues: updated,
+    });
 
     return [updated];
   });
@@ -678,21 +683,17 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
     const [expense] = await tx.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
     if (!expense) return;
 
-    const cashOut = expenseCashOut(toMoney(expense.amount), toMoney(expense.gst));
-    const accountId = await resolveTrackedFundAccountId(tx, expense.paidBy);
+    // Money back into the fund(s) it was actually paid from.
+    await reversePostedExpense(tx, expense, `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`, req.user.id);
 
-    // Reverse the fund transaction (money back into the fund it was paid from).
-    if (accountId !== null && cashOut > 0) {
-      await tx.insert(fundTransactionsTable).values({
-        fund_account_id: accountId,
-        transaction_type: "expense_reversal",
-        amount: String(cashOut),
-        transaction_date: await currentExpenseLedgerDate(tx, expense.id, expense.date),
-        description: `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`,
-        related_expense_id: expense.id,
-        created_by: req.user.id,
-      });
-    }
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "delete",
+      entityType: "operating_expense",
+      entityId: expense.id,
+      oldValues: expense,
+    });
 
     await tx.delete(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
   });

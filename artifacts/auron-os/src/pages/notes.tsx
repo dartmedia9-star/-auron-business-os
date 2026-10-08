@@ -214,7 +214,7 @@ export default function NotesList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Notes</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Notes</h2>
           <p className="text-muted-foreground mt-1">Quick reminders, ideas, and follow-ups.</p>
         </div>
         <Button onClick={() => { resetForm(); setCreateOpen(true); }}>

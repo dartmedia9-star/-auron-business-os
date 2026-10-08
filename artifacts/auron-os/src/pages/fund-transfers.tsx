@@ -1,22 +1,28 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   useListFundAccounts,
   getListFundAccountsQueryKey,
-  useCreateFundTransfer,
   useCreateFundAccount,
   useDeleteFundAccount,
+  useGetFinanceSummary,
   getGetFinanceSummaryQueryKey,
-  getListFundTransactionsQueryKey,
-  getListFundTransfersQueryKey,
 } from "@workspace/api-client-react";
 import { FundTransferHistory } from "@/components/fund-transfer-history";
 import type { FundAccount } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, Pencil, RefreshCw, Landmark, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Landmark, MoreHorizontal, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/ds/page-header";
+import { AnimatedNumber } from "@/components/ds/animated-number";
+import { formatINR } from "@/components/ds/money";
+import { CardsSkeleton, EmptyState } from "@/components/ds/states";
+import { FundLedger } from "@/components/fund-ledger";
+import { useNewTransaction } from "@/components/new-transaction";
+import { invalidateFinance } from "@/lib/finance-queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,26 +47,11 @@ function errorMessage(err: unknown): string {
   return "Something went wrong";
 }
 
-type AccountBalance = {
-  id: number;
-  name: string;
-  opening_balance: number;
-  current_balance: number;
-};
-
 export default function FundTransfers() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [fromId, setFromId] = useState("");
-  const [toId, setToId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
-  const [description, setDescription] = useState("");
-  const [open, setOpen] = useState(false);
-
-  const [accountBalances, setAccountBalances] = useState<AccountBalance[]>([]);
-  const [loadingBalances, setLoadingBalances] = useState(false);
+  const newTransaction = useNewTransaction();
 
   const [balanceAccount, setBalanceAccount] = useState<FundAccount | null>(
     null,
@@ -82,196 +73,13 @@ export default function FundTransfers() {
 
   const accountList: FundAccount[] = accounts ?? [];
 
-  const createTransfer = useCreateFundTransfer();
+  // Current balances come from the same calculation as Finance Summary
+  // (opening balance + fund ledger), refreshed whenever money moves.
+  const summary = useGetFinanceSummary(undefined, { query: { queryKey: getGetFinanceSummaryQueryKey() } });
+  const balanceOf = (id: number) => summary.data?.fundAccounts?.find((a) => a.id === id)?.balance;
+  const totalBalance = (summary.data?.fundAccounts ?? []).reduce((sum, a) => sum + a.balance, 0);
   const createAccount = useCreateFundAccount();
   const deleteAccount = useDeleteFundAccount();
-
-  /*
-   * Load the current calculated balance for every fund account.
-   *
-   * The list endpoint gives us the accounts and opening balances.
-   * The individual account endpoint gives us the calculated current balance
-   * after transfers and expenses.
-   */
-  const loadBalances = async () => {
-    if (accountList.length === 0) {
-      setAccountBalances([]);
-      return;
-    }
-
-    setLoadingBalances(true);
-
-    try {
-      const results = await Promise.all(
-        accountList.map(async (account) => {
-          const response = await fetch(`/api/fund-accounts/${account.id}`, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to load ${account.name}`);
-          }
-
-          const data = await response.json();
-
-          return {
-            id: account.id,
-            name: account.name,
-            opening_balance: Number(data.opening_balance ?? 0),
-            current_balance: Number(
-              data.current_balance ??
-                data.balance ??
-                data.currentBalance ??
-                data.opening_balance ??
-                0,
-            ),
-          };
-        }),
-      );
-
-      setAccountBalances(results);
-    } catch (err) {
-      toast({
-        title: "Failed to load balances",
-        description: errorMessage(err),
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingBalances(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadBalances();
-  }, [accountList.length]);
-
-  /*
-   * Default the transfer form to the first two accounts.
-   * The user can still change either account using the dropdown.
-   */
-  useEffect(() => {
-    if (accountList.length >= 2) {
-      setFromId((current) => current || String(accountList[0].id));
-      setToId((current) => current || String(accountList[1].id));
-    }
-  }, [accountList]);
-
-  const resetForm = () => {
-    setAmount("");
-    setDescription("");
-    setDate("");
-  };
-
-  const handleCreate = () => {
-    if (!fromId || !toId || !amount || !date) {
-      toast({
-        title: "Validation Error",
-        description: "From, to, amount, and date are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (fromId === toId) {
-      toast({
-        title: "Validation Error",
-        description: "From and to accounts must be different",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const amountNum = Number(amount);
-
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "Amount must be greater than zero",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const fromAccount = accountList.find(
-      (account) => String(account.id) === fromId,
-    );
-
-    const fromBalance = accountBalances.find(
-      (account) => String(account.id) === fromId,
-    );
-
-    if (
-      fromBalance &&
-      Number.isFinite(fromBalance.current_balance) &&
-      amountNum > fromBalance.current_balance
-    ) {
-      toast({
-        title: "Insufficient funds",
-        description: `${fromAccount?.name ?? "The selected account"} has only ₹${fromBalance.current_balance.toLocaleString(
-          "en-IN",
-          {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          },
-        )} available.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createTransfer.mutate(
-      {
-        data: {
-          from_account_id: Number(fromId),
-          to_account_id: Number(toId),
-          amount: amountNum,
-          date,
-          description: description.trim(),
-        },
-      },
-      {
-        onSuccess: async () => {
-          await queryClient.invalidateQueries({
-            queryKey: getListFundAccountsQueryKey(),
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: getGetFinanceSummaryQueryKey(),
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: getListFundTransactionsQueryKey(Number(fromId)),
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: getListFundTransactionsQueryKey(Number(toId)),
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: getListFundTransfersQueryKey(),
-          });
-
-          await loadBalances();
-
-          toast({
-            title: "Transfer created",
-            description: "The fund balances have been updated.",
-          });
-
-          setOpen(false);
-          resetForm();
-        },
-
-        onError: (err) => {
-          toast({
-            title: "Failed to create transfer",
-            description: errorMessage(err),
-            variant: "destructive",
-          });
-        },
-      },
-    );
-  };
 
   const handleSaveOpeningBalance = async () => {
     if (!balanceAccount) return;
@@ -320,7 +128,7 @@ export default function FundTransfers() {
         queryKey: getGetFinanceSummaryQueryKey(),
       });
 
-      await loadBalances();
+      await invalidateFinance(queryClient);
 
       toast({
         title: "Balance updated",
@@ -436,14 +244,7 @@ export default function FundTransfers() {
             queryKey: getGetFinanceSummaryQueryKey(),
           });
 
-          await queryClient.invalidateQueries({
-            queryKey: getListFundTransactionsQueryKey(target.id),
-          });
-
-          setFromId((current) => (current === String(target.id) ? "" : current));
-          setToId((current) => (current === String(target.id) ? "" : current));
-
-          await loadBalances();
+          await invalidateFinance(queryClient);
 
           toast({
             title: "Fund account deleted",
@@ -464,9 +265,6 @@ export default function FundTransfers() {
     );
   };
 
-  const accountName = (id: string) =>
-    accountList.find((account) => String(account.id) === id)?.name;
-
   const formatCurrency = (value: number) =>
     `₹${value.toLocaleString("en-IN", {
       minimumFractionDigits: 2,
@@ -475,294 +273,107 @@ export default function FundTransfers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            Transfer Funds
-          </h2>
+      <PageHeader
+        sticky
+        eyebrow="Finance"
+        title="Funds"
+        description="Fund balances and every cash movement: money received, expenses and internal transfers."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewAccountName("");
+                setNewAccountOpeningBalance("");
+                setCreateOpen(true);
+              }}
+            >
+              <Landmark className="mr-2 h-4 w-4" />
+              Add Fund Account
+            </Button>
+            <Button variant="outline" onClick={() => newTransaction.open({ kind: "fund_transfer" })} disabled={accountList.length < 2}>
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              Transfer
+            </Button>
+            <Button onClick={() => newTransaction.open()}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Transaction
+            </Button>
+          </>
+        }
+      />
 
-          <p className="mt-1 text-muted-foreground">
-            Move money between fund accounts. Transfers do not affect P&L.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setNewAccountName("");
-              setNewAccountOpeningBalance("");
-              setCreateOpen(true);
-            }}
-          >
-            <Landmark className="mr-2 h-4 w-4" />
-            Add Fund Account
-          </Button>
-
-          <Button
-            onClick={() => {
-              if (accountList.length >= 2) {
-                if (!fromId) setFromId(String(accountList[0].id));
-                if (!toId) setToId(String(accountList[1].id));
-              }
-
-              setOpen(true);
-            }}
-            disabled={accountList.length < 2}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Transfer
-          </Button>
-        </div>
-      </div>
-
-      <Card>
-        <CardContent className="p-6">
-          {accountList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {isLoading
-                ? "Loading fund accounts..."
-                : "No fund accounts found yet. Use \"Add Fund Account\" to create one (e.g. Auron Event Productions, Rajesh PR) with its opening balance. Transfers become available once two or more fund accounts exist."}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {accountList.map((acct) => {
-                const balance = accountBalances.find(
-                  (item) => item.id === acct.id,
-                );
-
-                return (
-                  <div
-                    key={acct.id}
-                    className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">{acct.name}</p>
-
-                      <p className="text-xs text-muted-foreground">
-                        Opening balance:{" "}
-                        {formatCurrency(
-                          Number(acct.opening_balance ?? 0),
-                        )}
-                      </p>
-
-                      <p className="mt-1 text-lg font-semibold">
-                        {loadingBalances
-                          ? "Loading..."
-                          : formatCurrency(
-                              balance?.current_balance ??
-                                Number(acct.opening_balance ?? 0),
-                            )}
-                      </p>
-
-                      <p className="text-xs text-muted-foreground">
-                        Current available balance
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
+      {isLoading ? (
+        <CardsSkeleton count={3} className="lg:grid-cols-3" />
+      ) : accountList.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="No fund accounts yet"
+          description='Use "Add Fund Account" to create one with its opening balance. Transfers become available once two or more fund accounts exist.'
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-card">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total available</p>
+            <AnimatedNumber value={totalBalance} format={(n) => formatINR(n)} className="mt-2 block text-2xl font-semibold tabular-nums tracking-tight" />
+            <p className="mt-1 text-xs text-muted-foreground">Across {accountList.length} fund account{accountList.length === 1 ? "" : "s"}</p>
+          </div>
+          {accountList.map((acct) => {
+            const balance = balanceOf(acct.id);
+            return (
+              <div key={acct.id} className="group rounded-xl border bg-card p-5 shadow-card transition-shadow duration-200 hover:shadow-lift">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="truncate text-sm font-medium">{acct.name}</p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="-mr-2 -mt-2 h-8 w-8 text-muted-foreground" aria-label={`${acct.name} actions`}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
                         onClick={() => {
                           setBalanceAccount(acct);
-                          setOpeningBalance(
-                            String(acct.opening_balance ?? 0),
-                          );
+                          setOpeningBalance(String(acct.opening_balance ?? 0));
                         }}
                       >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit Balance
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={deleteAccount.isPending}
-                        onClick={() => setDeleteTarget(acct)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="flex justify-end pt-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void loadBalances()}
-                  disabled={loadingBalances}
-                >
-                  <RefreshCw
-                    className={`mr-2 h-4 w-4 ${
-                      loadingBalances ? "animate-spin" : ""
-                    }`}
-                  />
-                  Refresh Balances
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <FundTransferHistory />
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>New Transfer</DialogTitle>
-          </DialogHeader>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleCreate();
-            }}
-          >
-            <div className="space-y-4">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-                <div className="space-y-2">
-                  <Label>From *</Label>
-
-                  <select
-                    value={fromId}
-                    onChange={(e) => setFromId(e.target.value)}
-                    disabled={isLoading || accountList.length === 0}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="">
-                      {isLoading
-                        ? "Loading accounts..."
-                        : "Select account"}
-                    </option>
-
-                    {accountList.map((acct) => (
-                      <option key={acct.id} value={String(acct.id)}>
-                        {acct.name}
-                      </option>
-                    ))}
-                  </select>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit opening balance
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={deleteAccount.isPending} onClick={() => setDeleteTarget(acct)} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete account
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-
-                <ArrowRight className="mb-2 h-4 w-4 text-muted-foreground" />
-
-                <div className="space-y-2">
-                  <Label>To *</Label>
-
-                  <select
-                    value={toId}
-                    onChange={(e) => setToId(e.target.value)}
-                    disabled={isLoading || accountList.length === 0}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="">
-                      {isLoading
-                        ? "Loading accounts..."
-                        : "Select account"}
-                    </option>
-
-                    {accountList.map((acct) => (
-                      <option key={acct.id} value={String(acct.id)}>
-                        {acct.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Amount *</Label>
-
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date *</Label>
-
-                  <Input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-
-                <Input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="e.g. Funds for event expenses"
-                />
-              </div>
-
-              {fromId &&
-                toId &&
-                fromId === toId && (
-                  <p className="text-sm text-destructive">
-                    From and to accounts must be different.
-                  </p>
+                {summary.isLoading ? (
+                  <div className="mt-2 h-8 w-32 animate-pulse rounded bg-muted" />
+                ) : balance === undefined ? (
+                  <p className="mt-2 text-sm text-destructive">Balance unavailable</p>
+                ) : (
+                  <AnimatedNumber value={balance} format={(n) => formatINR(n, { exact: true })} className={`mt-2 block text-2xl font-semibold tabular-nums tracking-tight ${balance < 0 ? "text-money-out" : ""}`} />
                 )}
+                <p className="mt-1 text-xs text-muted-foreground">Opening {formatCurrency(Number(acct.opening_balance ?? 0))}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {summary.isError && (
+        <p className="text-sm text-destructive">Couldn't load current balances: {errorMessage(summary.error)}</p>
+      )}
 
-              {fromId &&
-                toId &&
-                fromId !== toId && (
-                  <div className="rounded-md bg-muted px-3 py-2 text-sm">
-                    <span className="font-medium">
-                      {accountName(fromId)}
-                    </span>
-
-                    <span className="mx-2 text-muted-foreground">
-                      →
-                    </span>
-
-                    <span className="font-medium">
-                      {accountName(toId)}
-                    </span>
-                  </div>
-                )}
-            </div>
-
-            <DialogFooter className="mt-6 border-t pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="submit"
-                disabled={
-                  createTransfer.isPending ||
-                  !fromId ||
-                  !toId ||
-                  fromId === toId
-                }
-              >
-                {createTransfer.isPending
-                  ? "Transferring..."
-                  : "Create Transfer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all">All transactions</TabsTrigger>
+          <TabsTrigger value="transfers">Transfers</TabsTrigger>
+        </TabsList>
+        <TabsContent value="all" className="mt-4">
+          <FundLedger />
+        </TabsContent>
+        <TabsContent value="transfers" className="mt-4">
+          <FundTransferHistory />
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={!!balanceAccount}

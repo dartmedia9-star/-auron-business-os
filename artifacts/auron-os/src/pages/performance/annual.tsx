@@ -52,7 +52,7 @@ export default function PerformanceAnnual() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
             <BarChart3 className="h-8 w-8 text-primary" />
             {year}
           </h2>
@@ -124,7 +124,7 @@ export default function PerformanceAnnual() {
                           {hasData ? formatCurrency(m.revenue) : "—"}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right text-red-500">
+                      <TableCell className="text-right text-money-out">
                         <Link href={`/performance/${year}/${m.month}`} className="block">
                           {hasData && m.directCosts > 0 ? `-${formatCurrency(m.directCosts)}` : "—"}
                         </Link>
@@ -144,7 +144,7 @@ export default function PerformanceAnnual() {
                           {hasData && m.operatingExpenses > 0 ? `-${formatCurrency(m.operatingExpenses)}` : "—"}
                         </Link>
                       </TableCell>
-                      <TableCell className={cn("text-right font-medium", m.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
+                      <TableCell className={cn("text-right font-medium", m.netProfit >= 0 ? "text-money-in" : "text-money-out")}>
                         <Link href={`/performance/${year}/${m.month}`} className="block">
                           {hasData ? formatCurrency(m.netProfit) : "—"}
                         </Link>
@@ -166,10 +166,10 @@ export default function PerformanceAnnual() {
                 <TableRow className="bg-muted/50 font-bold border-t-2">
                   <TableCell>Total</TableCell>
                   <TableCell className="text-right text-blue-500">{formatCurrency(data.totals.revenue)}</TableCell>
-                  <TableCell className="text-right text-red-500">{data.totals.directCosts > 0 ? `-${formatCurrency(data.totals.directCosts)}` : "—"}</TableCell>
+                  <TableCell className="text-right text-money-out">{data.totals.directCosts > 0 ? `-${formatCurrency(data.totals.directCosts)}` : "—"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(data.totals.grossProfit)}</TableCell>
                   <TableCell className="text-right text-orange-500">{data.totals.operatingExpenses > 0 ? `-${formatCurrency(data.totals.operatingExpenses)}` : "—"}</TableCell>
-                  <TableCell className={cn("text-right", data.totals.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
+                  <TableCell className={cn("text-right", data.totals.netProfit >= 0 ? "text-money-in" : "text-money-out")}>
                     {formatCurrency(data.totals.netProfit)}
                   </TableCell>
                   <TableCell className="text-center">{data.totals.eventCount}</TableCell>

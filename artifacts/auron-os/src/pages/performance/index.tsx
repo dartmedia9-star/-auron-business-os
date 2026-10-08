@@ -12,7 +12,7 @@ export default function PerformanceIndex() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Performance</h2>
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Performance</h2>
         <p className="text-muted-foreground mt-1">
           Financial performance history and drill-down analytics.
         </p>

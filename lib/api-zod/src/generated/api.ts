@@ -510,6 +510,8 @@ export const CreateClientPaymentParams = zod.object({
 
 export const createClientPaymentBodyAmountExclusiveMin = 0;
 
+export const createClientPaymentBodyIdempotencyKeyMax = 200;
+
 
 
 export const CreateClientPaymentBody = zod.object({
@@ -519,10 +521,12 @@ export const CreateClientPaymentBody = zod.object({
   "payment_method": zod.string().optional(),
   "reference": zod.string().optional(),
   "notes": zod.string().optional(),
+  "event_id": zod.number().nullish().describe('Money received for one event. The event gets min(amount, its outstanding); any excess stays client-level (unallocated \/ client credit). Cannot be combined with allocations.\n'),
+  "idempotency_key": zod.string().max(createClientPaymentBodyIdempotencyKeyMax).optional().describe('Client-generated key for one submission; resubmitting it returns the original payment'),
   "allocations": zod.array(zod.object({
   "eventId": zod.number(),
   "amount": zod.number()
-})).optional().describe('Optional event allocations')
+})).optional().describe('Optional explicit event allocations (strict; each must fit the event\'s outstanding)')
 })
 
 export const CreateClientPaymentResponse = zod.object({
@@ -1791,6 +1795,7 @@ export const ListFundTransactionsResponse = zod.object({
   "description": zod.string().optional(),
   "related_expense_id": zod.number().nullish(),
   "related_transfer_id": zod.number().nullish(),
+  "related_client_payment_id": zod.number().nullish(),
   "created_at": zod.coerce.date(),
   "created_by": zod.string().optional()
 })).optional(),
@@ -1840,6 +1845,156 @@ export const CreateFundTransferResponse = zod.object({
   "created_by": zod.string(),
   "created_at": zod.coerce.date()
 })
+
+
+/**
+ * Read-only view of the fund_transactions ledger (client payments, expenses, transfers, reversals, adjustments), newest first by effective date, enriched with client, event, fund and payment details. Totals cover the whole filtered set; transfers are reported separately as internal movements.
+ * @summary Unified fund transaction history across all funds
+ */
+export const listFundLedgerQueryPageDefault = 1;
+export const listFundLedgerQueryLimitDefault = 50;
+
+export const ListFundLedgerQueryParams = zod.object({
+  "fundAccountId": zod.coerce.number().optional(),
+  "category": zod.enum(['client_payment', 'expense', 'transfer', 'adjustment']).optional(),
+  "type": zod.coerce.string().optional(),
+  "direction": zod.enum(['in', 'out']).optional(),
+  "clientId": zod.coerce.number().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "search": zod.coerce.string().optional(),
+  "page": zod.coerce.number().default(listFundLedgerQueryPageDefault),
+  "limit": zod.coerce.number().default(listFundLedgerQueryLimitDefault)
+})
+
+export const ListFundLedgerResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "fundAccountId": zod.number(),
+  "fundAccountName": zod.string().nullable(),
+  "transactionType": zod.enum(['expense', 'expense_reversal', 'transfer_in', 'transfer_out', 'adjustment', 'client_payment', 'client_payment_reversal']),
+  "category": zod.enum(['client_payment', 'expense', 'transfer', 'adjustment', 'other']),
+  "amount": zod.number(),
+  "signedAmount": zod.number().describe('Effect on the fund balance (positive in, negative out)'),
+  "direction": zod.enum(['in', 'out']),
+  "isInternalTransfer": zod.boolean(),
+  "transactionDate": zod.coerce.date(),
+  "description": zod.string().nullable(),
+  "status": zod.enum(['posted', 'reversed', 'reversal']),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable(),
+  "events": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string().nullable(),
+  "amount": zod.number().nullable().describe('Amount of the payment allocated to the event (null for an expense\'s linked event)')
+})),
+  "paymentMethod": zod.string().nullable(),
+  "reference": zod.string().nullable(),
+  "notes": zod.string().nullable(),
+  "expenseCategory": zod.string().nullable(),
+  "counterpartyFundId": zod.number().nullable(),
+  "counterpartyFundName": zod.string().nullable(),
+  "relatedClientPaymentId": zod.number().nullable(),
+  "relatedExpenseId": zod.number().nullable(),
+  "relatedTransferId": zod.number().nullable(),
+  "paymentDeleted": zod.boolean(),
+  "createdBy": zod.string().nullable(),
+  "createdByName": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number(),
+  "totals": zod.object({
+  "cashIn": zod.number(),
+  "cashOut": zod.number(),
+  "netCash": zod.number(),
+  "internalTransfersIn": zod.number(),
+  "internalTransfersOut": zod.number()
+})
+})
+
+
+/**
+ * @summary One ledger entry with related records, allocation status and audit trail
+ */
+export const GetFundLedgerEntryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetFundLedgerEntryResponse = zod.object({
+  "id": zod.number(),
+  "fundAccountId": zod.number(),
+  "fundAccountName": zod.string().nullable(),
+  "transactionType": zod.enum(['expense', 'expense_reversal', 'transfer_in', 'transfer_out', 'adjustment', 'client_payment', 'client_payment_reversal']),
+  "category": zod.enum(['client_payment', 'expense', 'transfer', 'adjustment', 'other']),
+  "amount": zod.number(),
+  "signedAmount": zod.number().describe('Effect on the fund balance (positive in, negative out)'),
+  "direction": zod.enum(['in', 'out']),
+  "isInternalTransfer": zod.boolean(),
+  "transactionDate": zod.coerce.date(),
+  "description": zod.string().nullable(),
+  "status": zod.enum(['posted', 'reversed', 'reversal']),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable(),
+  "events": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string().nullable(),
+  "amount": zod.number().nullable().describe('Amount of the payment allocated to the event (null for an expense\'s linked event)')
+})),
+  "paymentMethod": zod.string().nullable(),
+  "reference": zod.string().nullable(),
+  "notes": zod.string().nullable(),
+  "expenseCategory": zod.string().nullable(),
+  "counterpartyFundId": zod.number().nullable(),
+  "counterpartyFundName": zod.string().nullable(),
+  "relatedClientPaymentId": zod.number().nullable(),
+  "relatedExpenseId": zod.number().nullable(),
+  "relatedTransferId": zod.number().nullable(),
+  "paymentDeleted": zod.boolean(),
+  "createdBy": zod.string().nullable(),
+  "createdByName": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "related": zod.object({
+  "payment": zod.object({
+
+}).nullable().describe('The client payment (with allocations), or {id, deleted:true} when it was reversed and removed'),
+  "transfer": zod.object({
+
+}).nullable(),
+  "expense": zod.object({
+
+}).nullable(),
+  "ledgerEntries": zod.array(zod.object({
+  "id": zod.number(),
+  "transactionType": zod.string(),
+  "fundAccountName": zod.string().nullable(),
+  "amount": zod.number(),
+  "signedAmount": zod.number(),
+  "transactionDate": zod.coerce.date(),
+  "status": zod.enum(['posted', 'reversed', 'reversal']),
+  "createdAt": zod.coerce.date()
+}))
+}),
+  "allocationStatus": zod.union([zod.literal('fully_allocated'),zod.literal('partially_allocated'),zod.literal('client_level'),zod.literal(null)]).nullable(),
+  "audit": zod.array(zod.object({
+  "id": zod.number(),
+  "action": zod.string(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "userId": zod.string(),
+  "userName": zod.string().nullable(),
+  "userEmail": zod.string().nullable(),
+  "oldValues": zod.object({
+
+}).nullish(),
+  "newValues": zod.object({
+
+}).nullish(),
+  "createdAt": zod.coerce.date()
+}))
+}))
 
 
 /**
@@ -2998,6 +3153,8 @@ export const GetPerformanceMonthlyCashflowResponse = zod.object({
   "amount": zod.number(),
   "moneyIn": zod.number(),
   "moneyOut": zod.number(),
+  "isInternalTransfer": zod.boolean().optional().describe('True for transfer_in \/ transfer_out legs, which are excluded from cash in\/out totals'),
+  "relatedClientPaymentId": zod.number().nullish(),
   "description": zod.string().nullish(),
   "transactionDate": zod.coerce.date().optional().describe('Effective business date (payment, expense or transfer date) used to bucket cash flow'),
   "createdAt": zod.string().optional(),
@@ -3012,16 +3169,21 @@ export const GetPerformanceMonthlyCashflowResponse = zod.object({
   "description": zod.string().nullish(),
   "createdBy": zod.string().nullish()
 })),
-  "totalCashIn": zod.number(),
-  "totalCashOut": zod.number(),
-  "totalTransfers": zod.number(),
+  "totalCashIn": zod.number().describe('Business cash received (excludes internal transfers)'),
+  "totalCashOut": zod.number().describe('Business cash paid out (excludes internal transfers)'),
+  "netCashFlow": zod.number().optional(),
+  "totalTransfers": zod.number().describe('Internal transfers between funds (not cash in\/out)'),
   "transactionCount": zod.number(),
   "transferCount": zod.number(),
   "clientPaymentTotal": zod.number().optional(),
   "clientPaymentReversalTotal": zod.number().optional(),
+  "netClientReceipts": zod.number().optional(),
   "otherInflows": zod.number().optional(),
   "clientPayments": zod.array(zod.object({
   "id": zod.number(),
+  "clientId": zod.number().optional(),
+  "clientName": zod.string().nullish(),
+  "fundAccountName": zod.string().nullish(),
   "amount": zod.number(),
   "paymentDate": zod.coerce.date(),
   "fundAccountId": zod.number(),

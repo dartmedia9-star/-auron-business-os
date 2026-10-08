@@ -34,7 +34,7 @@ export default function ValuationCommand() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl text-primary flex items-center gap-3">
           <Target className="h-8 w-8" />
           ₹90 Crore Valuation Command
         </h2>
@@ -92,7 +92,7 @@ export default function ValuationCommand() {
             <CardHeader>
               <CardTitle className="flex justify-between items-center capitalize">
                 {scenario.scenarioType} Scenario
-                {scenario.scenarioType === 'aggressive' && <TrendingUp className="h-4 w-4 text-emerald-500" />}
+                {scenario.scenarioType === 'aggressive' && <TrendingUp className="h-4 w-4 text-money-in" />}
               </CardTitle>
               <CardDescription>{scenario.name}</CardDescription>
             </CardHeader>
@@ -106,7 +106,7 @@ export default function ValuationCommand() {
                     Gap: {formatCompactCurrency(scenario.gapToTarget)}
                   </div>
                 ) : (
-                  <div className="text-sm text-emerald-500 mt-1 flex items-center gap-1">
+                  <div className="text-sm text-money-in mt-1 flex items-center gap-1">
                     Target Reached
                   </div>
                 )}

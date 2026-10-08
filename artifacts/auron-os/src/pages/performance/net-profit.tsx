@@ -36,8 +36,8 @@ export default function PerformanceNetProfit() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <Landmark className="h-7 w-7 text-emerald-500" />
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
+            <Landmark className="h-7 w-7 text-money-in" />
             Net Profit
           </h2>
           <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — Final bottom line</p>
@@ -47,7 +47,7 @@ export default function PerformanceNetProfit() {
       <Card className={cn("border-l-4 shadow-md", data.netProfit >= 0 ? "border-l-emerald-500" : "border-l-red-500")}>
         <CardContent className="p-6">
           <p className="text-sm text-muted-foreground mb-1">Net Profit</p>
-          <p className={cn("text-3xl font-bold", data.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
+          <p className={cn("text-3xl font-bold", data.netProfit >= 0 ? "text-money-in" : "text-money-out")}>
             {formatCurrency(data.netProfit)}
           </p>
           <p className="text-sm text-muted-foreground mt-1">Net Margin: {formatPercentage(data.netMarginPct)}</p>
@@ -72,13 +72,13 @@ export default function PerformanceNetProfit() {
 
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <ArrowDown className="h-5 w-5 text-red-500" />
+              <ArrowDown className="h-5 w-5 text-money-out" />
               <div>
                 <p className="font-medium">Direct Costs (COGS)</p>
                 <p className="text-xs text-muted-foreground">Event vendor costs + linked expenses</p>
               </div>
             </div>
-            <p className="font-bold text-red-500">-{formatCurrency(data.directCosts)}</p>
+            <p className="font-bold text-money-out">-{formatCurrency(data.directCosts)}</p>
           </div>
 
           <div className="flex items-center justify-between py-3 border-b">
@@ -88,7 +88,7 @@ export default function PerformanceNetProfit() {
                 <p className="font-medium">Gross Profit</p>
               </div>
             </div>
-            <p className={cn("font-bold", data.grossProfit >= 0 ? "text-primary" : "text-red-500")}>
+            <p className={cn("font-bold", data.grossProfit >= 0 ? "text-primary" : "text-money-out")}>
               {formatCurrency(data.grossProfit)}
             </p>
           </div>
@@ -106,26 +106,26 @@ export default function PerformanceNetProfit() {
 
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-emerald-500" />
+              <TrendingUp className="h-5 w-5 text-money-in" />
               <div>
                 <p className="font-medium">EBITDA</p>
               </div>
             </div>
-            <p className={cn("font-bold", data.ebitda >= 0 ? "text-emerald-500" : "text-red-500")}>
+            <p className={cn("font-bold", data.ebitda >= 0 ? "text-money-in" : "text-money-out")}>
               {formatCurrency(data.ebitda)}
             </p>
           </div>
 
           <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3">
             <div className="flex items-center gap-3">
-              <Landmark className="h-5 w-5 text-emerald-500" />
+              <Landmark className="h-5 w-5 text-money-in" />
               <div>
                 <p className="font-bold text-lg">Net Profit</p>
                 <p className="text-xs text-muted-foreground">Final bottom line for the month</p>
               </div>
             </div>
             <div className="text-right">
-              <p className={cn("text-2xl font-bold", data.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
+              <p className={cn("text-2xl font-bold", data.netProfit >= 0 ? "text-money-in" : "text-money-out")}>
                 {formatCurrency(data.netProfit)}
               </p>
               <p className="text-xs text-muted-foreground">Margin: {formatPercentage(data.netMarginPct)}</p>

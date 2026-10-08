@@ -232,7 +232,7 @@ export default function VendorsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Vendor Management</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor Management</h2>
           <p className="text-muted-foreground mt-1">Manage suppliers, track spending and outstanding payments.</p>
         </div>
         <Button onClick={() => { resetForm(); setCreateOpen(true); }}>

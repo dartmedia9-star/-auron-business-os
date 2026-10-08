@@ -18,11 +18,15 @@ import {
   Search,
   Menu,
   Text,
-  Activity
+  Activity,
+  Plus
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { NewTransactionProvider, useNewTransaction } from "@/components/new-transaction";
+import { PageTransition } from "@/components/ds/page-transition";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
@@ -33,7 +37,7 @@ const NAV_ITEMS = [
   { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/finance/receivables", label: "Receivables", icon: ReceiptIndianRupee },
   { href: "/finance/expenses", label: "Expenses", icon: Receipt },
-  { href: "/fund-transfers", label: "Fund Transfers", icon: ArrowUpDown },
+  { href: "/fund-transfers", label: "Funds", icon: ArrowUpDown },
   { href: "/notes", label: "Notes", icon: Text },
   { href: "/vendors", label: "Vendors", icon: Briefcase },
   { href: "/team", label: "Team", icon: Users2 },
@@ -52,10 +56,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="h-16 flex items-center px-6 border-b shrink-0">
-        <h1 className="text-xl font-bold tracking-tight text-primary uppercase">AURON OS</h1>
+      <div className="h-16 flex items-center gap-2.5 px-6 border-b shrink-0">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground" aria-hidden>A</span>
+        <h1 className="text-base font-semibold tracking-[0.18em] text-foreground uppercase">Auron OS</h1>
       </div>
-      <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
+      <nav aria-label="Main" className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
           const isActive = location === item.href || (location.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/finance");
           return (
@@ -63,20 +68,22 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150",
                 isActive
-                  ? "bg-muted text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  ? "bg-card text-foreground font-medium shadow-card"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 item.isGold && !isActive && "text-primary/90 hover:text-primary"
               )}
             >
-              <item.icon className="h-4 w-4" />
+              {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary" aria-hidden />}
+              <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
               {item.label}
             </Link>
           );
         })}
-      </div>
+      </nav>
       <div className="p-3 border-t flex flex-col gap-1 shrink-0">
         {BOTTOM_NAV_ITEMS.map((item) => {
           const isActive = location === item.href;
@@ -109,8 +116,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
+  const newTransaction = useNewTransaction();
   return (
-    <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6 shrink-0">
+    <header className="h-16 border-b bg-card/80 backdrop-blur flex items-center justify-between px-4 md:px-6 shrink-0">
       <div className="flex items-center gap-4 flex-1">
         <button onClick={onMenuClick} className="md:hidden p-1 -ml-1 text-muted-foreground hover:text-foreground">
           <Menu className="h-5 w-5" />
@@ -124,8 +132,13 @@ function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
           />
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Button size="sm" onClick={() => newTransaction.open()} className="h-9">
+          <Plus className="h-4 w-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">New Transaction</span>
+          <span className="sr-only sm:hidden">New Transaction</span>
+        </Button>
+        <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors" aria-label="Notifications">
           <BellRing className="h-5 w-5" />
           <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
         </button>
@@ -139,8 +152,10 @@ function AppHeader({ onMenuClick }: { onMenuClick: () => void }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [location] = useLocation();
 
   return (
+    <NewTransactionProvider>
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
       {/* Desktop sidebar - hidden on mobile */}
       <aside className="hidden md:flex w-64 border-r bg-sidebar flex-shrink-0 flex-col h-[100dvh] overflow-hidden">
@@ -157,9 +172,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <AppHeader onMenuClick={() => setMobileMenuOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          {children}
+          <PageTransition routeKey={location}>{children}</PageTransition>
         </main>
       </div>
     </div>
+    </NewTransactionProvider>
   );
 }

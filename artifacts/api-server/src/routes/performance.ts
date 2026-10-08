@@ -15,32 +15,9 @@ import {
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 import { getReceivablesLedger, receivablesForEvents } from "../lib/client-receivables";
+import { isInternalTransfer, round2, signedEffect, toMoney } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
-
-function toMoney(value: unknown): number {
-  const n = parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function signedEffect(transactionType: string, amount: number): number {
-  switch (transactionType) {
-    case "expense":
-    case "transfer_out":
-      return -amount;
-    case "expense_reversal":
-    case "transfer_in":
-      return amount;
-    case "client_payment":
-      return amount;
-    case "client_payment_reversal":
-      return -amount;
-    case "adjustment":
-      return amount;
-    default:
-      return 0;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // GET /performance/years
@@ -613,6 +590,7 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
       amount: fundTransactionsTable.amount,
       description: fundTransactionsTable.description,
       transaction_date: fundTransactionsTable.transaction_date,
+      related_client_payment_id: fundTransactionsTable.related_client_payment_id,
       created_at: fundTransactionsTable.created_at,
       created_by: fundTransactionsTable.created_by,
     })
@@ -637,19 +615,27 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
   const accountMap = new Map<number, string>();
   for (const a of accounts) accountMap.set(a.id, a.name);
 
-  const transactions = fundTxs.map((t) => ({
-    id: t.id,
-    accountId: t.fund_account_id,
-    accountName: accountMap.get(t.fund_account_id) ?? "Unknown",
-    type: t.transaction_type,
-    amount: toMoney(t.amount),
-    moneyIn: signedEffect(t.transaction_type, toMoney(t.amount)) > 0 ? toMoney(t.amount) : 0,
-    moneyOut: signedEffect(t.transaction_type, toMoney(t.amount)) < 0 ? toMoney(t.amount) : 0,
-    description: t.description,
-    transactionDate: t.transaction_date,
-    createdAt: t.created_at,
-    createdBy: t.created_by,
-  }));
+  // Every ledger row stays listed; transfers are flagged as internal so the UI
+  // can show them as "Internal Transfer" rather than cash in/out.
+  const transactions = fundTxs.map((t) => {
+    const amount = toMoney(t.amount);
+    const effect = signedEffect(t.transaction_type, amount);
+    return {
+      id: t.id,
+      accountId: t.fund_account_id,
+      accountName: accountMap.get(t.fund_account_id) ?? "Unknown",
+      type: t.transaction_type,
+      amount,
+      moneyIn: effect > 0 ? effect : 0,
+      moneyOut: effect < 0 ? -effect : 0,
+      isInternalTransfer: isInternalTransfer(t.transaction_type),
+      relatedClientPaymentId: t.related_client_payment_id,
+      description: t.description,
+      transactionDate: t.transaction_date,
+      createdAt: t.created_at,
+      createdBy: t.created_by,
+    };
+  });
 
   const transferList = transfers.map((t) => ({
     id: t.id,
@@ -661,43 +647,58 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
     createdBy: t.created_by,
   }));
 
-  const totalCashIn = transactions.reduce((s, t) => s + t.moneyIn, 0);
-  const totalCashOut = transactions.reduce((s, t) => s + t.moneyOut, 0);
-  const totalTransfers = transferList.reduce((s, t) => s + t.amount, 0);
+  // Business cash in/out excludes transfers: moving money between the
+  // company's own funds is neither cash received nor cash spent.
+  const cashRows = transactions.filter((t) => !t.isInternalTransfer);
+  const totalCashIn = round2(cashRows.reduce((s, t) => s + t.moneyIn, 0));
+  const totalCashOut = round2(cashRows.reduce((s, t) => s + t.moneyOut, 0));
+  const totalTransfers = round2(transferList.reduce((s, t) => s + t.amount, 0));
 
-  // Client payments are a distinct inflow category (cash collection, not
-  // P&L revenue). Split them out of the generic cash-in total so the UI can
-  // show them separately.
-  const clientPayments = transactions.filter((t) => t.type === "client_payment");
-  const clientPaymentReversals = transactions.filter((t) => t.type === "client_payment_reversal");
-  const clientPaymentTotal = clientPayments.reduce((s, t) => s + t.moneyIn, 0);
-  const clientPaymentReversalTotal = clientPaymentReversals.reduce((s, t) => s + t.moneyOut, 0);
-  const otherInflows = totalCashIn - clientPaymentTotal;
+  // Client payments are a distinct inflow category (cash collection, not P&L
+  // revenue), counted from the ledger by payment date.
+  const clientPaymentTotal = round2(transactions.filter((t) => t.type === "client_payment").reduce((s, t) => s + t.moneyIn, 0));
+  const clientPaymentReversalTotal = round2(transactions.filter((t) => t.type === "client_payment_reversal").reduce((s, t) => s + t.moneyOut, 0));
+  const netClientReceipts = round2(clientPaymentTotal - clientPaymentReversalTotal);
+  const otherInflows = round2(totalCashIn - clientPaymentTotal);
 
-  // Also surface the actual client-payment records for the month (by payment_date)
-  // so the performance view can list them meaningfully.
+  // The client-payment records dated in this month, for listing.
   const payments = await db
-    .select()
+    .select({
+      id: clientPaymentsTable.id,
+      clientId: clientPaymentsTable.clientId,
+      clientName: clientsTable.name,
+      amount: clientPaymentsTable.amount,
+      paymentDate: clientPaymentsTable.paymentDate,
+      fundAccountId: clientPaymentsTable.fundAccountId,
+      paymentMethod: clientPaymentsTable.paymentMethod,
+      reference: clientPaymentsTable.reference,
+    })
     .from(clientPaymentsTable)
+    .leftJoin(clientsTable, eq(clientsTable.id, clientPaymentsTable.clientId))
     .where(and(gte(clientPaymentsTable.paymentDate, fromDate), lte(clientPaymentsTable.paymentDate, toDate)))
-    .orderBy(desc(clientPaymentsTable.paymentDate));
+    .orderBy(desc(clientPaymentsTable.paymentDate), desc(clientPaymentsTable.id));
 
   res.json({
     transactions,
     transfers: transferList,
     totalCashIn,
     totalCashOut,
+    netCashFlow: round2(totalCashIn - totalCashOut),
     totalTransfers,
     transactionCount: transactions.length,
     transferCount: transferList.length,
     clientPaymentTotal,
     clientPaymentReversalTotal,
+    netClientReceipts,
     otherInflows,
     clientPayments: payments.map((p) => ({
       id: p.id,
+      clientId: p.clientId,
+      clientName: p.clientName,
       amount: toMoney(p.amount),
       paymentDate: p.paymentDate,
       fundAccountId: p.fundAccountId,
+      fundAccountName: accountMap.get(p.fundAccountId) ?? null,
       paymentMethod: p.paymentMethod,
       reference: p.reference,
     })),

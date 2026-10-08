@@ -143,7 +143,7 @@ export default function ClientsList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Client CRM</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Client CRM</h2>
           <p className="text-muted-foreground mt-1">Manage client relationships, track LTV and profitability.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>

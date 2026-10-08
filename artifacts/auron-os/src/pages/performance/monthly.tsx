@@ -22,10 +22,10 @@ function KpiCard({
 }) {
   const colorMap: Record<string, { bg: string; icon: string; text: string; border: string }> = {
     blue: { bg: "bg-blue-500/10", icon: "text-blue-500", text: "text-blue-500", border: "border-l-blue-500" },
-    red: { bg: "bg-red-500/10", icon: "text-red-500", text: "text-red-500", border: "border-l-red-500" },
+    red: { bg: "bg-red-500/10", icon: "text-money-out", text: "text-money-out", border: "border-l-red-500" },
     gold: { bg: "bg-primary/10", icon: "text-primary", text: "text-primary", border: "border-l-primary" },
     orange: { bg: "bg-orange-500/10", icon: "text-orange-500", text: "text-orange-500", border: "border-l-orange-500" },
-    emerald: { bg: "bg-emerald-500/10", icon: "text-emerald-500", text: "text-emerald-500", border: "border-l-emerald-500" },
+    emerald: { bg: "bg-emerald-500/10", icon: "text-money-in", text: "text-money-in", border: "border-l-emerald-500" },
     violet: { bg: "bg-violet-500/10", icon: "text-violet-500", text: "text-violet-500", border: "border-l-violet-500" },
     teal: { bg: "bg-teal-500/10", icon: "text-teal-500", text: "text-teal-500", border: "border-l-teal-500" },
     slate: { bg: "bg-muted", icon: "text-muted-foreground", text: "text-foreground", border: "border-l-muted-foreground" },
@@ -87,7 +87,7 @@ export default function PerformanceMonthly() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {monthName} {year}
           </h2>
           <p className="text-muted-foreground mt-1">

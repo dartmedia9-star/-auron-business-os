@@ -36,8 +36,8 @@ export default function PerformanceEbitda() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <TrendingUp className="h-7 w-7 text-emerald-500" />
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
+            <TrendingUp className="h-7 w-7 text-money-in" />
             EBITDA
           </h2>
           <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — Earnings Before Interest, Tax, Depreciation & Amortisation</p>
@@ -47,7 +47,7 @@ export default function PerformanceEbitda() {
       <Card className="border-l-4 border-l-emerald-500 shadow-md">
         <CardContent className="p-6">
           <p className="text-sm text-muted-foreground mb-1">EBITDA</p>
-          <p className="text-3xl font-bold text-emerald-500">{formatCurrency(data.ebitda)}</p>
+          <p className="text-3xl font-bold text-money-in">{formatCurrency(data.ebitda)}</p>
           <p className="text-sm text-muted-foreground mt-1">Margin: {formatPercentage(data.ebitdaMarginPct)}</p>
         </CardContent>
       </Card>
@@ -70,13 +70,13 @@ export default function PerformanceEbitda() {
 
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <ArrowDown className="h-5 w-5 text-red-500" />
+              <ArrowDown className="h-5 w-5 text-money-out" />
               <div>
                 <p className="font-medium">Direct Costs (COGS)</p>
                 <p className="text-xs text-muted-foreground">Event costs + linked operating expenses</p>
               </div>
             </div>
-            <p className="font-bold text-red-500">-{formatCurrency(data.directCosts)}</p>
+            <p className="font-bold text-money-out">-{formatCurrency(data.directCosts)}</p>
           </div>
 
           <div className="flex items-center justify-between py-3 border-b">
@@ -87,7 +87,7 @@ export default function PerformanceEbitda() {
                 <p className="text-xs text-muted-foreground">Revenue minus direct costs</p>
               </div>
             </div>
-            <p className={cn("font-bold", data.grossProfit >= 0 ? "text-primary" : "text-red-500")}>
+            <p className={cn("font-bold", data.grossProfit >= 0 ? "text-primary" : "text-money-out")}>
               {formatCurrency(data.grossProfit)}
             </p>
           </div>
@@ -105,14 +105,14 @@ export default function PerformanceEbitda() {
 
           <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-emerald-500" />
+              <TrendingUp className="h-5 w-5 text-money-in" />
               <div>
                 <p className="font-bold text-lg">EBITDA</p>
                 <p className="text-xs text-muted-foreground">Gross Profit minus Operating Expenses</p>
               </div>
             </div>
             <div className="text-right">
-              <p className={cn("text-2xl font-bold", data.ebitda >= 0 ? "text-emerald-500" : "text-red-500")}>
+              <p className={cn("text-2xl font-bold", data.ebitda >= 0 ? "text-money-in" : "text-money-out")}>
                 {formatCurrency(data.ebitda)}
               </p>
               <p className="text-xs text-muted-foreground">Margin: {formatPercentage(data.ebitdaMarginPct)}</p>

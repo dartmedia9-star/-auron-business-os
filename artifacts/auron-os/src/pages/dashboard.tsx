@@ -49,7 +49,7 @@ function MetricCard({
         <div className="text-xl sm:text-2xl font-bold truncate">{value}</div>
         {trend != null && (
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 flex flex-wrap items-center">
-            <span className={trend >= 0 ? "text-emerald-500 flex items-center mr-1" : "text-red-500 flex items-center mr-1"}>
+            <span className={trend >= 0 ? "text-money-in flex items-center mr-1" : "text-money-out flex items-center mr-1"}>
               {trend >= 0 ? <TrendingUp className="h-3 w-3 mr-1 shrink-0" /> : <TrendingDown className="h-3 w-3 mr-1 shrink-0" />}
               {Math.abs(trend).toFixed(1)}%
             </span>
@@ -101,7 +101,7 @@ export default function Dashboard() {
     <div className="space-y-8 max-w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">CEO Command Center</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">CEO Command Center</h2>
           <p className="text-muted-foreground mt-1">Real-time performance metrics and operating data.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -250,7 +250,7 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Avg. Profit per Event</span>
-                <span className="font-medium text-emerald-500">{formatCurrency(summary.avgProfitPerEvent)}</span>
+                <span className="font-medium text-money-in">{formatCurrency(summary.avgProfitPerEvent)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span
@@ -273,9 +273,9 @@ export default function Dashboard() {
              <div className="space-y-4">
                {insights?.map((insight, idx) => (
                  <div key={idx} className={`flex gap-3 p-3 rounded-md border ${
-                   insight.type === 'alert' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                   insight.type === 'alert' ? 'bg-red-500/10 border-red-500/20 text-money-out' :
                    insight.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
-                   insight.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                   insight.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-money-in' :
                    'bg-blue-500/10 border-blue-500/20 text-blue-500'
                  }`}>
                     {insight.type === 'alert' || insight.type === 'warning' ? (

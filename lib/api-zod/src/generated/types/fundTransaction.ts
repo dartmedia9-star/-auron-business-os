@@ -19,6 +19,8 @@ export interface FundTransaction {
   related_expense_id?: number | null;
   /** @nullable */
   related_transfer_id?: number | null;
+  /** @nullable */
+  related_client_payment_id?: number | null;
   created_at: Date;
   created_by?: string;
 }

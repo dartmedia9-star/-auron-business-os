@@ -70,7 +70,9 @@ async function main(): Promise<number> {
   if (login.status !== 200) return 1;
 
   const tag = `__cptest_${Date.now()}`;
-  const year = 2031; // isolated reporting year for the P&L checks
+  // A reporting year no real data uses, different on every run, so the P&L
+  // and month checks only see this run's records (re-runnable).
+  const year = 2200 + (Math.floor(Date.now() / 1000) % 700);
 
   // ── Setup ──────────────────────────────────────────────────────────────
   const fundA = (await api("POST", "/fund-accounts", { name: `${tag} Fund A`, opening_balance: 0 })).data;
@@ -226,9 +228,10 @@ async function main(): Promise<number> {
   check("Transfer created", transfer.status === 201, transfer);
   check("Transfer: P&L unchanged", JSON.stringify(pnl(preTransfer)) === JSON.stringify(pnl(postTransfer)));
   const history = (await api("GET", "/fund-transfers")).data as Json[];
-  check("Transfer appears first in history with fund names", history[0]?.id === transfer.data.id && history[0].from_account_name === fundB.name, history[0]);
+  const listed = history.find((h) => h.id === transfer.data.id);
+  check("Transfer appears in history with fund names", listed?.from_account_name === fundB.name && listed?.to_account_name === fundA.name, listed);
   const june = await cashflow(year, 6);
-  const legs = (june.transactions as Json[]).filter((t) => t.type === "transfer_in" || t.type === "transfer_out");
+  const legs = (june.transactions as Json[]).filter((t) => (t.type === "transfer_in" || t.type === "transfer_out") && t.description === "Test settlement");
   check("Transfer ledger legs use the transfer date", legs.length === 2 && legs.every((t) => t.transactionDate === `${year}-06-02`), legs);
   check("Transfer listed in its month's cash flow", (june.transfers as Json[]).some((t) => t.id === transfer.data.id));
 

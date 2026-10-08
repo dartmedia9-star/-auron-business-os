@@ -16,10 +16,10 @@ const MONTH_NAMES = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: "bg-emerald-500/10 text-emerald-500",
+  completed: "bg-emerald-500/10 text-money-in",
   upcoming: "bg-blue-500/10 text-blue-500",
   in_progress: "bg-amber-500/10 text-amber-500",
-  cancelled: "bg-red-500/10 text-red-500",
+  cancelled: "bg-red-500/10 text-money-out",
 };
 
 export default function PerformanceEvents() {
@@ -75,7 +75,7 @@ export default function PerformanceEvents() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
             <Calendar className="h-7 w-7 text-violet-500" />
             Events
           </h2>
@@ -162,8 +162,8 @@ export default function PerformanceEvents() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-medium">{e.revenue ? formatCurrency(e.revenue) : "—"}</TableCell>
-                      <TableCell className="text-right text-red-500">{e.directCost ? formatCurrency(e.directCost) : "—"}</TableCell>
-                      <TableCell className={cn("text-right font-medium", (e.profit ?? 0) >= 0 ? "text-emerald-500" : "text-red-500")}>
+                      <TableCell className="text-right text-money-out">{e.directCost ? formatCurrency(e.directCost) : "—"}</TableCell>
+                      <TableCell className={cn("text-right font-medium", (e.profit ?? 0) >= 0 ? "text-money-in" : "text-money-out")}>
                         {e.revenue || e.directCost ? formatCurrency(e.profit ?? 0) : "—"}
                       </TableCell>
                       <TableCell>

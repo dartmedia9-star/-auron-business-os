@@ -52,7 +52,7 @@ export default function PerformanceRevenue() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
             <ArrowUp className="h-7 w-7 text-blue-500" />
             Revenue Details
           </h2>
@@ -126,16 +126,16 @@ export default function PerformanceRevenue() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{r.clientName ?? "—"}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(r.netRevenue)}</TableCell>
-                      <TableCell className="text-right text-emerald-500">{formatCurrency(r.totalCollected)}</TableCell>
+                      <TableCell className="text-right text-money-in">{formatCurrency(r.totalCollected)}</TableCell>
                       <TableCell className={cn("text-right", (r.outstandingAmount ?? 0) > 0 ? "text-orange-500" : "text-muted-foreground")}>
                         {formatCurrency(r.outstandingAmount ?? 0)}
                       </TableCell>
                       <TableCell>
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          (r.paymentStatus ?? "") === "paid" && "bg-emerald-500/10 text-emerald-500",
+                          (r.paymentStatus ?? "") === "paid" && "bg-emerald-500/10 text-money-in",
                           (r.paymentStatus ?? "") === "partial" && "bg-amber-500/10 text-amber-500",
-                          (r.paymentStatus ?? "") === "overdue" && "bg-red-500/10 text-red-500",
+                          (r.paymentStatus ?? "") === "overdue" && "bg-red-500/10 text-money-out",
                           (r.paymentStatus ?? "") === "pending" && "bg-muted text-muted-foreground",
                           !["paid", "partial", "overdue", "pending"].includes(r.paymentStatus ?? "") && "bg-muted text-muted-foreground",
                         )}>

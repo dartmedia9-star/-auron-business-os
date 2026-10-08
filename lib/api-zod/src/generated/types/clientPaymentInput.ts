@@ -15,6 +15,16 @@ export interface ClientPaymentInput {
   payment_method?: string;
   reference?: string;
   notes?: string;
-  /** Optional event allocations */
+  /**
+     * Money received for one event. The event gets min(amount, its outstanding); any excess stays client-level (unallocated / client credit). Cannot be combined with allocations.
+     * @nullable
+     */
+  event_id?: number | null;
+  /**
+     * Client-generated key for one submission; resubmitting it returns the original payment
+     * @maxLength 200
+     */
+  idempotency_key?: string;
+  /** Optional explicit event allocations (strict; each must fit the event's outstanding) */
   allocations?: ClientPaymentInputAllocationsItem[];
 }

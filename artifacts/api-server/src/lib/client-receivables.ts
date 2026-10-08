@@ -6,6 +6,9 @@ import {
   clientPaymentsTable,
   paymentAllocationsTable,
 } from "@workspace/db";
+import { round2, toMoney, type DbExecutor } from "./fund-ledger";
+
+export { round2 };
 
 // ---------------------------------------------------------------------------
 // Receivables: single source of truth
@@ -64,20 +67,13 @@ export type ReceivablesLedger = {
   clients: Map<number, ClientReceivable>;
 };
 
-function toMoney(value: unknown): number {
-  const n = parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
-
-export function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 /**
  * Builds the receivables ledger for the given clients (or every client when
- * clientIds is omitted) in a fixed number of queries.
+ * clientIds is omitted) in a fixed number of queries. Pass an open
+ * transaction as `executor` to read inside it (payment writes validate
+ * against the ledger under the client's row lock).
  */
-export async function getReceivablesLedger(clientIds?: number[]): Promise<ReceivablesLedger> {
+export async function getReceivablesLedger(clientIds?: number[], executor: DbExecutor = db): Promise<ReceivablesLedger> {
   const events: Map<number, EventReceivable> = new Map();
   const clients: Map<number, ClientReceivable> = new Map();
   if (clientIds?.length === 0) return { events, clients };
@@ -86,8 +82,8 @@ export async function getReceivablesLedger(clientIds?: number[]): Promise<Receiv
   const paymentWhere = clientIds ? inArray(clientPaymentsTable.clientId, clientIds) : undefined;
 
   const [eventRows, payments] = await Promise.all([
-    db.select({ id: eventsTable.id, clientId: eventsTable.clientId }).from(eventsTable).where(eventWhere),
-    db.select({ id: clientPaymentsTable.id, clientId: clientPaymentsTable.clientId, amount: clientPaymentsTable.amount })
+    executor.select({ id: eventsTable.id, clientId: eventsTable.clientId }).from(eventsTable).where(eventWhere),
+    executor.select({ id: clientPaymentsTable.id, clientId: clientPaymentsTable.clientId, amount: clientPaymentsTable.amount })
       .from(clientPaymentsTable)
       .where(paymentWhere),
   ]);
@@ -97,10 +93,10 @@ export async function getReceivablesLedger(clientIds?: number[]): Promise<Receiv
 
   const [revenues, allocations] = await Promise.all([
     eventIds.length > 0
-      ? db.select().from(eventRevenueTable).where(inArray(eventRevenueTable.eventId, eventIds))
+      ? executor.select().from(eventRevenueTable).where(inArray(eventRevenueTable.eventId, eventIds))
       : Promise.resolve([] as (typeof eventRevenueTable.$inferSelect)[]),
     paymentIds.length > 0
-      ? db.select({ paymentId: paymentAllocationsTable.paymentId, eventId: paymentAllocationsTable.eventId, amount: paymentAllocationsTable.amount })
+      ? executor.select({ paymentId: paymentAllocationsTable.paymentId, eventId: paymentAllocationsTable.eventId, amount: paymentAllocationsTable.amount })
           .from(paymentAllocationsTable)
           .where(inArray(paymentAllocationsTable.paymentId, paymentIds))
       : Promise.resolve([] as { paymentId: number; eventId: number; amount: string }[]),

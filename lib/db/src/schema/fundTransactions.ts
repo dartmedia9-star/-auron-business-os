@@ -9,7 +9,7 @@ import { operatingExpensesTable } from "./finance";
 export const fundTransactionsTable = pgTable("fund_transactions", {
   id: serial("id").primaryKey(),
   fund_account_id: integer("fund_account_id").notNull().references(() => fundAccountsTable.id, { onDelete: "restrict" }),
-  transaction_type: text("transaction_type").notNull(), // expense | expense_reversal | transfer_in | transfer_out | adjustment
+  transaction_type: text("transaction_type").notNull(), // expense | expense_reversal | transfer_in | transfer_out | client_payment | client_payment_reversal | adjustment
   amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
   // Effective business date of the cash movement (payment date, expense date,
   // transfer date). Reporting buckets by this, never by created_at. Added in
@@ -18,10 +18,15 @@ export const fundTransactionsTable = pgTable("fund_transactions", {
   description: text("description"),
   related_expense_id: integer("related_expense_id").references(() => operatingExpensesTable.id, { onDelete: "set null" }),
   related_transfer_id: integer("related_transfer_id").references(() => fundTransfersTable.id, { onDelete: "set null" }),
+  // Client payment this row belongs to (client_payment / client_payment_reversal).
+  // No foreign key on purpose: reversal rows of a deleted payment keep the id so
+  // its audit trail stays reachable. Added in migration 0005.
+  related_client_payment_id: integer("related_client_payment_id"),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   created_by: text("created_by"),
 }, (table) => [
   index("fund_transactions_transaction_date_idx").on(table.transaction_date),
+  index("fund_transactions_related_client_payment_id_idx").on(table.related_client_payment_id),
 ]);
 
 export const insertFundTransactionSchema = createInsertSchema(fundTransactionsTable).omit({ id: true, created_at: true });

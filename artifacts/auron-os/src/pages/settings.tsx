@@ -67,7 +67,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">System Settings</h2>
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">System Settings</h2>
         <p className="text-muted-foreground mt-1">Configure Auron Business OS parameters and thresholds.</p>
       </div>
 

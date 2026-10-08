@@ -73,7 +73,7 @@ export default function PerformanceActivity() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
             <History className="h-7 w-7 text-slate-500" />
             Activity Logs
           </h2>
@@ -161,9 +161,9 @@ export default function PerformanceActivity() {
                         <TableCell>
                           <span className={cn(
                             "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                            l.action === "create" && "bg-emerald-500/10 text-emerald-500",
+                            l.action === "create" && "bg-emerald-500/10 text-money-in",
                             l.action === "update" && "bg-amber-500/10 text-amber-500",
-                            l.action === "delete" && "bg-red-500/10 text-red-500",
+                            l.action === "delete" && "bg-red-500/10 text-money-out",
                             !["create", "update", "delete"].includes(l.action) && "bg-muted text-muted-foreground",
                           )}>
                             {l.action}

@@ -61,6 +61,8 @@ import type {
   FinanceSummary,
   FundAccount,
   FundAccountInput,
+  FundLedgerEntryDetail,
+  FundLedgerListResponse,
   FundTransfer,
   FundTransferHistoryItem,
   FundTransferInput,
@@ -93,6 +95,7 @@ import type {
   ListClientReceivablesParams,
   ListClientsParams,
   ListEventsParams,
+  ListFundLedgerParams,
   ListFundTransactions200,
   ListLeadsParams,
   ListMarketingSpendParams,
@@ -5045,6 +5048,168 @@ export const useCreateFundTransfer = <TError = ErrorType<ErrorEnvelope>,
       > => {
       return useMutation(getCreateFundTransferMutationOptions(options));
     }
+
+export const getListFundLedgerUrl = (params?: ListFundLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/fund-transactions?${stringifiedParams}` : `/api/fund-transactions`
+}
+
+/**
+ * Read-only view of the fund_transactions ledger (client payments, expenses, transfers, reversals, adjustments), newest first by effective date, enriched with client, event, fund and payment details. Totals cover the whole filtered set; transfers are reported separately as internal movements.
+ * @summary Unified fund transaction history across all funds
+ */
+export const listFundLedger = async (params?: ListFundLedgerParams, options?: Parameters<typeof customFetch>[1]): Promise<FundLedgerListResponse> => {
+
+  return customFetch<FundLedgerListResponse>(getListFundLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFundLedgerQueryKey = (params?: ListFundLedgerParams,) => {
+    return [
+    `/api/fund-transactions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListFundLedgerQueryOptions = <TData = Awaited<ReturnType<typeof listFundLedger>>, TError = ErrorType<ErrorEnvelope>>(params?: ListFundLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFundLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFundLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFundLedger>>> = ({ signal }) => listFundLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFundLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFundLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof listFundLedger>>>
+export type ListFundLedgerQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Unified fund transaction history across all funds
+ */
+
+export function useListFundLedger<TData = Awaited<ReturnType<typeof listFundLedger>>, TError = ErrorType<ErrorEnvelope>>(
+ params?: ListFundLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFundLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFundLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFundLedgerEntryUrl = (id: number,) => {
+
+
+
+
+  return `/api/fund-transactions/${id}`
+}
+
+/**
+ * @summary One ledger entry with related records, allocation status and audit trail
+ */
+export const getFundLedgerEntry = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<FundLedgerEntryDetail> => {
+
+  return customFetch<FundLedgerEntryDetail>(getGetFundLedgerEntryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFundLedgerEntryQueryKey = (id: number,) => {
+    return [
+    `/api/fund-transactions/${id}`
+    ] as const;
+    }
+
+
+export const getGetFundLedgerEntryQueryOptions = <TData = Awaited<ReturnType<typeof getFundLedgerEntry>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundLedgerEntry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFundLedgerEntryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFundLedgerEntry>>> = ({ signal }) => getFundLedgerEntry(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFundLedgerEntry>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFundLedgerEntryQueryResult = NonNullable<Awaited<ReturnType<typeof getFundLedgerEntry>>>
+export type GetFundLedgerEntryQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary One ledger entry with related records, allocation status and audit trail
+ */
+
+export function useGetFundLedgerEntry<TData = Awaited<ReturnType<typeof getFundLedgerEntry>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundLedgerEntry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFundLedgerEntryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListNotesUrl = (params?: ListNotesParams,) => {
   const normalizedParams = new URLSearchParams();

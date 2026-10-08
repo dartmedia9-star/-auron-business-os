@@ -9,6 +9,8 @@ import {
   useCreateClientPayment,
   useUpdateClientPayment,
   useDeleteClientPayment,
+  useListFundLedger,
+  getListFundLedgerQueryKey,
 } from "@workspace/api-client-react";
 import type { ClientPayment, ClientReceivablesEventsItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,7 +34,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { useNewTransaction } from "@/components/new-transaction";
+import { LedgerEntrySheet } from "@/components/fund-ledger";
+import { Money } from "@/components/ds/money";
+import { CardsSkeleton, EmptyState, ErrorState, TableSkeleton } from "@/components/ds/states";
+import { invalidateFinance } from "@/lib/finance-queries";
 
 const PAYMENT_METHODS = ["Bank Transfer", "UPI", "Cheque", "Cash", "Card", "Other"];
 
@@ -48,10 +55,6 @@ function errorMessage(err: unknown): string {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-// Everything a client payment can move: receivables, client stats, funds,
-// reports. Payments never change revenue, but reports show receivables/cash.
-const AFFECTED_PREFIXES = ["/api/clients", "/api/finance", "/api/fund-accounts", "/api/dashboard", "/api/performance", "/api/events", "/api/audit-logs"];
 
 function allocationLabel(p: ClientPayment): { text: string; detail?: string } {
   const allocations = p.allocations ?? [];
@@ -82,11 +85,22 @@ export function ClientPayments({ clientId }: { clientId: number }) {
 
   const [dialog, setDialog] = useState<{ mode: "create" } | { mode: "edit"; payment: ClientPayment } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientPayment | null>(null);
+  const [ledgerEntryId, setLedgerEntryId] = useState<number | null>(null);
+  const newTransaction = useNewTransaction();
 
-  const refresh = () =>
-    queryClient.invalidateQueries({
-      predicate: (q) => typeof q.queryKey[0] === "string" && AFFECTED_PREFIXES.some((p) => (q.queryKey[0] as string).startsWith(p)),
-    });
+  // The fund ledger row currently standing for each payment, so a payment
+  // opens the same transaction drawer as the Funds page.
+  const ledgerParams = { clientId, category: "client_payment" as const, type: "client_payment", limit: 200 };
+  const ledger = useListFundLedger(ledgerParams, { query: { enabled: !!clientId, queryKey: getListFundLedgerQueryKey(ledgerParams) } });
+  const ledgerRowByPayment = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const row of ledger.data?.data ?? []) {
+      if (row.relatedClientPaymentId !== null && row.status === "posted") map.set(row.relatedClientPaymentId, row.id);
+    }
+    return map;
+  }, [ledger.data]);
+
+  const refresh = () => invalidateFinance(queryClient);
 
   const r = receivables.data;
 
@@ -96,7 +110,7 @@ export function ClientPayments({ clientId }: { clientId: number }) {
     deletePayment.mutate({ id: target.id }, {
       onSuccess: async () => {
         await refresh();
-        toast({ title: "Payment reversed", description: `${money(target.amount)} was removed from ${target.fundAccountName ?? "the receiving fund"} and the client's outstanding was restored.` });
+        toast({ variant: "success", title: "Payment reversed", description: `${money(target.amount)} was removed from ${target.fundAccountName ?? "the receiving fund"} and the client's outstanding was restored.` });
         setDeleteTarget(null);
       },
       onError: (err) => toast({ title: "Failed to reverse payment", description: errorMessage(err), variant: "destructive" }),
@@ -108,21 +122,18 @@ export function ClientPayments({ clientId }: { clientId: number }) {
       <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>Receivables &amp; Payments</CardTitle>
-          <CardDescription>Payments settle the client's balance. They are cash collection, not revenue.</CardDescription>
+          <CardDescription>Money received settles the client's balance. It is cash collection, not revenue.</CardDescription>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })} disabled={!r}>
-          <Plus className="mr-2 h-4 w-4" /> Add Payment
+        <Button onClick={() => newTransaction.open({ kind: "money_received", clientId })} disabled={!r}>
+          <Plus className="mr-2 h-4 w-4" /> Record Money Received
         </Button>
       </CardHeader>
 
       <CardContent className="space-y-6">
         {receivables.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading receivables...</p>
+          <CardsSkeleton count={4} />
         ) : receivables.isError || !r ? (
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-destructive">Failed to load receivables: {errorMessage(receivables.error)}</p>
-            <Button variant="outline" size="sm" onClick={() => void receivables.refetch()}>Try again</Button>
-          </div>
+          <ErrorState title="Couldn't load receivables" error={receivables.error} onRetry={() => void receivables.refetch()} />
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="Total Revenue" value={money(r.totalBilled)} />
@@ -139,19 +150,16 @@ export function ClientPayments({ clientId }: { clientId: number }) {
         <div>
           <h4 className="mb-2 text-sm font-semibold">Payment History</h4>
           {payments.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading payments...</p>
+            <div className="rounded-lg border"><TableSkeleton rows={3} cols={5} /></div>
           ) : payments.isError ? (
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-destructive">Failed to load payments: {errorMessage(payments.error)}</p>
-              <Button variant="outline" size="sm" onClick={() => void payments.refetch()}>Try again</Button>
-            </div>
+            <ErrorState title="Couldn't load payments" error={payments.error} onRetry={() => void payments.refetch()} />
           ) : !payments.data || payments.data.data.length === 0 ? (
-            <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              No payments recorded through client payments yet.
-              {r && r.legacyCollected ? ` ${money(r.legacyCollected)} was collected through event-level payment records and is included in Total Received.` : ""}
-            </p>
+            <EmptyState
+              title="No money received recorded yet"
+              description={r && r.legacyCollected ? `${money(r.legacyCollected)} was collected through event-level payment records and is included in Total Received.` : "Use Record Money Received when this client pays."}
+            />
           ) : (
-            <div className="overflow-x-auto rounded-md border">
+            <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -167,9 +175,13 @@ export function ClientPayments({ clientId }: { clientId: number }) {
                   {payments.data.data.map((p) => {
                     const alloc = allocationLabel(p);
                     return (
-                      <TableRow key={p.id}>
+                      <TableRow
+                        key={p.id}
+                        className={ledgerRowByPayment.has(p.id) ? "cursor-pointer" : undefined}
+                        onClick={() => { const id = ledgerRowByPayment.get(p.id); if (id) setLedgerEntryId(id); }}
+                      >
                         <TableCell className="whitespace-nowrap">{formatDate(p.paymentDate)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-right font-medium">{money(p.amount)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-semibold"><Money value={p.amount} signed /></TableCell>
                         <TableCell className="min-w-[7rem]">{p.fundAccountName ?? "—"}</TableCell>
                         <TableCell>
                           <div>{p.paymentMethod || "—"}</div>
@@ -181,13 +193,18 @@ export function ClientPayments({ clientId }: { clientId: number }) {
                           {p.notes && <div className="text-xs text-muted-foreground italic">{p.notes}</div>}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit payment" onClick={() => setDialog({ mode: "edit", payment: p })}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Reverse payment" onClick={() => setDeleteTarget(p)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
+                            {ledgerRowByPayment.has(p.id) && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Transaction details" onClick={() => setLedgerEntryId(ledgerRowByPayment.get(p.id)!)}>
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -211,6 +228,8 @@ export function ClientPayments({ clientId }: { clientId: number }) {
           onSaved={refresh}
         />
       )}
+
+      <LedgerEntrySheet entryId={ledgerEntryId} onClose={() => setLedgerEntryId(null)} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deletePayment.isPending) setDeleteTarget(null); }}>
         <AlertDialogContent>
@@ -237,11 +256,11 @@ export function ClientPayments({ clientId }: { clientId: number }) {
 }
 
 function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warning" | "success" }) {
-  const color = tone === "warning" ? "text-amber-500" : tone === "success" ? "text-emerald-500" : "";
+  const color = tone === "warning" ? "text-warning" : tone === "success" ? "text-money-in" : "";
   return (
-    <div className="rounded-lg border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-lg font-bold sm:text-xl ${color}`}>{value}</div>
+    <div className="rounded-xl border bg-card p-3 shadow-xs">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`mt-1 text-lg font-semibold tabular-nums sm:text-xl ${color}`}>{value}</div>
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </div>
   );

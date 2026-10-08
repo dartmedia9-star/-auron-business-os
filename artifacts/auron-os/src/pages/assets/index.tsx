@@ -191,7 +191,7 @@ export default function AssetsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Asset Management</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Asset Management</h2>
           <p className="text-muted-foreground mt-1">Track inventory, condition, and ROI on owned assets.</p>
         </div>
         <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
@@ -229,7 +229,7 @@ export default function AssetsList() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(asset.purchaseCost)}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(asset.currentBookValue)}</TableCell>
-                      <TableCell className="text-right font-medium text-emerald-500">
+                      <TableCell className="text-right font-medium text-money-in">
                         {asset.roi != null ? formatPercentage(asset.roi) : "—"}
                       </TableCell>
                       <TableCell>

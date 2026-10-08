@@ -30,7 +30,7 @@ const PIPELINE_STAGES = [
   { id: "requirement_received", label: "Req Received", color: "bg-violet-500/10 text-violet-500 border-violet-500/20" },
   { id: "proposal_sent", label: "Proposal Sent", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
   { id: "negotiation", label: "Negotiation", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  { id: "won", label: "Won", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  { id: "won", label: "Won", color: "bg-emerald-500/10 text-money-in border-emerald-500/20" },
 ];
 
 const SOURCES = ['referral', 'instagram', 'facebook', 'website', 'google', 'walk_in', 'event_expo', 'other'];
@@ -224,7 +224,7 @@ export default function LeadsPipeline() {
     <div className="space-y-6 h-full flex flex-col min-h-[100dvh] md:min-h-0">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sales Pipeline</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sales Pipeline</h2>
           <p className="text-muted-foreground mt-1">Track deals from lead to closed-won.</p>
         </div>
         <Button onClick={() => { resetForm(); setCreateOpen(true); }}>

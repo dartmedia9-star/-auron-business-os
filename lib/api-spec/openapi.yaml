@@ -516,6 +516,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ClientPaymentInput"
       responses:
+        "200":
+          description: Same idempotency_key submitted again; the original payment is returned and nothing new is recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPayment"
         "201":
           description: Created
           content:
@@ -524,6 +530,12 @@ paths:
                 $ref: "#/components/schemas/ClientPayment"
         "400":
           description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: idempotency_key already used for a different client
           content:
             application/json:
               schema:
@@ -1542,6 +1554,113 @@ paths:
                 $ref: "#/components/schemas/FundTransfer"
         "400":
           description: Invalid transfer data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /fund-transactions:
+    get:
+      operationId: listFundLedger
+      tags: [fundAccounts]
+      summary: Unified fund transaction history across all funds
+      description: >
+        Read-only view of the fund_transactions ledger (client payments,
+        expenses, transfers, reversals, adjustments), newest first by effective
+        date, enriched with client, event, fund and payment details. Totals
+        cover the whole filtered set; transfers are reported separately as
+        internal movements.
+      parameters:
+        - name: fundAccountId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [client_payment, expense, transfer, adjustment]
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [in, out]
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+      responses:
+        "200":
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundLedgerListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /fund-transactions/{id}:
+    get:
+      operationId: getFundLedgerEntry
+      tags: [fundAccounts]
+      summary: One ledger entry with related records, allocation status and audit trail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Ledger entry detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundLedgerEntryDetail"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -2921,9 +3040,19 @@ components:
           type: string
         notes:
           type: string
+        event_id:
+          type: ["number", "null"]
+          description: >
+            Money received for one event. The event gets min(amount, its
+            outstanding); any excess stays client-level (unallocated / client
+            credit). Cannot be combined with allocations.
+        idempotency_key:
+          type: string
+          maxLength: 200
+          description: Client-generated key for one submission; resubmitting it returns the original payment
         allocations:
           type: array
-          description: Optional event allocations
+          description: Optional explicit event allocations (strict; each must fit the event's outstanding)
           items:
             type: object
             required: [eventId, amount]
@@ -4040,11 +4169,203 @@ components:
           type: ["integer", "null"]
         related_transfer_id:
           type: ["integer", "null"]
+        related_client_payment_id:
+          type: ["integer", "null"]
         created_at:
           type: string
           format: date-time
         created_by:
           type: string
+
+    FundLedgerEventLink:
+      type: object
+      required: [eventId, eventName, amount]
+      properties:
+        eventId:
+          type: number
+        eventName:
+          type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+          description: Amount of the payment allocated to the event (null for an expense's linked event)
+
+    FundLedgerEntry:
+      type: object
+      required: [id, fundAccountId, fundAccountName, transactionType, category, amount, signedAmount, direction, isInternalTransfer, transactionDate, description, status, clientId, clientName, events, paymentMethod, reference, notes, expenseCategory, counterpartyFundId, counterpartyFundName, relatedClientPaymentId, relatedExpenseId, relatedTransferId, paymentDeleted, createdBy, createdByName, createdAt]
+      properties:
+        id:
+          type: number
+        fundAccountId:
+          type: number
+        fundAccountName:
+          type: ["string", "null"]
+        transactionType:
+          type: string
+          enum: [expense, expense_reversal, transfer_in, transfer_out, adjustment, client_payment, client_payment_reversal]
+        category:
+          type: string
+          enum: [client_payment, expense, transfer, adjustment, other]
+        amount:
+          type: number
+        signedAmount:
+          type: number
+          description: Effect on the fund balance (positive in, negative out)
+        direction:
+          type: string
+          enum: [in, out]
+        isInternalTransfer:
+          type: boolean
+        transactionDate:
+          type: string
+          format: date
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [posted, reversed, reversal]
+        clientId:
+          type: ["number", "null"]
+        clientName:
+          type: ["string", "null"]
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundLedgerEventLink"
+        paymentMethod:
+          type: ["string", "null"]
+        reference:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        expenseCategory:
+          type: ["string", "null"]
+        counterpartyFundId:
+          type: ["number", "null"]
+        counterpartyFundName:
+          type: ["string", "null"]
+        relatedClientPaymentId:
+          type: ["number", "null"]
+        relatedExpenseId:
+          type: ["number", "null"]
+        relatedTransferId:
+          type: ["number", "null"]
+        paymentDeleted:
+          type: boolean
+        createdBy:
+          type: ["string", "null"]
+        createdByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    FundLedgerListResponse:
+      type: object
+      required: [data, total, page, limit, totals]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundLedgerEntry"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+        totals:
+          type: object
+          required: [cashIn, cashOut, netCash, internalTransfersIn, internalTransfersOut]
+          properties:
+            cashIn:
+              type: number
+            cashOut:
+              type: number
+            netCash:
+              type: number
+            internalTransfersIn:
+              type: number
+            internalTransfersOut:
+              type: number
+
+    FundLedgerLedgerEntry:
+      type: object
+      required: [id, transactionType, fundAccountName, amount, signedAmount, transactionDate, status, createdAt]
+      properties:
+        id:
+          type: number
+        transactionType:
+          type: string
+        fundAccountName:
+          type: ["string", "null"]
+        amount:
+          type: number
+        signedAmount:
+          type: number
+        transactionDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [posted, reversed, reversal]
+        createdAt:
+          type: string
+          format: date-time
+
+    FundLedgerAuditEntry:
+      type: object
+      required: [id, action, entityType, entityId, userId, userName, userEmail, createdAt]
+      properties:
+        id:
+          type: number
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: number
+        userId:
+          type: string
+        userName:
+          type: ["string", "null"]
+        userEmail:
+          type: ["string", "null"]
+        oldValues:
+          type: ["object", "null"]
+        newValues:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    FundLedgerEntryDetail:
+      allOf:
+        - $ref: "#/components/schemas/FundLedgerEntry"
+        - type: object
+          required: [related, allocationStatus, audit]
+          properties:
+            related:
+              type: object
+              required: [payment, transfer, expense, ledgerEntries]
+              properties:
+                payment:
+                  type: ["object", "null"]
+                  description: The client payment (with allocations), or {id, deleted:true} when it was reversed and removed
+                transfer:
+                  type: ["object", "null"]
+                expense:
+                  type: ["object", "null"]
+                ledgerEntries:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FundLedgerLedgerEntry"
+            allocationStatus:
+              type: ["string", "null"]
+              enum: [fully_allocated, partially_allocated, client_level, null]
+            audit:
+              type: array
+              items:
+                $ref: "#/components/schemas/FundLedgerAuditEntry"
 
     # Note schemas
     Note:
@@ -5167,6 +5488,11 @@ components:
           type: number
         moneyOut:
           type: number
+        isInternalTransfer:
+          type: boolean
+          description: True for transfer_in / transfer_out legs, which are excluded from cash in/out totals
+        relatedClientPaymentId:
+          type: ["number", "null"]
         description:
           type: ["string", "null"]
         transactionDate:
@@ -5211,10 +5537,15 @@ components:
             $ref: "#/components/schemas/PerformanceCashflowTransfer"
         totalCashIn:
           type: number
+          description: Business cash received (excludes internal transfers)
         totalCashOut:
+          type: number
+          description: Business cash paid out (excludes internal transfers)
+        netCashFlow:
           type: number
         totalTransfers:
           type: number
+          description: Internal transfers between funds (not cash in/out)
         transactionCount:
           type: number
         transferCount:
@@ -5222,6 +5553,8 @@ components:
         clientPaymentTotal:
           type: number
         clientPaymentReversalTotal:
+          type: number
+        netClientReceipts:
           type: number
         otherInflows:
           type: number
@@ -5233,6 +5566,12 @@ components:
             properties:
               id:
                 type: number
+              clientId:
+                type: number
+              clientName:
+                type: ["string", "null"]
+              fundAccountName:
+                type: ["string", "null"]
               amount:
                 type: number
               paymentDate:

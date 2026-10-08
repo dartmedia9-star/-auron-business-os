@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { getReceivablesLedger, round2, type ClientReceivable } from "../lib/client-receivables";
 import { isValidDate } from "../lib/business-date";
+import { toMoney, type DbExecutor, type Tx } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
@@ -23,18 +24,20 @@ const router: IRouter = Router();
 // never automatic (no FIFO). Any unallocated part stays client-level.
 //
 // Fund ledger: every payment posts a `client_payment` (+amount) row to its
-// receiving fund, dated with the payment date. An edit that changes amount,
+// receiving fund, dated with the payment date and linked through
+// related_client_payment_id. An edit that changes amount,
 // fund or date posts a `client_payment_reversal` (-old amount) on the old fund
 // and old date and a new `client_payment` on the new fund and date; a delete
 // posts the reversal on the payment's date. The
 // payment record, allocations, ledger rows and audit log are always written in
-// ONE database transaction.
+// ONE database transaction, under a row lock on the client so concurrent
+// writes cannot over-allocate an event.
+//
+// "Money received" with one event (`event_id`) splits automatically: the
+// event gets min(amount, its outstanding) and the rest stays client-level.
+// Explicit `allocations` stay strict. An `idempotency_key` makes a retried
+// submit return the original payment instead of recording it twice.
 // ---------------------------------------------------------------------------
-
-function toMoney(value: unknown): number {
-  const n = parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
 
 function parseId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -61,13 +64,32 @@ function sendError(res: { status: (n: number) => { json: (b: unknown) => void } 
 type AllocationRow = { eventId: number; amount: number };
 
 /**
+ * Serializes payment writes for one client. Every write that validates
+ * against the receivables ledger takes this row lock first, so two payments
+ * recorded at the same moment cannot both pass the outstanding check.
+ */
+async function lockClient(tx: Tx, clientId: number): Promise<void> {
+  await tx.execute(sql`select id from clients where id = ${clientId} for update`);
+}
+
+async function loadClientEvents(executor: DbExecutor, eventIds: number[]) {
+  const events = await executor
+    .select({ id: eventsTable.id, name: eventsTable.name, clientId: eventsTable.clientId })
+    .from(eventsTable)
+    .where(inArray(eventsTable.id, eventIds));
+  return new Map(events.map((e) => [e.id, e]));
+}
+
+/**
  * Validates an optional allocation payload for a payment of `paymentAmount`
  * by `clientId`. Rules: events exist and belong to the client, no duplicate
  * events, each amount > 0, total <= payment amount, and no event receives more
  * than its remaining outstanding (legacy outstanding minus allocations from
  * OTHER payments). An empty/absent payload means client-level / unallocated.
+ * Explicit allocations are strict: an amount above outstanding is rejected.
  */
 async function validateAllocations(
+  executor: DbExecutor,
   clientId: number,
   paymentAmount: number,
   payload: unknown,
@@ -92,11 +114,7 @@ async function validateAllocations(
   const total = round2(rows.reduce((s, r) => s + r.amount, 0));
   if (total > round2(paymentAmount)) throw new PaymentError(400, "Total allocation exceeds payment amount");
 
-  const events = await db
-    .select({ id: eventsTable.id, name: eventsTable.name, clientId: eventsTable.clientId })
-    .from(eventsTable)
-    .where(inArray(eventsTable.id, rows.map((r) => r.eventId)));
-  const eventMap = new Map(events.map((e) => [e.id, e]));
+  const eventMap = await loadClientEvents(executor, rows.map((r) => r.eventId));
   for (const r of rows) {
     const ev = eventMap.get(r.eventId);
     if (!ev) throw new PaymentError(400, `Event ${r.eventId} was not found`);
@@ -106,10 +124,10 @@ async function validateAllocations(
   // Remaining allocatable per event comes from the shared receivables ledger.
   // This payment's own current allocations are added back because they are
   // being replaced.
-  const ledger = await getReceivablesLedger([clientId]);
+  const ledger = await getReceivablesLedger([clientId], executor);
   const ownAllocations = paymentId === null
     ? []
-    : await db.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, paymentId));
+    : await executor.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, paymentId));
   const ownByEvent = new Map(ownAllocations.map((a) => [a.eventId, toMoney(a.amount)]));
   for (const r of rows) {
     const remaining = round2((ledger.events.get(r.eventId)?.outstanding ?? 0) + (ownByEvent.get(r.eventId) ?? 0));
@@ -120,6 +138,33 @@ async function validateAllocations(
   }
 
   return rows;
+}
+
+/**
+ * "Money received for this event": allocates min(payment, event outstanding)
+ * to the event and leaves any excess client-level (unallocated, and client
+ * credit once the client has nothing else outstanding). An event's received
+ * amount therefore never exceeds its revenue.
+ */
+async function autoAllocateToEvent(
+  executor: DbExecutor,
+  clientId: number,
+  paymentAmount: number,
+  eventId: number,
+): Promise<AllocationRow[]> {
+  const ev = (await loadClientEvents(executor, [eventId])).get(eventId);
+  if (!ev) throw new PaymentError(400, "Selected event was not found");
+  if (ev.clientId !== clientId) throw new PaymentError(400, `Event "${ev.name}" does not belong to this client`);
+  const ledger = await getReceivablesLedger([clientId], executor);
+  const remaining = round2(ledger.events.get(eventId)?.outstanding ?? 0);
+  const amount = round2(Math.min(paymentAmount, remaining));
+  return amount > 0 ? [{ eventId, amount }] : [];
+}
+
+function pgErrorCode(err: unknown): string | undefined {
+  const e = err as { code?: unknown; cause?: { code?: unknown } } | null;
+  const code = e?.code ?? e?.cause?.code;
+  return typeof code === "string" ? code : undefined;
 }
 
 function receivableFields(r: ClientReceivable | undefined, clientId: number) {
@@ -151,7 +196,7 @@ async function loadAllocationsWithNames(paymentIds: number[]) {
     .where(inArray(paymentAllocationsTable.paymentId, paymentIds));
 }
 
-async function serializePayment(paymentId: number) {
+export async function serializePayment(paymentId: number) {
   const [payment] = await db.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, paymentId));
   if (!payment) return null;
   const [client] = await db.select({ name: clientsTable.name }).from(clientsTable).where(eq(clientsTable.id, payment.clientId));
@@ -280,15 +325,16 @@ router.get("/clients/:id/payments", async (req, res): Promise<void> => {
   res.json({ data, total: totalResult[0]?.count ?? 0, page: pageNum, limit: limitNum });
 });
 
-// POST /clients/:id/payments — record a new payment (client-level, or
-// optionally allocated to one or more of the client's events)
+// POST /clients/:id/payments — record money received from a client:
+// client-level, auto-split against one event (`event_id`), or explicitly
+// allocated (`allocations`).
 router.post("/clients/:id/payments", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   try {
     const clientId = parseId(req.params.id);
     if (clientId === null) throw new PaymentError(400, "Invalid client id");
 
-    const { amount, payment_date, fund_account_id, payment_method, reference, notes, allocations } = req.body ?? {};
+    const { amount, payment_date, fund_account_id, payment_method, reference, notes, allocations, event_id, idempotency_key } = req.body ?? {};
 
     const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
     if (!client) throw new PaymentError(400, "Client not found");
@@ -303,45 +349,87 @@ router.post("/clients/:id/payments", async (req, res): Promise<void> => {
       : await db.select().from(fundAccountsTable).where(eq(fundAccountsTable.id, fundId));
     if (!fundAccount) throw new PaymentError(400, "Select a valid receiving fund account");
 
-    const allocationRows = await validateAllocations(clientId, amountNum, allocations, null);
+    const eventId = event_id == null || event_id === "" ? null : parseId(event_id);
+    if (event_id != null && event_id !== "" && eventId === null) throw new PaymentError(400, "event_id must be a valid event id");
+    if (eventId !== null && Array.isArray(allocations) && allocations.length > 0) {
+      throw new PaymentError(400, "Send either event_id or allocations, not both");
+    }
 
-    const createdId = await db.transaction(async (tx) => {
-      const [payment] = await tx.insert(clientPaymentsTable).values({
-        clientId,
-        amount: String(amountNum),
-        paymentDate: payment_date,
-        fundAccountId: fundAccount.id,
-        paymentMethod: payment_method || null,
-        reference: reference || null,
-        notes: notes || null,
-        createdBy: req.user.id,
-      }).returning();
+    let idempotencyKey: string | null = null;
+    if (idempotency_key != null && idempotency_key !== "") {
+      if (typeof idempotency_key !== "string" || idempotency_key.length > 200) throw new PaymentError(400, "idempotency_key must be a string of at most 200 characters");
+      idempotencyKey = idempotency_key;
+    }
 
-      // Cash collection: the receiving fund's balance increases.
-      await tx.insert(fundTransactionsTable).values({
-        fund_account_id: fundAccount.id,
-        transaction_type: "client_payment",
-        amount: String(amountNum),
-        transaction_date: payment_date,
-        description: `Client payment #${payment.id} from ${client.name}`,
-        created_by: req.user.id,
+    // A retried submit returns the payment it already created.
+    const replay = async (): Promise<boolean> => {
+      if (idempotencyKey === null) return false;
+      const [existing] = await db.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.idempotencyKey, idempotencyKey));
+      if (!existing) return false;
+      if (existing.clientId !== clientId) throw new PaymentError(409, "This submission key was already used for a different client");
+      res.status(200).json(await serializePayment(existing.id));
+      return true;
+    };
+    if (await replay()) return;
+
+    let createdId: number;
+    try {
+      createdId = await db.transaction(async (tx) => {
+        await lockClient(tx, clientId);
+
+        const allocationRows = eventId !== null
+          ? await autoAllocateToEvent(tx, clientId, amountNum, eventId)
+          : await validateAllocations(tx, clientId, amountNum, allocations, null);
+
+        const [payment] = await tx.insert(clientPaymentsTable).values({
+          clientId,
+          amount: String(amountNum),
+          paymentDate: payment_date,
+          fundAccountId: fundAccount.id,
+          paymentMethod: payment_method || null,
+          reference: reference || null,
+          notes: notes || null,
+          idempotencyKey,
+          createdBy: req.user.id,
+        }).returning();
+
+        // Cash collection: the receiving fund's balance increases.
+        await tx.insert(fundTransactionsTable).values({
+          fund_account_id: fundAccount.id,
+          transaction_type: "client_payment",
+          amount: String(amountNum),
+          transaction_date: payment_date,
+          description: `Client payment #${payment.id} from ${client.name}`,
+          related_client_payment_id: payment.id,
+          created_by: req.user.id,
+        });
+
+        for (const a of allocationRows) {
+          await tx.insert(paymentAllocationsTable).values({ paymentId: payment.id, eventId: a.eventId, amount: String(a.amount) });
+        }
+
+        const allocatedTotal = round2(allocationRows.reduce((s, a) => s + a.amount, 0));
+        await tx.insert(auditLogsTable).values({
+          userId: req.user.id,
+          userEmail: req.user.email ?? null,
+          action: "create",
+          entityType: "client_payment",
+          entityId: payment.id,
+          newValues: {
+            ...payment,
+            amount: amountNum,
+            allocations: allocationRows,
+            ...(eventId !== null ? { requestedEventId: eventId, clientLevelAmount: round2(amountNum - allocatedTotal) } : {}),
+          },
+        });
+
+        return payment.id;
       });
-
-      for (const a of allocationRows) {
-        await tx.insert(paymentAllocationsTable).values({ paymentId: payment.id, eventId: a.eventId, amount: String(a.amount) });
-      }
-
-      await tx.insert(auditLogsTable).values({
-        userId: req.user.id,
-        userEmail: req.user.email ?? null,
-        action: "create",
-        entityType: "client_payment",
-        entityId: payment.id,
-        newValues: { ...payment, amount: amountNum, allocations: allocationRows },
-      });
-
-      return payment.id;
-    });
+    } catch (err) {
+      // Two identical submits racing: the unique key lets only one through.
+      if (pgErrorCode(err) === "23505" && (await replay())) return;
+      throw err;
+    }
 
     res.status(201).json(await serializePayment(createdId));
   } catch (err) {
@@ -370,66 +458,72 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
 
     const { amount, payment_date, fund_account_id, payment_method, reference, notes, allocations } = req.body ?? {};
 
-    const [payment] = await db.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
-    if (!payment) throw new PaymentError(404, "Payment not found");
+    const [existing] = await db.select({ clientId: clientPaymentsTable.clientId }).from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
+    if (!existing) throw new PaymentError(404, "Payment not found");
 
+    // Input checks that need no ledger state run before the transaction.
     const updateData: Record<string, unknown> = { updatedBy: req.user.id };
-    let newAmount = toMoney(payment.amount);
-    let newFundId = payment.fundAccountId;
-    let newDate = payment.paymentDate;
-
+    let requestedAmount: number | null = null;
     if (amount !== undefined) {
       const amt = round2(toMoney(amount));
       if (amt <= 0) throw new PaymentError(400, "amount must be greater than zero");
-      newAmount = amt;
+      requestedAmount = amt;
       updateData.amount = String(amt);
     }
     if (payment_date !== undefined) {
       if (!isValidDate(payment_date)) throw new PaymentError(400, "payment_date must be a valid date (YYYY-MM-DD)");
       updateData.paymentDate = payment_date;
-      newDate = payment_date;
     }
+    let requestedFundId: number | null = null;
     if (fund_account_id !== undefined) {
       const fid = parseId(fund_account_id);
       const [acc] = fid === null ? [] : await db.select().from(fundAccountsTable).where(eq(fundAccountsTable.id, fid));
       if (!acc) throw new PaymentError(400, "Select a valid receiving fund account");
-      newFundId = acc.id;
+      requestedFundId = acc.id;
       updateData.fundAccountId = acc.id;
     }
     if (payment_method !== undefined) updateData.paymentMethod = payment_method || null;
     if (reference !== undefined) updateData.reference = reference || null;
     if (notes !== undefined) updateData.notes = notes || null;
-
     const replaceAllocations = allocations !== undefined;
-    const newAllocations = replaceAllocations
-      ? await validateAllocations(payment.clientId, newAmount, allocations, id)
-      : null;
-
-    const oldAllocations = await db.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
-    if (!replaceAllocations) {
-      const allocatedTotal = round2(oldAllocations.reduce((s, a) => s + toMoney(a.amount), 0));
-      if (round2(newAmount) < allocatedTotal) {
-        throw new PaymentError(400, "New payment amount is less than its event allocations. Reduce the allocations first.");
-      }
-    }
-
-    const oldAmount = toMoney(payment.amount);
-    const oldFundId = payment.fundAccountId;
-    // A change of amount, fund or payment date reverses the old ledger entry
-    // (on its original date) and posts a new one (on the new date).
-    const fundChanged = oldFundId !== newFundId || Math.round(oldAmount * 100) !== Math.round(newAmount * 100) || payment.paymentDate !== newDate;
 
     await db.transaction(async (tx) => {
+      await lockClient(tx, existing.clientId);
+      const [payment] = await tx.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
+      if (!payment) throw new PaymentError(404, "Payment not found");
+
+      const oldAmount = toMoney(payment.amount);
+      const oldFundId = payment.fundAccountId;
+      const newAmount = requestedAmount ?? oldAmount;
+      const newFundId = requestedFundId ?? oldFundId;
+      const newDate = (updateData.paymentDate as string | undefined) ?? payment.paymentDate;
+
+      const newAllocations = replaceAllocations
+        ? await validateAllocations(tx, payment.clientId, newAmount, allocations, id)
+        : null;
+
+      const oldAllocations = await tx.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
+      if (!replaceAllocations) {
+        const allocatedTotal = round2(oldAllocations.reduce((s, a) => s + toMoney(a.amount), 0));
+        if (round2(newAmount) < allocatedTotal) {
+          throw new PaymentError(400, "New payment amount is less than its event allocations. Reduce the allocations first.");
+        }
+      }
+
+      // A change of amount, fund or payment date reverses the old ledger entry
+      // (on its original date) and posts a new one (on the new date).
+      const fundChanged = oldFundId !== newFundId || Math.round(oldAmount * 100) !== Math.round(newAmount * 100) || payment.paymentDate !== newDate;
+
       const [result] = await tx.update(clientPaymentsTable).set(updateData).where(eq(clientPaymentsTable.id, id)).returning();
 
       if (fundChanged) {
-        // Reverse the old ledger effect, then apply the new one.
         await tx.insert(fundTransactionsTable).values({
           fund_account_id: oldFundId,
           transaction_type: "client_payment_reversal",
           amount: String(oldAmount),
           transaction_date: payment.paymentDate,
           description: `Reversal of client payment #${id} (edited)`,
+          related_client_payment_id: id,
           created_by: req.user.id,
         });
         await tx.insert(fundTransactionsTable).values({
@@ -438,6 +532,7 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
           amount: String(newAmount),
           transaction_date: newDate,
           description: `Client payment #${id} (edited)`,
+          related_client_payment_id: id,
           created_by: req.user.id,
         });
       }
@@ -449,14 +544,15 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
         }
       }
 
+      const oldAllocationValues = oldAllocations.map((a) => ({ eventId: a.eventId, amount: toMoney(a.amount) }));
       await tx.insert(auditLogsTable).values({
         userId: req.user.id,
         userEmail: req.user.email ?? null,
         action: "update",
         entityType: "client_payment",
         entityId: id,
-        oldValues: { ...payment, allocations: oldAllocations.map((a) => ({ eventId: a.eventId, amount: toMoney(a.amount) })) },
-        newValues: { ...result, allocations: newAllocations ?? oldAllocations.map((a) => ({ eventId: a.eventId, amount: toMoney(a.amount) })) },
+        oldValues: { ...payment, allocations: oldAllocationValues },
+        newValues: { ...result, allocations: newAllocations ?? oldAllocationValues },
       });
     });
 
@@ -474,7 +570,11 @@ router.delete("/payments/:id", async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) { res.status(400).json({ error: "Invalid payment id" }); return; }
 
+  const [existing] = await db.select({ clientId: clientPaymentsTable.clientId }).from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Payment not found" }); return; }
+
   const deleted = await db.transaction(async (tx) => {
+    await lockClient(tx, existing.clientId);
     const [payment] = await tx.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
     if (!payment) return false;
     const allocations = await tx.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
@@ -485,6 +585,7 @@ router.delete("/payments/:id", async (req, res): Promise<void> => {
       amount: String(toMoney(payment.amount)),
       transaction_date: payment.paymentDate,
       description: `Reversal of deleted client payment #${id}`,
+      related_client_payment_id: id,
       created_by: req.user.id,
     });
 
@@ -526,13 +627,17 @@ router.put("/payments/:id/allocations", async (req, res): Promise<void> => {
   try {
     const id = parseId(req.params.id);
     if (id === null) throw new PaymentError(400, "Invalid payment id");
-    const [payment] = await db.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
-    if (!payment) throw new PaymentError(404, "Payment not found");
-
-    const validated = await validateAllocations(payment.clientId, toMoney(payment.amount), req.body?.allocations ?? [], id);
-    const oldAllocRows = await db.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
+    const [existing] = await db.select({ clientId: clientPaymentsTable.clientId }).from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
+    if (!existing) throw new PaymentError(404, "Payment not found");
 
     await db.transaction(async (tx) => {
+      await lockClient(tx, existing.clientId);
+      const [payment] = await tx.select().from(clientPaymentsTable).where(eq(clientPaymentsTable.id, id));
+      if (!payment) throw new PaymentError(404, "Payment not found");
+
+      const validated = await validateAllocations(tx, payment.clientId, toMoney(payment.amount), req.body?.allocations ?? [], id);
+      const oldAllocRows = await tx.select().from(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
+
       await tx.delete(paymentAllocationsTable).where(eq(paymentAllocationsTable.paymentId, id));
       for (const item of validated) {
         await tx.insert(paymentAllocationsTable).values({ paymentId: id, eventId: item.eventId, amount: String(item.amount) });

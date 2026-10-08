@@ -1,25 +1,49 @@
 import { useGetReceivablesSummary, getGetReceivablesSummaryQueryKey } from "@workspace/api-client-react";
-import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Clock, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { AlertTriangle, CalendarClock, Clock, Plus, ReceiptIndianRupee } from "lucide-react";
 import { Link } from "wouter";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ds/page-header";
+import { KpiCard } from "@/components/ds/kpi-card";
+import { Money, formatINR } from "@/components/ds/money";
+import { CardsSkeleton, EmptyState, ErrorState, TableSkeleton } from "@/components/ds/states";
+import { useNewTransaction } from "@/components/new-transaction";
+import { formatDate } from "@/lib/utils";
 
+/*
+ * Receivables from the shared client receivables ledger: billed revenue less
+ * legacy event collections and every client payment. Client-level payments
+ * reduce the client's outstanding but are not tied to an event's due date.
+ */
 export default function ReceivablesList() {
+  const newTransaction = useNewTransaction();
   const { data, isLoading, isError, error, refetch } = useGetReceivablesSummary({
-    query: { queryKey: getGetReceivablesSummaryQueryKey() }
+    query: { queryKey: getGetReceivablesSummaryQueryKey() },
   });
 
+  const header = (
+    <PageHeader
+      eyebrow="Finance"
+      title="Receivables"
+      description="What clients still owe, net of every payment received."
+      actions={<Button onClick={() => newTransaction.open()}><Plus className="mr-2 h-4 w-4" /> Record Money Received</Button>}
+    />
+  );
+
   if (isLoading) {
-    return <div className="p-8">Loading receivables...</div>;
+    return (
+      <div className="space-y-6">
+        {header}
+        <CardsSkeleton count={4} />
+        <div className="rounded-xl border bg-card"><TableSkeleton rows={5} cols={4} /></div>
+      </div>
+    );
   }
   if (isError || !data) {
     return (
-      <div className="p-8 space-y-3">
-        <p className="text-destructive">Failed to load receivables{error instanceof Error && error.message ? `: ${error.message}` : "."}</p>
-        <Button variant="outline" onClick={() => void refetch()}>Try again</Button>
+      <div className="space-y-6">
+        {header}
+        <ErrorState title="Couldn't load receivables" error={error} onRetry={() => void refetch()} />
       </div>
     );
   }
@@ -28,139 +52,101 @@ export default function ReceivablesList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Accounts Receivable</h2>
-          <p className="text-muted-foreground mt-1">Track outstanding payments and aging buckets.</p>
-        </div>
-      </div>
+      {header}
 
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card className="bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Outstanding</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(data.totalReceivables)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Net of all client payments</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-emerald-500/20">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-emerald-500">Current / Due Soon</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-500">{formatCurrency(Math.max(0, data.totalReceivables - data.overdue))}</div>
-            <p className="text-xs text-muted-foreground mt-1">Due within 30 days</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-amber-500/20">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-amber-500">1-30 Days Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-500">{formatCurrency(data.overdue30)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-orange-500/20">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-orange-500">31-60 Days Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{formatCurrency(data.overdue60)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-red-500/20">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-red-500">90+ Days Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{formatCurrency(data.overdue90)}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Total outstanding" value={data.totalReceivables} icon={ReceiptIndianRupee} tone="primary" hint="Net of all client payments" />
+        <KpiCard label="Not yet overdue" value={Math.max(0, data.totalReceivables - data.overdue)} icon={CalendarClock} tone="in" hint={`${formatINR(data.dueThisWeek)} due this week`} />
+        <KpiCard label="Overdue" value={data.overdue} icon={Clock} tone={data.overdue > 0 ? "warning" : "neutral"} hint={`${formatINR(data.overdue30)} over 30 days`} />
+        <KpiCard label="Over 90 days" value={data.overdue90} icon={AlertTriangle} tone={data.overdue90 > 0 ? "out" : "neutral"} hint={`${formatINR(data.overdue60)} over 60 days`} />
       </div>
 
       {unallocatedApplied > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {formatCurrency(unallocatedApplied)} of client-level payments is not allocated to specific events. It reduces each client's outstanding below, but the aging buckets and event list are shown per event before it.
+        <p className="rounded-lg bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
+          {formatINR(unallocatedApplied)} of client-level payments is not allocated to specific events. It reduces each client's outstanding below; the aging and event list show each event before it.
         </p>
       )}
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>By Client</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 overflow-x-auto">
+      <section className="rounded-xl border bg-card shadow-card">
+        <div className="border-b p-4 sm:p-5"><h3 className="text-base font-semibold">By client</h3></div>
+        {data.byClient.length === 0 ? (
+          <div className="p-4"><EmptyState title="Nothing outstanding" description="Every client is fully paid." /></div>
+        ) : (
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-transparent">
                   <TableHead>Client</TableHead>
-                  <TableHead className="text-right">Total Revenue</TableHead>
-                  <TableHead className="text-right">Total Received</TableHead>
+                  <TableHead className="text-right">Billed</TableHead>
+                  <TableHead className="text-right">Received</TableHead>
+                  <TableHead className="text-right">Outstanding</TableHead>
+                  <TableHead className="w-[1%]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.byClient.map((c) => (
+                  <TableRow key={c.clientId}>
+                    <TableCell className="font-medium">
+                      <Link href={`/clients/${c.clientId}`} className="transition-colors hover:text-primary">{c.clientName}</Link>
+                    </TableCell>
+                    <TableCell className="text-right"><Money value={c.totalBilled ?? 0} tone="neutral" exact={false} /></TableCell>
+                    <TableCell className="text-right"><Money value={c.totalReceived ?? 0} tone="neutral" exact={false} /></TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {(c.credit ?? 0) > 0 ? (
+                        <span className="text-money-in" title="Received more than billed">{formatINR(c.credit)} credit</span>
+                      ) : (
+                        <span className="text-warning">{formatINR(c.outstanding)}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {c.outstanding > 0 && (
+                        <Button variant="ghost" size="sm" className="h-8 whitespace-nowrap" onClick={() => newTransaction.open({ kind: "money_received", clientId: c.clientId })}>
+                          Record payment
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border bg-card shadow-card">
+        <div className="border-b p-4 sm:p-5"><h3 className="text-base font-semibold">By event invoice</h3></div>
+        {data.byEvent.length === 0 ? (
+          <div className="p-4"><EmptyState title="No outstanding invoices" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Event</TableHead>
+                  <TableHead>Due date</TableHead>
                   <TableHead className="text-right">Outstanding</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.byClient.length > 0 ? (
-                  data.byClient.map(c => (
-                    <TableRow key={c.clientId}>
-                      <TableCell className="font-medium">
-                        <Link href={`/clients/${c.clientId}`} className="hover:text-primary transition-colors">{c.clientName}</Link>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(c.totalBilled ?? null)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(c.totalReceived ?? null)}</TableCell>
-                      <TableCell className="text-right">
-                        {(c.credit ?? 0) > 0 ? (
-                          <span className="font-bold text-emerald-500" title="Received more than billed">{formatCurrency(c.credit)} credit</span>
-                        ) : (
-                          <span className="font-bold text-amber-500">{formatCurrency(c.outstanding)}</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No outstanding balances.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>By Event invoice</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Outstanding Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.byEvent.length > 0 ? (
-                  data.byEvent.map(e => (
+                {data.byEvent.map((e) => {
+                  const overdue = !!e.dueDate && new Date(e.dueDate) < new Date(new Date().toDateString());
+                  return (
                     <TableRow key={e.eventId}>
-                      <TableCell className="font-medium">{e.eventName}</TableCell>
-                      <TableCell>{e.dueDate ? new Date(e.dueDate).toLocaleDateString() : '—'}</TableCell>
-                      <TableCell className="text-right font-bold text-amber-500">{formatCurrency(e.outstanding)}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/events/${e.eventId}`} className="transition-colors hover:text-primary">{e.eventName}</Link>
+                      </TableCell>
+                      <TableCell className={overdue ? "text-money-out" : "text-muted-foreground"}>
+                        {e.dueDate ? formatDate(e.dueDate) : "—"}{overdue ? " · overdue" : ""}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-warning tabular-nums">{formatINR(e.outstanding)}</TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No outstanding invoices.</TableCell></TableRow>
-                )}
+                  );
+                })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

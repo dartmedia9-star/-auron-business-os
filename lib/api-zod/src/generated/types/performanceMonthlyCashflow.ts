@@ -12,13 +12,18 @@ import type { PerformanceMonthlyCashflowClientPaymentsItem } from './performance
 export interface PerformanceMonthlyCashflow {
   transactions: PerformanceCashflowTransaction[];
   transfers: PerformanceCashflowTransfer[];
+  /** Business cash received (excludes internal transfers) */
   totalCashIn: number;
+  /** Business cash paid out (excludes internal transfers) */
   totalCashOut: number;
+  netCashFlow?: number;
+  /** Internal transfers between funds (not cash in/out) */
   totalTransfers: number;
   transactionCount: number;
   transferCount: number;
   clientPaymentTotal?: number;
   clientPaymentReversalTotal?: number;
+  netClientReceipts?: number;
   otherInflows?: number;
   clientPayments?: PerformanceMonthlyCashflowClientPaymentsItem[];
 }

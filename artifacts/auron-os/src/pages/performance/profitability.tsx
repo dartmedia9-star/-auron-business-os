@@ -71,7 +71,7 @@ export default function PerformanceProfitability() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
             <Minus className="h-7 w-7 text-primary" />
             Event Profitability
           </h2>
@@ -89,7 +89,7 @@ export default function PerformanceProfitability() {
         <Card className="border-l-4 border-l-red-500">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Direct Costs</p>
-            <p className="text-2xl font-bold text-red-500">{formatCurrency(data.totalCost)}</p>
+            <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalCost)}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-primary">
@@ -161,11 +161,11 @@ export default function PerformanceProfitability() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(e.revenue ?? 0)}</TableCell>
-                      <TableCell className="text-right text-red-500">{(e.directCost ?? 0) > 0 ? formatCurrency(e.directCost ?? 0) : "—"}</TableCell>
-                      <TableCell className={cn("text-right font-medium", (e.profit ?? 0) >= 0 ? "text-emerald-500" : "text-red-500")}>
+                      <TableCell className="text-right text-money-out">{(e.directCost ?? 0) > 0 ? formatCurrency(e.directCost ?? 0) : "—"}</TableCell>
+                      <TableCell className={cn("text-right font-medium", (e.profit ?? 0) >= 0 ? "text-money-in" : "text-money-out")}>
                         {formatCurrency(e.profit ?? 0)}
                       </TableCell>
-                      <TableCell className={cn("text-right", (e.marginPct ?? 0) >= 20 ? "text-emerald-500" : (e.marginPct ?? 0) >= 10 ? "text-amber-500" : "text-red-500")}>
+                      <TableCell className={cn("text-right", (e.marginPct ?? 0) >= 20 ? "text-money-in" : (e.marginPct ?? 0) >= 10 ? "text-amber-500" : "text-money-out")}>
                         {(e.revenue ?? 0) > 0 ? formatPercentage(e.marginPct ?? 0) : "—"}
                       </TableCell>
                     </TableRow>

@@ -31,10 +31,10 @@ export function ProfitabilityBadge({ indicator }: { indicator?: string }) {
   if (!indicator) return <Badge variant="outline">Awaiting data</Badge>;
   
   const config: Record<string, { bg: string, text: string, label: string }> = {
-    excellent: { bg: "bg-emerald-500/10", text: "text-emerald-500", label: "Excellent" },
+    excellent: { bg: "bg-emerald-500/10", text: "text-money-in", label: "Excellent" },
     healthy: { bg: "bg-green-500/10", text: "text-green-500", label: "Healthy" },
     warning: { bg: "bg-amber-500/10", text: "text-amber-500", label: "Warning" },
-    loss: { bg: "bg-red-500/10", text: "text-red-500", label: "Loss" },
+    loss: { bg: "bg-red-500/10", text: "text-money-out", label: "Loss" },
     awaiting_data: { bg: "bg-slate-500/10", text: "text-slate-500", label: "Awaiting Data" },
   };
   
@@ -51,8 +51,8 @@ export function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { bg: string, text: string, label: string }> = {
     upcoming: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Upcoming" },
     in_progress: { bg: "bg-amber-500/10", text: "text-amber-500", label: "In Progress" },
-    completed: { bg: "bg-emerald-500/10", text: "text-emerald-500", label: "Completed" },
-    cancelled: { bg: "bg-red-500/10", text: "text-red-500", label: "Cancelled" },
+    completed: { bg: "bg-emerald-500/10", text: "text-money-in", label: "Completed" },
+    cancelled: { bg: "bg-red-500/10", text: "text-money-out", label: "Cancelled" },
   };
   
   const style = config[status] || { bg: "bg-slate-500/10", text: "text-slate-500", label: status };
@@ -193,7 +193,7 @@ export default function EventsList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Events Ledger</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Events Ledger</h2>
           <p className="text-muted-foreground mt-1">Manage event productions and track their financial performance.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>

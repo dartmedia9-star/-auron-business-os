@@ -14,6 +14,10 @@ export interface PerformanceCashflowTransaction {
   amount: number;
   moneyIn: number;
   moneyOut: number;
+  /** True for transfer_in / transfer_out legs, which are excluded from cash in/out totals */
+  isInternalTransfer?: boolean;
+  /** @nullable */
+  relatedClientPaymentId?: number | null;
   /** @nullable */
   description?: string | null;
   /** Effective business date (payment, expense or transfer date) used to bucket cash flow */

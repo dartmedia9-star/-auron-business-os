@@ -85,8 +85,8 @@ export default function PerformanceExpenses() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <ArrowDown className="h-7 w-7 text-red-500" />
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
+            <ArrowDown className="h-7 w-7 text-money-out" />
             Expense Details
           </h2>
           <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — {data.count} expense{data.count !== 1 ? "s" : ""}</p>
@@ -97,7 +97,7 @@ export default function PerformanceExpenses() {
         <Card className="border-l-4 border-l-red-500">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Amount</p>
-            <p className="text-2xl font-bold text-red-500">{formatCurrency(data.totalAmount)}</p>
+            <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalAmount)}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-orange-500">
@@ -109,7 +109,7 @@ export default function PerformanceExpenses() {
         <Card className="border-l-4 border-l-red-500/70">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Cash Out</p>
-            <p className="text-2xl font-bold text-red-500">{formatCurrency(data.totalCashOut)}</p>
+            <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalCashOut)}</p>
           </CardContent>
         </Card>
       </div>
@@ -196,7 +196,7 @@ export default function PerformanceExpenses() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(e.amount)}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{(e.gst ?? 0) > 0 ? formatCurrency(e.gst!) : "—"}</TableCell>
-                      <TableCell className="text-right font-medium text-red-500">{formatCurrency(e.cashOut)}</TableCell>
+                      <TableCell className="text-right font-medium text-money-out">{formatCurrency(e.cashOut)}</TableCell>
                       <TableCell className="text-sm">{e.paidBy || "—"}</TableCell>
                       <TableCell className="text-sm">
                         {e.eventId ? (

@@ -78,7 +78,7 @@ export default function MarketingList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Marketing ROI</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Marketing ROI</h2>
           <p className="text-muted-foreground mt-1">
             Track customer acquisition cost and channel performance.
           </p>
@@ -137,7 +137,7 @@ export default function MarketingList() {
                 <CardTitle className="text-sm text-muted-foreground">Overall ROI</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${hasData ? "text-emerald-500" : "text-muted-foreground"}`}>
+                <div className={`text-2xl font-bold ${hasData ? "text-money-in" : "text-muted-foreground"}`}>
                   {roiDisplay}
                 </div>
                 {!hasData && (
@@ -179,7 +179,7 @@ export default function MarketingList() {
                         <TableCell className="text-right font-medium text-primary">
                           {formatCurrency(channel.revenue)}
                         </TableCell>
-                        <TableCell className="text-right font-medium text-emerald-500">
+                        <TableCell className="text-right font-medium text-money-in">
                           {formatPercentage(channel.roi)}
                         </TableCell>
                       </TableRow>
@@ -228,7 +228,7 @@ export default function MarketingList() {
                         <TableCell className="text-right">{record.leadsGenerated}</TableCell>
                         <TableCell className="text-right">{record.customersAcquired}</TableCell>
                         <TableCell className="text-right text-primary">{formatCurrency(record.revenueGenerated)}</TableCell>
-                        <TableCell className="text-right text-emerald-500">{formatCurrency(record.grossProfitGenerated)}</TableCell>
+                        <TableCell className="text-right text-money-in">{formatCurrency(record.grossProfitGenerated)}</TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"

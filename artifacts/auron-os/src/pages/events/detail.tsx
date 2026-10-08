@@ -14,7 +14,10 @@ import {
 import { cn, formatCurrency, formatDate, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Wallet, TrendingUp, AlertTriangle, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Wallet, TrendingUp, AlertTriangle, Trash2, Plus, Banknote, Receipt, HandCoins } from "lucide-react";
+import { KpiCard } from "@/components/ds/kpi-card";
+import { formatINR } from "@/components/ds/money";
+import { useNewTransaction } from "@/components/new-transaction";
 import { ProfitabilityBadge, StatusBadge } from "./index";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -33,6 +36,7 @@ const PAYMENT_STATUSES = ['pending', 'partially_paid', 'paid'];
 const REVENUE_PAYMENT_STATUSES = ['pending', 'partially_paid', 'paid', 'overdue'];
 
 export default function EventDetail() {
+  const newTransaction = useNewTransaction();
   const [, params] = useRoute("/events/:id");
   const [, setLocation] = useLocation();
   const id = params?.id ? parseInt(params.id, 10) : 0;
@@ -262,7 +266,10 @@ export default function EventDetail() {
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => newTransaction.open({ kind: "money_received", clientId: event.clientId, eventId: event.id })}>
+            <Plus className="mr-2 h-4 w-4" /> Record Money Received
+          </Button>
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Edit className="mr-2 h-4 w-4" /> Edit
           </Button>
@@ -272,41 +279,17 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <Card className="bg-card">
-          <CardHeader className="pb-2 px-4">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground truncate">Total Revenue</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl sm:text-3xl font-bold truncate">{formatCurrency(event.totalRevenue)}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card">
-          <CardHeader className="pb-2 px-4">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground truncate">Total Cost</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl sm:text-3xl font-bold truncate">{formatCurrency(event.totalCost)}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-primary/50">
-          <CardHeader className="pb-2 px-4">
-            <CardTitle className="text-xs sm:text-sm text-primary truncate">Gross Profit</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl sm:text-3xl font-bold text-primary truncate">{formatCurrency(event.grossProfit)}</div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Margin: {formatPercentage(event.grossMarginPct)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card">
-          <CardHeader className="pb-2 px-4">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground truncate">Total Collected</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl sm:text-3xl font-bold truncate">{formatCurrency(event.totalCollected)}</div>
-            <p className="text-xs sm:text-sm text-amber-500 mt-1 truncate">Due: {formatCurrency(event.totalOutstanding)}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard label="Revenue (billed)" value={event.totalRevenue ?? 0} icon={TrendingUp} tone="primary" />
+        <KpiCard label="Total cost" value={event.totalCost ?? 0} icon={Receipt} tone="neutral" />
+        <KpiCard label="Gross profit" value={event.grossProfit ?? 0} icon={Banknote} tone={(event.grossProfit ?? 0) < 0 ? "out" : "in"} hint={`Margin ${formatPercentage(event.grossMarginPct)}`} />
+        <KpiCard
+          label="Received"
+          value={event.totalCollected ?? 0}
+          icon={HandCoins}
+          tone={(event.totalOutstanding ?? 0) > 0 ? "warning" : "in"}
+          hint={(event.totalOutstanding ?? 0) > 0 ? `${formatINR(event.totalOutstanding)} still due` : "Fully received"}
+        />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -334,7 +317,8 @@ export default function EventDetail() {
                   </div>
                 </div>
                 <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold mb-3">Payment Schedule</h4>
+                  <h4 className="text-sm font-semibold">Money received</h4>
+                  <p className="mb-3 text-xs text-muted-foreground">Collections recorded on the event earlier, plus client payments allocated to it.</p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Advance Received</span>
@@ -347,6 +331,14 @@ export default function EventDetail() {
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Final Payment</span>
                       <span className="font-medium">{formatCurrency(event.revenue.finalPayment)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Client payments allocated</span>
+                      <span className="font-medium">{formatCurrency(Math.max(0, (event.totalCollected ?? 0) - (event.revenue?.totalCollected ?? 0)))}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-t pt-3 text-sm">
+                      <span className="font-medium">Total received</span>
+                      <span className="font-semibold tabular-nums">{formatCurrency(event.totalCollected ?? 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -391,7 +383,7 @@ export default function EventDetail() {
                         <TableCell>
                           <span className={cn(
                             "text-xs px-2 py-1 rounded-full",
-                            cost.paymentStatus === 'paid' ? "bg-emerald-500/10 text-emerald-500" :
+                            cost.paymentStatus === 'paid' ? "bg-emerald-500/10 text-money-in" :
                             cost.paymentStatus === 'pending' ? "bg-amber-500/10 text-amber-500" :
                             "bg-blue-500/10 text-blue-500"
                           )}>
@@ -609,7 +601,10 @@ export default function EventDetail() {
               </div>
             </div>
             <div className="border-t pt-4 mt-2">
-              <h4 className="text-sm font-medium mb-3">Payment Schedule</h4>
+              <h4 className="text-sm font-medium">Legacy collections</h4>
+              <p className="mb-3 mt-1 text-xs text-muted-foreground">
+                Record new money received with New Transaction so it reaches a fund and the client's history. These fields keep collections entered on the event before client payments existed; they never change a fund.
+              </p>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Advance Received</Label>

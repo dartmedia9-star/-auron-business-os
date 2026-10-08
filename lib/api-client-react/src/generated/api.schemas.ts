@@ -284,7 +284,17 @@ export interface ClientPaymentInput {
   payment_method?: string;
   reference?: string;
   notes?: string;
-  /** Optional event allocations */
+  /**
+     * Money received for one event. The event gets min(amount, its outstanding); any excess stays client-level (unallocated / client credit). Cannot be combined with allocations.
+     * @nullable
+     */
+  event_id?: number | null;
+  /**
+     * Client-generated key for one submission; resubmitting it returns the original payment
+     * @maxLength 200
+     */
+  idempotency_key?: string;
+  /** Optional explicit event allocations (strict; each must fit the event's outstanding) */
   allocations?: ClientPaymentInputAllocationsItem[];
 }
 
@@ -1079,9 +1089,222 @@ export interface FundTransaction {
   related_expense_id?: number | null;
   /** @nullable */
   related_transfer_id?: number | null;
+  /** @nullable */
+  related_client_payment_id?: number | null;
   created_at: string;
   created_by?: string;
 }
+
+export interface FundLedgerEventLink {
+  eventId: number;
+  /** @nullable */
+  eventName: string | null;
+  /**
+     * Amount of the payment allocated to the event (null for an expense's linked event)
+     * @nullable
+     */
+  amount: number | null;
+}
+
+export type FundLedgerEntryTransactionType = typeof FundLedgerEntryTransactionType[keyof typeof FundLedgerEntryTransactionType];
+
+
+export const FundLedgerEntryTransactionType = {
+  expense: 'expense',
+  expense_reversal: 'expense_reversal',
+  transfer_in: 'transfer_in',
+  transfer_out: 'transfer_out',
+  adjustment: 'adjustment',
+  client_payment: 'client_payment',
+  client_payment_reversal: 'client_payment_reversal',
+} as const;
+
+export type FundLedgerEntryCategory = typeof FundLedgerEntryCategory[keyof typeof FundLedgerEntryCategory];
+
+
+export const FundLedgerEntryCategory = {
+  client_payment: 'client_payment',
+  expense: 'expense',
+  transfer: 'transfer',
+  adjustment: 'adjustment',
+  other: 'other',
+} as const;
+
+export type FundLedgerEntryDirection = typeof FundLedgerEntryDirection[keyof typeof FundLedgerEntryDirection];
+
+
+export const FundLedgerEntryDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
+
+export type FundLedgerEntryStatus = typeof FundLedgerEntryStatus[keyof typeof FundLedgerEntryStatus];
+
+
+export const FundLedgerEntryStatus = {
+  posted: 'posted',
+  reversed: 'reversed',
+  reversal: 'reversal',
+} as const;
+
+export interface FundLedgerEntry {
+  id: number;
+  fundAccountId: number;
+  /** @nullable */
+  fundAccountName: string | null;
+  transactionType: FundLedgerEntryTransactionType;
+  category: FundLedgerEntryCategory;
+  amount: number;
+  /** Effect on the fund balance (positive in, negative out) */
+  signedAmount: number;
+  direction: FundLedgerEntryDirection;
+  isInternalTransfer: boolean;
+  transactionDate: string;
+  /** @nullable */
+  description: string | null;
+  status: FundLedgerEntryStatus;
+  /** @nullable */
+  clientId: number | null;
+  /** @nullable */
+  clientName: string | null;
+  events: FundLedgerEventLink[];
+  /** @nullable */
+  paymentMethod: string | null;
+  /** @nullable */
+  reference: string | null;
+  /** @nullable */
+  notes: string | null;
+  /** @nullable */
+  expenseCategory: string | null;
+  /** @nullable */
+  counterpartyFundId: number | null;
+  /** @nullable */
+  counterpartyFundName: string | null;
+  /** @nullable */
+  relatedClientPaymentId: number | null;
+  /** @nullable */
+  relatedExpenseId: number | null;
+  /** @nullable */
+  relatedTransferId: number | null;
+  paymentDeleted: boolean;
+  /** @nullable */
+  createdBy: string | null;
+  /** @nullable */
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export type FundLedgerListResponseTotals = {
+  cashIn: number;
+  cashOut: number;
+  netCash: number;
+  internalTransfersIn: number;
+  internalTransfersOut: number;
+};
+
+export interface FundLedgerListResponse {
+  data: FundLedgerEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totals: FundLedgerListResponseTotals;
+}
+
+export type FundLedgerLedgerEntryStatus = typeof FundLedgerLedgerEntryStatus[keyof typeof FundLedgerLedgerEntryStatus];
+
+
+export const FundLedgerLedgerEntryStatus = {
+  posted: 'posted',
+  reversed: 'reversed',
+  reversal: 'reversal',
+} as const;
+
+export interface FundLedgerLedgerEntry {
+  id: number;
+  transactionType: string;
+  /** @nullable */
+  fundAccountName: string | null;
+  amount: number;
+  signedAmount: number;
+  transactionDate: string;
+  status: FundLedgerLedgerEntryStatus;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type FundLedgerAuditEntryOldValues = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerAuditEntryNewValues = { [key: string]: unknown } | null;
+
+export interface FundLedgerAuditEntry {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number;
+  userId: string;
+  /** @nullable */
+  userName: string | null;
+  /** @nullable */
+  userEmail: string | null;
+  /** @nullable */
+  oldValues?: FundLedgerAuditEntryOldValues;
+  /** @nullable */
+  newValues?: FundLedgerAuditEntryNewValues;
+  createdAt: string;
+}
+
+/**
+ * The client payment (with allocations), or {id, deleted:true} when it was reversed and removed
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedPayment = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedTransfer = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedExpense = { [key: string]: unknown } | null;
+
+export type FundLedgerEntryDetailRelated = {
+  /**
+     * The client payment (with allocations), or {id, deleted:true} when it was reversed and removed
+     * @nullable
+     */
+  payment: FundLedgerEntryDetailRelatedPayment;
+  /** @nullable */
+  transfer: FundLedgerEntryDetailRelatedTransfer;
+  /** @nullable */
+  expense: FundLedgerEntryDetailRelatedExpense;
+  ledgerEntries: FundLedgerLedgerEntry[];
+};
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailAllocationStatus = typeof FundLedgerEntryDetailAllocationStatus[keyof typeof FundLedgerEntryDetailAllocationStatus] | null;
+
+
+export const FundLedgerEntryDetailAllocationStatus = {
+  fully_allocated: 'fully_allocated',
+  partially_allocated: 'partially_allocated',
+  client_level: 'client_level',
+} as const;
+
+export type FundLedgerEntryDetail = FundLedgerEntry & {
+  related: FundLedgerEntryDetailRelated;
+  /** @nullable */
+  allocationStatus: FundLedgerEntryDetailAllocationStatus;
+  audit: FundLedgerAuditEntry[];
+};
 
 export interface Note {
   id: number;
@@ -1790,6 +2013,10 @@ export interface PerformanceCashflowTransaction {
   amount: number;
   moneyIn: number;
   moneyOut: number;
+  /** True for transfer_in / transfer_out legs, which are excluded from cash in/out totals */
+  isInternalTransfer?: boolean;
+  /** @nullable */
+  relatedClientPaymentId?: number | null;
   /** @nullable */
   description?: string | null;
   /** Effective business date (payment, expense or transfer date) used to bucket cash flow */
@@ -1813,6 +2040,11 @@ export interface PerformanceCashflowTransfer {
 
 export type PerformanceMonthlyCashflowClientPaymentsItem = {
   id: number;
+  clientId?: number;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  fundAccountName?: string | null;
   amount: number;
   paymentDate: string;
   fundAccountId: number;
@@ -1825,13 +2057,18 @@ export type PerformanceMonthlyCashflowClientPaymentsItem = {
 export interface PerformanceMonthlyCashflow {
   transactions: PerformanceCashflowTransaction[];
   transfers: PerformanceCashflowTransfer[];
+  /** Business cash received (excludes internal transfers) */
   totalCashIn: number;
+  /** Business cash paid out (excludes internal transfers) */
   totalCashOut: number;
+  netCashFlow?: number;
+  /** Internal transfers between funds (not cash in/out) */
   totalTransfers: number;
   transactionCount: number;
   transferCount: number;
   clientPaymentTotal?: number;
   clientPaymentReversalTotal?: number;
+  netClientReceipts?: number;
   otherInflows?: number;
   clientPayments?: PerformanceMonthlyCashflowClientPaymentsItem[];
 }
@@ -1992,6 +2229,37 @@ export type ListFundTransactions200 = {
   transactions?: FundTransaction[];
   current_balance?: number;
 };
+
+export type ListFundLedgerParams = {
+fundAccountId?: number;
+category?: ListFundLedgerCategory;
+type?: string;
+direction?: ListFundLedgerDirection;
+clientId?: number;
+fromDate?: string;
+toDate?: string;
+search?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListFundLedgerCategory = typeof ListFundLedgerCategory[keyof typeof ListFundLedgerCategory];
+
+
+export const ListFundLedgerCategory = {
+  client_payment: 'client_payment',
+  expense: 'expense',
+  transfer: 'transfer',
+  adjustment: 'adjustment',
+} as const;
+
+export type ListFundLedgerDirection = typeof ListFundLedgerDirection[keyof typeof ListFundLedgerDirection];
+
+
+export const ListFundLedgerDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
 
 export type ListNotesParams = {
 unreadOnly?: boolean;

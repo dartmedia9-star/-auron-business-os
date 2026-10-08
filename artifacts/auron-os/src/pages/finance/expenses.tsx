@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { invalidateFinance } from "@/lib/finance-queries";
 import {
   useListOperatingExpenses,
   getListOperatingExpensesQueryKey,
@@ -107,6 +108,17 @@ export default function ExpensesList() {
     setOtherPaidByName(""); setOtherPaymentMethodName("");
   };
 
+  // "New Transaction → Expense" lands here with ?new=1: open the existing
+  // Log Expense form (one expense implementation, one API).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") return;
+    params.delete("new");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    setCreateOpen(true);
+  }, []);
+
   // "Other - <name>" values are round-tripped into the dedicated name inputs.
   const loadPayerFields = (paidByValue: string | null | undefined, methodValue: string | null | undefined) => {
     if (paidByValue?.startsWith("Other")) {
@@ -144,6 +156,8 @@ export default function ExpensesList() {
     queryClient.invalidateQueries({ queryKey: getListOperatingExpensesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetFinanceSummaryQueryKey() });
+    // Expenses move fund balances and the fund ledger too.
+    void invalidateFinance(queryClient);
     for (const id of new Set(eventIds.filter((id): id is number => typeof id === "number"))) {
       queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(id) });
     }
@@ -413,7 +427,7 @@ export default function ExpensesList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Operating Expenses</h2>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Operating Expenses</h2>
           <p className="text-muted-foreground mt-1">Track SG&A, rent, marketing, and other overheads.</p>
         </div>
         <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
