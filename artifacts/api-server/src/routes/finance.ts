@@ -9,6 +9,7 @@ import {
   fundAccountsTable,
   fundTransfersTable,
   fundTransactionsTable,
+  clientPaymentsTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
@@ -57,6 +58,10 @@ function signedEffect(transactionType: string, amount: number): number {
     case "expense_reversal":
     case "transfer_in":
       return amount;
+    case "client_payment":
+      return amount;
+    case "client_payment_reversal":
+      return -amount;
     case "adjustment":
       return amount;
     default:
@@ -259,10 +264,17 @@ router.delete("/fund-accounts/:id", async (req, res): Promise<void> => {
         .from(operatingExpensesTable)
         .where(eq(operatingExpensesTable.paidBy, account.name));
 
+      // Client payments reference the fund account directly.
+      const [clientPaymentCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(clientPaymentsTable)
+        .where(eq(clientPaymentsTable.fundAccountId, id));
+
       const hasHistory =
         Number(transactionCount?.count ?? 0) > 0 ||
         Number(transferCount?.count ?? 0) > 0 ||
-        Number(expenseCount?.count ?? 0) > 0;
+        Number(expenseCount?.count ?? 0) > 0 ||
+        Number(clientPaymentCount?.count ?? 0) > 0;
 
       if (hasHistory) {
         throw new FundAccountDeleteError(
@@ -422,6 +434,9 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   const { category, description, amount, year, month, gst = 0, eventId, paidBy, paymentMethod, ...rest } = req.body;
   if (!category || !description || !amount || !year || !month) {
     res.status(400).json({ error: "category, description, amount, year, month are required" }); return;
+  }
+  if (!paidBy || (typeof paidBy === "string" && paidBy.trim() === "")) {
+    res.status(400).json({ error: "paidBy is required. Select a fund account or 'Other'." }); return;
   }
   const amountNum = toMoney(amount);
   const gstNum = toMoney(gst);

@@ -17,3 +17,5 @@ export * from "./valuation";
 export * from "./notifications";
 export * from "./settings";
 export * from "./audit-logs";
+export * from "./client-payments";
+export * from "./payment-allocations";

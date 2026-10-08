@@ -236,6 +236,9 @@ export const ListClientsResponse = zod.object({
   "lifetimeRevenue": zod.number().optional(),
   "lifetimeGrossProfit": zod.number().optional(),
   "totalOutstanding": zod.number().optional(),
+  "totalCollected": zod.number().optional(),
+  "creditBalance": zod.number().optional(),
+  "unallocatedAmount": zod.number().optional(),
   "repeatClient": zod.boolean().optional(),
   "firstEventDate": zod.coerce.date().nullish(),
   "lastEventDate": zod.coerce.date().nullish(),
@@ -284,6 +287,9 @@ export const CreateClientResponse = zod.object({
   "lifetimeRevenue": zod.number().optional(),
   "lifetimeGrossProfit": zod.number().optional(),
   "totalOutstanding": zod.number().optional(),
+  "totalCollected": zod.number().optional(),
+  "creditBalance": zod.number().optional(),
+  "unallocatedAmount": zod.number().optional(),
   "repeatClient": zod.boolean().optional(),
   "firstEventDate": zod.coerce.date().nullish(),
   "lastEventDate": zod.coerce.date().nullish(),
@@ -316,6 +322,9 @@ export const GetClientResponse = zod.object({
   "lifetimeRevenue": zod.number().optional(),
   "lifetimeGrossProfit": zod.number().optional(),
   "totalOutstanding": zod.number().optional(),
+  "totalCollected": zod.number().optional(),
+  "creditBalance": zod.number().optional(),
+  "unallocatedAmount": zod.number().optional(),
   "repeatClient": zod.boolean().optional(),
   "firstEventDate": zod.coerce.date().nullish(),
   "lastEventDate": zod.coerce.date().nullish(),
@@ -364,6 +373,9 @@ export const UpdateClientResponse = zod.object({
   "lifetimeRevenue": zod.number().optional(),
   "lifetimeGrossProfit": zod.number().optional(),
   "totalOutstanding": zod.number().optional(),
+  "totalCollected": zod.number().optional(),
+  "creditBalance": zod.number().optional(),
+  "unallocatedAmount": zod.number().optional(),
   "repeatClient": zod.boolean().optional(),
   "firstEventDate": zod.coerce.date().nullish(),
   "lastEventDate": zod.coerce.date().nullish(),
@@ -406,6 +418,278 @@ export const GetClientProfitabilityResponse = zod.object({
   "grossProfit": zod.number(),
   "grossMarginPct": zod.number()
 }))
+})
+
+
+/**
+ * @summary Get client-level receivable summary and event allocation detail
+ */
+export const GetClientReceivablesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetClientReceivablesResponse = zod.object({
+  "client": zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}),
+  "clientId": zod.number(),
+  "totalBilled": zod.number(),
+  "legacyCollected": zod.number().optional(),
+  "totalReceived": zod.number(),
+  "newReceived": zod.number().optional(),
+  "outstanding": zod.number(),
+  "credit": zod.number(),
+  "unallocated": zod.number(),
+  "events": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string(),
+  "eventDate": zod.string().nullish(),
+  "revenue": zod.number(),
+  "legacyCollected": zod.number().optional(),
+  "allocated": zod.number().optional(),
+  "outstanding": zod.number()
+})).optional()
+})
+
+
+/**
+ * @summary List payments for a client
+ */
+export const ListClientPaymentPathParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const listClientPaymentsQueryPageDefault = 1;
+export const listClientPaymentsQueryLimitDefault = 50;
+
+export const ListClientPaymentsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listClientPaymentsQueryPageDefault),
+  "limit": zod.coerce.number().default(listClientPaymentsQueryLimitDefault),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "fundAccountId": zod.coerce.number().optional()
+})
+
+export const ListClientPaymentsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "amount": zod.number(),
+  "paymentDate": zod.coerce.date(),
+  "fundAccountId": zod.number(),
+  "paymentMethod": zod.string().nullish(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "allocated": zod.number().optional(),
+  "unallocated": zod.number().optional(),
+  "fundAccountName": zod.string().optional(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Record a new client payment (client-level cash collection)
+ */
+export const CreateClientPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createClientPaymentBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateClientPaymentBody = zod.object({
+  "amount": zod.number().gt(createClientPaymentBodyAmountExclusiveMin),
+  "payment_date": zod.coerce.date(),
+  "fund_account_id": zod.number(),
+  "payment_method": zod.string().optional(),
+  "reference": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "allocations": zod.array(zod.object({
+  "eventId": zod.number(),
+  "amount": zod.number()
+})).optional().describe('Optional event allocations')
+})
+
+export const CreateClientPaymentResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "amount": zod.number(),
+  "paymentDate": zod.coerce.date(),
+  "fundAccountId": zod.number(),
+  "paymentMethod": zod.string().nullish(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "allocated": zod.number().optional(),
+  "unallocated": zod.number().optional(),
+  "fundAccountName": zod.string().optional(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary List receivable summaries for all clients
+ */
+export const listClientReceivablesQueryPageDefault = 1;
+export const listClientReceivablesQueryLimitDefault = 50;
+
+export const ListClientReceivablesQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "page": zod.coerce.number().default(listClientReceivablesQueryPageDefault),
+  "limit": zod.coerce.number().default(listClientReceivablesQueryLimitDefault),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
+})
+
+export const ListClientReceivablesResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "name": zod.string().optional(),
+  "totalBilled": zod.number().optional(),
+  "legacyCollected": zod.number().optional(),
+  "totalReceived": zod.number().optional(),
+  "newReceived": zod.number().optional(),
+  "outstanding": zod.number().optional(),
+  "credit": zod.number().optional(),
+  "unallocated": zod.number().optional()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Get a single client payment with allocations
+ */
+export const GetClientPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetClientPaymentResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "amount": zod.number(),
+  "paymentDate": zod.coerce.date(),
+  "fundAccountId": zod.number(),
+  "paymentMethod": zod.string().nullish(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "allocated": zod.number().optional(),
+  "unallocated": zod.number().optional(),
+  "fundAccountName": zod.string().optional(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+}).and(zod.object({
+  "clientName": zod.string().optional(),
+  "allocations": zod.array(zod.object({
+  "id": zod.number(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})).optional()
+}))
+
+
+/**
+ * @summary Update a client payment (amount, date, fund, method, reference, notes)
+ */
+export const UpdateClientPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateClientPaymentBodyAmountExclusiveMin = 0;
+
+
+
+export const UpdateClientPaymentBody = zod.object({
+  "amount": zod.number().gt(updateClientPaymentBodyAmountExclusiveMin).optional(),
+  "payment_date": zod.coerce.date().optional(),
+  "fund_account_id": zod.number().optional(),
+  "payment_method": zod.string().nullish(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateClientPaymentResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "amount": zod.number(),
+  "paymentDate": zod.coerce.date(),
+  "fundAccountId": zod.number(),
+  "paymentMethod": zod.string().nullish(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "allocated": zod.number().optional(),
+  "unallocated": zod.number().optional(),
+  "fundAccountName": zod.string().optional(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Reverse/delete a client payment
+ */
+export const DeleteClientPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteClientPaymentResponse = zod.void()
+
+
+/**
+ * @summary Get allocations for a payment
+ */
+export const GetPaymentAllocationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPaymentAllocationsResponse = zod.object({
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})),
+  "allocated": zod.number(),
+  "unallocated": zod.number()
+})
+
+
+/**
+ * @summary Replace the allocation set for a payment atomically
+ */
+export const UpdatePaymentAllocationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePaymentAllocationsBody = zod.object({
+  "allocations": zod.array(zod.object({
+  "eventId": zod.number(),
+  "amount": zod.number()
+}))
+})
+
+export const UpdatePaymentAllocationsResponse = zod.object({
+  "allocations": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "paymentId": zod.number(),
+  "eventId": zod.number(),
+  "amount": zod.number(),
+  "eventName": zod.string().nullish()
+})),
+  "allocated": zod.number(),
+  "unallocated": zod.number()
 })
 
 
@@ -1285,7 +1569,7 @@ export const CreateOperatingExpenseBody = zod.object({
   "date": zod.coerce.date().optional(),
   "referenceNumber": zod.string().optional(),
   "eventId": zod.number().nullish(),
-  "paidBy": zod.string().nullish(),
+  "paidBy": zod.string().nullable(),
   "paymentMethod": zod.string().nullish()
 })
 
@@ -2298,6 +2582,8 @@ export const listAuditLogsQueryLimitDefault = 50;
 export const ListAuditLogsQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
   "entityId": zod.coerce.number().optional(),
+  "from_date": zod.date().optional().describe('Filter logs created on or after this ISO datetime'),
+  "to_date": zod.date().optional().describe('Filter logs created on or before this ISO datetime'),
   "page": zod.coerce.number().default(listAuditLogsQueryPageDefault),
   "limit": zod.coerce.number().default(listAuditLogsQueryLimitDefault)
 })
@@ -2421,6 +2707,291 @@ export const GlobalSearchResponse = zod.object({
   "name": zod.string(),
   "type": zod.string()
 }))
+})
+
+
+/**
+ * @summary List all years with financial activity
+ */
+export const GetPerformanceYearsResponse = zod.object({
+  "years": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Annual overview with per-month summaries
+ */
+export const GetPerformanceAnnualQueryParams = zod.object({
+  "year": zod.coerce.number().optional()
+})
+
+export const GetPerformanceAnnualResponse = zod.object({
+  "year": zod.number(),
+  "months": zod.array(zod.object({
+  "month": zod.number(),
+  "revenue": zod.number(),
+  "directCosts": zod.number(),
+  "grossProfit": zod.number(),
+  "grossMarginPct": zod.number(),
+  "operatingExpenses": zod.number(),
+  "ebitda": zod.number(),
+  "netProfit": zod.number(),
+  "eventCount": zod.number()
+})),
+  "totals": zod.object({
+  "month": zod.number(),
+  "revenue": zod.number(),
+  "directCosts": zod.number(),
+  "grossProfit": zod.number(),
+  "grossMarginPct": zod.number(),
+  "operatingExpenses": zod.number(),
+  "ebitda": zod.number(),
+  "netProfit": zod.number(),
+  "eventCount": zod.number()
+})
+})
+
+
+/**
+ * @summary Monthly performance dashboard with KPIs
+ */
+export const GetPerformanceMonthlyQueryParams = zod.object({
+  "year": zod.coerce.number().optional(),
+  "month": zod.coerce.number().optional()
+})
+
+export const GetPerformanceMonthlyResponse = zod.object({
+  "year": zod.number(),
+  "month": zod.number(),
+  "fromDate": zod.string().optional(),
+  "toDate": zod.string().optional(),
+  "revenue": zod.number(),
+  "directCosts": zod.number(),
+  "grossProfit": zod.number(),
+  "grossMarginPct": zod.number().optional(),
+  "operatingExpenses": zod.number(),
+  "ebitda": zod.number(),
+  "ebitdaMarginPct": zod.number().optional(),
+  "netProfit": zod.number(),
+  "netMarginPct": zod.number().optional(),
+  "totalReceivables": zod.number().optional(),
+  "overdueReceivables": zod.number().optional(),
+  "eventCount": zod.number(),
+  "totalCashOut": zod.number().optional(),
+  "fundAccounts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "balance": zod.number()
+})).optional()
+})
+
+
+/**
+ * @summary Revenue records for a specific month
+ */
+export const GetPerformanceMonthlyRevenueQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyRevenueResponse = zod.object({
+  "revenue": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string(),
+  "eventDate": zod.string().optional(),
+  "eventType": zod.string().optional(),
+  "clientName": zod.string().nullish(),
+  "clientId": zod.number().optional(),
+  "contractValue": zod.number().optional(),
+  "discount": zod.number().optional(),
+  "gst": zod.number().optional(),
+  "netRevenue": zod.number(),
+  "totalCollected": zod.number().optional(),
+  "outstandingAmount": zod.number().optional(),
+  "paymentStatus": zod.string().optional(),
+  "invoiceNumber": zod.string().nullish(),
+  "dueDate": zod.string().nullish()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Expense records for a specific month
+ */
+export const GetPerformanceMonthlyExpensesQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyExpensesResponse = zod.object({
+  "expenses": zod.array(zod.object({
+  "id": zod.number(),
+  "category": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "gst": zod.number().optional(),
+  "cashOut": zod.number().optional(),
+  "year": zod.number(),
+  "month": zod.number(),
+  "date": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "eventId": zod.number().nullish(),
+  "eventName": zod.string().nullish(),
+  "paidBy": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})),
+  "totalAmount": zod.number(),
+  "totalGst": zod.number(),
+  "totalCashOut": zod.number(),
+  "count": zod.number(),
+  "byCategory": zod.array(zod.object({
+  "category": zod.string(),
+  "count": zod.number(),
+  "total": zod.number()
+})),
+  "byPayer": zod.array(zod.object({
+  "payer": zod.string(),
+  "count": zod.number(),
+  "total": zod.number()
+}))
+})
+
+
+/**
+ * @summary Event profitability for a specific month
+ */
+export const GetPerformanceMonthlyProfitabilityQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyProfitabilityResponse = zod.object({
+  "events": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string(),
+  "eventDate": zod.string().optional(),
+  "eventType": zod.string().optional(),
+  "status": zod.string().optional(),
+  "clientName": zod.string().nullish(),
+  "clientId": zod.number().optional(),
+  "revenue": zod.number(),
+  "directCost": zod.number(),
+  "profit": zod.number(),
+  "marginPct": zod.number(),
+  "outstandingAmount": zod.number().optional()
+})),
+  "totalRevenue": zod.number(),
+  "totalCost": zod.number(),
+  "totalProfit": zod.number()
+})
+
+
+/**
+ * @summary Events list for a specific month
+ */
+export const GetPerformanceMonthlyEventsQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyEventsResponse = zod.object({
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "eventDate": zod.string(),
+  "eventType": zod.string(),
+  "status": zod.string(),
+  "venue": zod.string().nullish(),
+  "clientName": zod.string().nullish(),
+  "clientId": zod.number().optional(),
+  "revenue": zod.number().optional(),
+  "directCost": zod.number().optional(),
+  "profit": zod.number().optional(),
+  "marginPct": zod.number().optional(),
+  "totalCollected": zod.number().optional(),
+  "outstandingAmount": zod.number().optional()
+})),
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Fund activity for a specific month
+ */
+export const GetPerformanceMonthlyCashflowQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyCashflowResponse = zod.object({
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "accountId": zod.number(),
+  "accountName": zod.string(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "moneyIn": zod.number(),
+  "moneyOut": zod.number(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.string().optional(),
+  "createdBy": zod.string().nullish()
+})),
+  "transfers": zod.array(zod.object({
+  "id": zod.number(),
+  "fromAccount": zod.string(),
+  "toAccount": zod.string(),
+  "amount": zod.number(),
+  "date": zod.string(),
+  "description": zod.string().nullish(),
+  "createdBy": zod.string().nullish()
+})),
+  "totalCashIn": zod.number(),
+  "totalCashOut": zod.number(),
+  "totalTransfers": zod.number(),
+  "transactionCount": zod.number(),
+  "transferCount": zod.number(),
+  "clientPaymentTotal": zod.number().optional(),
+  "clientPaymentReversalTotal": zod.number().optional(),
+  "otherInflows": zod.number().optional(),
+  "clientPayments": zod.array(zod.object({
+  "id": zod.number(),
+  "amount": zod.number(),
+  "paymentDate": zod.coerce.date(),
+  "fundAccountId": zod.number(),
+  "paymentMethod": zod.string().nullish(),
+  "reference": zod.string().nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Audit logs for a specific month
+ */
+export const GetPerformanceMonthlyActivityQueryParams = zod.object({
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number()
+})
+
+export const GetPerformanceMonthlyActivityResponse = zod.object({
+  "logs": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.string(),
+  "userEmail": zod.string().nullish(),
+  "action": zod.string(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "oldValues": zod.object({
+
+}).nullish(),
+  "newValues": zod.object({
+
+}).nullish(),
+  "createdAt": zod.string()
+})),
+  "count": zod.number()
 })
 
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db, notificationsTable, companySettingsTable, auditLogsTable, eventsTable, clientsTable, eventRevenueTable } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
@@ -67,7 +67,7 @@ router.patch("/settings", async (req, res): Promise<void> => {
 
 // Audit Logs
 router.get("/audit-logs", async (req, res): Promise<void> => {
-  const { entityType, entityId, page = "1", limit = "50" } = req.query as Record<string, string>;
+  const { entityType, entityId, from_date, to_date, page = "1", limit = "50" } = req.query as Record<string, string>;
   const pageNum = parseInt(page, 10);
   const limitNum = parseInt(limit, 10);
   const offset = (pageNum - 1) * limitNum;
@@ -75,6 +75,8 @@ router.get("/audit-logs", async (req, res): Promise<void> => {
   const conditions = [];
   if (entityType) conditions.push(eq(auditLogsTable.entityType, entityType));
   if (entityId) conditions.push(eq(auditLogsTable.entityId, parseInt(entityId, 10)));
+  if (from_date) conditions.push(gte(auditLogsTable.createdAt, new Date(from_date)));
+  if (to_date) conditions.push(lte(auditLogsTable.createdAt, new Date(`${to_date}T23:59:59.999Z`)));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [logs, total] = await Promise.all([

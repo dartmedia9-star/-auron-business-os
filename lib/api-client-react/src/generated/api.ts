@@ -29,8 +29,15 @@ import type {
   Client,
   ClientInput,
   ClientListResponse,
+  ClientPayment,
+  ClientPaymentDetail,
+  ClientPaymentInput,
+  ClientPaymentListResponse,
+  ClientPaymentUpdate,
   ClientProfitability,
   ClientProfitabilityReport,
+  ClientReceivables,
+  ClientReceivablesListResponse,
   ClientUpdate,
   CompanySettings,
   CompanySettingsUpdate,
@@ -62,6 +69,14 @@ import type {
   GetFinanceSummaryParams,
   GetFundAccount200,
   GetMarketingRoiParams,
+  GetPerformanceAnnualParams,
+  GetPerformanceMonthlyActivityParams,
+  GetPerformanceMonthlyCashflowParams,
+  GetPerformanceMonthlyEventsParams,
+  GetPerformanceMonthlyExpensesParams,
+  GetPerformanceMonthlyParams,
+  GetPerformanceMonthlyProfitabilityParams,
+  GetPerformanceMonthlyRevenueParams,
   GetRevenueTrendParams,
   GlobalSearchParams,
   HandleBrowserLoginCallbackParams,
@@ -73,6 +88,8 @@ import type {
   LeadUpdate,
   ListAssetsParams,
   ListAuditLogsParams,
+  ListClientPaymentsParams,
+  ListClientReceivablesParams,
   ListClientsParams,
   ListEventsParams,
   ListFundTransactions200,
@@ -100,6 +117,17 @@ import type {
   OperatingExpense,
   OperatingExpenseInput,
   OperatingExpenseUpdate,
+  PaymentAllocationInput,
+  PaymentAllocationResponse,
+  PerformanceAnnual,
+  PerformanceMonthly,
+  PerformanceMonthlyActivity,
+  PerformanceMonthlyCashflow,
+  PerformanceMonthlyEvents,
+  PerformanceMonthlyExpenses,
+  PerformanceMonthlyProfitability,
+  PerformanceMonthlyRevenue,
+  PerformanceYears,
   PipelineSummary,
   ReceivablesSummary,
   RevenueTrendPoint,
@@ -1469,6 +1497,697 @@ export function useGetClientProfitability<TData = Awaited<ReturnType<typeof getC
 
 
 
+
+export const getGetClientReceivablesUrl = (id: number,) => {
+
+
+
+
+  return `/api/clients/${id}/receivables`
+}
+
+/**
+ * @summary Get client-level receivable summary and event allocation detail
+ */
+export const getClientReceivables = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ClientReceivables> => {
+
+  return customFetch<ClientReceivables>(getGetClientReceivablesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientReceivablesQueryKey = (id: number,) => {
+    return [
+    `/api/clients/${id}/receivables`
+    ] as const;
+    }
+
+
+export const getGetClientReceivablesQueryOptions = <TData = Awaited<ReturnType<typeof getClientReceivables>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientReceivables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientReceivablesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientReceivables>>> = ({ signal }) => getClientReceivables(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientReceivables>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientReceivablesQueryResult = NonNullable<Awaited<ReturnType<typeof getClientReceivables>>>
+export type GetClientReceivablesQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get client-level receivable summary and event allocation detail
+ */
+
+export function useGetClientReceivables<TData = Awaited<ReturnType<typeof getClientReceivables>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientReceivables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientReceivablesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListClientPaymentsUrl = (id: number,
+    params?: ListClientPaymentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/clients/${id}/payments?${stringifiedParams}` : `/api/clients/${id}/payments`
+}
+
+/**
+ * @summary List payments for a client
+ */
+export const listClientPayments = async (id: number,
+    params?: ListClientPaymentsParams, options?: Parameters<typeof customFetch>[1]): Promise<ClientPaymentListResponse> => {
+
+  return customFetch<ClientPaymentListResponse>(getListClientPaymentsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientPaymentsQueryKey = (id: number,
+    params?: ListClientPaymentsParams,) => {
+    return [
+    `/api/clients/${id}/payments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListClientPaymentsQueryOptions = <TData = Awaited<ReturnType<typeof listClientPayments>>, TError = ErrorType<unknown>>(id: number,
+    params?: ListClientPaymentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientPaymentsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientPayments>>> = ({ signal }) => listClientPayments(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientPayments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientPaymentsQueryResult = NonNullable<Awaited<ReturnType<typeof listClientPayments>>>
+export type ListClientPaymentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List payments for a client
+ */
+
+export function useListClientPayments<TData = Awaited<ReturnType<typeof listClientPayments>>, TError = ErrorType<unknown>>(
+ id: number,
+    params?: ListClientPaymentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientPaymentsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateClientPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/clients/${id}/payments`
+}
+
+/**
+ * @summary Record a new client payment (client-level cash collection)
+ */
+export const createClientPayment = async (id: number,
+    clientPaymentInput: ClientPaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<ClientPayment> => {
+
+  return customFetch<ClientPayment>(getCreateClientPaymentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientPaymentMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentInput>}, TContext> => {
+
+const mutationKey = ['createClientPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientPayment>>, {id: number;data: BodyType<ClientPaymentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createClientPayment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createClientPayment>>>
+    export type CreateClientPaymentMutationBody = BodyType<ClientPaymentInput>
+    export type CreateClientPaymentMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Record a new client payment (client-level cash collection)
+ */
+export const useCreateClientPayment = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientPayment>>,
+        TError,
+        {id: number;data: BodyType<ClientPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientPaymentMutationOptions(options));
+    }
+
+export const getListClientReceivablesUrl = (params?: ListClientReceivablesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/client-receivables?${stringifiedParams}` : `/api/finance/client-receivables`
+}
+
+/**
+ * @summary List receivable summaries for all clients
+ */
+export const listClientReceivables = async (params?: ListClientReceivablesParams, options?: Parameters<typeof customFetch>[1]): Promise<ClientReceivablesListResponse> => {
+
+  return customFetch<ClientReceivablesListResponse>(getListClientReceivablesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientReceivablesQueryKey = (params?: ListClientReceivablesParams,) => {
+    return [
+    `/api/finance/client-receivables`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListClientReceivablesQueryOptions = <TData = Awaited<ReturnType<typeof listClientReceivables>>, TError = ErrorType<unknown>>(params?: ListClientReceivablesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientReceivables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientReceivablesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientReceivables>>> = ({ signal }) => listClientReceivables(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientReceivables>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientReceivablesQueryResult = NonNullable<Awaited<ReturnType<typeof listClientReceivables>>>
+export type ListClientReceivablesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List receivable summaries for all clients
+ */
+
+export function useListClientReceivables<TData = Awaited<ReturnType<typeof listClientReceivables>>, TError = ErrorType<unknown>>(
+ params?: ListClientReceivablesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientReceivables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientReceivablesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetClientPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/payments/${id}`
+}
+
+/**
+ * @summary Get a single client payment with allocations
+ */
+export const getClientPayment = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ClientPaymentDetail> => {
+
+  return customFetch<ClientPaymentDetail>(getGetClientPaymentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPaymentQueryKey = (id: number,) => {
+    return [
+    `/api/payments/${id}`
+    ] as const;
+    }
+
+
+export const getGetClientPaymentQueryOptions = <TData = Awaited<ReturnType<typeof getClientPayment>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPayment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPaymentQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPayment>>> = ({ signal }) => getClientPayment(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPayment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPaymentQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPayment>>>
+export type GetClientPaymentQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get a single client payment with allocations
+ */
+
+export function useGetClientPayment<TData = Awaited<ReturnType<typeof getClientPayment>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPayment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPaymentQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClientPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/payments/${id}`
+}
+
+/**
+ * @summary Update a client payment (amount, date, fund, method, reference, notes)
+ */
+export const updateClientPayment = async (id: number,
+    clientPaymentUpdate: ClientPaymentUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ClientPayment> => {
+
+  return customFetch<ClientPayment>(getUpdateClientPaymentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientPaymentUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientPaymentMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentUpdate>}, TContext> => {
+
+const mutationKey = ['updateClientPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientPayment>>, {id: number;data: BodyType<ClientPaymentUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateClientPayment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientPayment>>>
+    export type UpdateClientPaymentMutationBody = BodyType<ClientPaymentUpdate>
+    export type UpdateClientPaymentMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update a client payment (amount, date, fund, method, reference, notes)
+ */
+export const useUpdateClientPayment = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientPayment>>, TError,{id: number;data: BodyType<ClientPaymentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientPayment>>,
+        TError,
+        {id: number;data: BodyType<ClientPaymentUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientPaymentMutationOptions(options));
+    }
+
+export const getDeleteClientPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/payments/${id}`
+}
+
+/**
+ * @summary Reverse/delete a client payment
+ */
+export const deleteClientPayment = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteClientPaymentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteClientPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientPayment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteClientPayment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteClientPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteClientPayment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteClientPayment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteClientPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteClientPayment>>>
+
+    export type DeleteClientPaymentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reverse/delete a client payment
+ */
+export const useDeleteClientPayment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientPayment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteClientPayment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteClientPaymentMutationOptions(options));
+    }
+
+export const getGetPaymentAllocationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/payments/${id}/allocations`
+}
+
+/**
+ * @summary Get allocations for a payment
+ */
+export const getPaymentAllocations = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<PaymentAllocationResponse> => {
+
+  return customFetch<PaymentAllocationResponse>(getGetPaymentAllocationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPaymentAllocationsQueryKey = (id: number,) => {
+    return [
+    `/api/payments/${id}/allocations`
+    ] as const;
+    }
+
+
+export const getGetPaymentAllocationsQueryOptions = <TData = Awaited<ReturnType<typeof getPaymentAllocations>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentAllocations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPaymentAllocationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPaymentAllocations>>> = ({ signal }) => getPaymentAllocations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPaymentAllocations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPaymentAllocationsQueryResult = NonNullable<Awaited<ReturnType<typeof getPaymentAllocations>>>
+export type GetPaymentAllocationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get allocations for a payment
+ */
+
+export function useGetPaymentAllocations<TData = Awaited<ReturnType<typeof getPaymentAllocations>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentAllocations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPaymentAllocationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePaymentAllocationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/payments/${id}/allocations`
+}
+
+/**
+ * @summary Replace the allocation set for a payment atomically
+ */
+export const updatePaymentAllocations = async (id: number,
+    paymentAllocationInput: PaymentAllocationInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentAllocationResponse> => {
+
+  return customFetch<PaymentAllocationResponse>(getUpdatePaymentAllocationsUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentAllocationInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePaymentAllocationsMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePaymentAllocations>>, TError,{id: number;data: BodyType<PaymentAllocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePaymentAllocations>>, TError,{id: number;data: BodyType<PaymentAllocationInput>}, TContext> => {
+
+const mutationKey = ['updatePaymentAllocations'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePaymentAllocations>>, {id: number;data: BodyType<PaymentAllocationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePaymentAllocations(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePaymentAllocationsMutationResult = NonNullable<Awaited<ReturnType<typeof updatePaymentAllocations>>>
+    export type UpdatePaymentAllocationsMutationBody = BodyType<PaymentAllocationInput>
+    export type UpdatePaymentAllocationsMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Replace the allocation set for a payment atomically
+ */
+export const useUpdatePaymentAllocations = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePaymentAllocations>>, TError,{id: number;data: BodyType<PaymentAllocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePaymentAllocations>>,
+        TError,
+        {id: number;data: BodyType<PaymentAllocationInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePaymentAllocationsMutationOptions(options));
+    }
 
 export const getListEventsUrl = (params?: ListEventsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -6800,6 +7519,755 @@ export function useGlobalSearch<TData = Awaited<ReturnType<typeof globalSearch>>
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGlobalSearchQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceYearsUrl = () => {
+
+
+
+
+  return `/api/performance/years`
+}
+
+/**
+ * @summary List all years with financial activity
+ */
+export const getPerformanceYears = async ( options?: Parameters<typeof customFetch>[1]): Promise<PerformanceYears> => {
+
+  return customFetch<PerformanceYears>(getGetPerformanceYearsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceYearsQueryKey = () => {
+    return [
+    `/api/performance/years`
+    ] as const;
+    }
+
+
+export const getGetPerformanceYearsQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceYears>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceYears>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceYearsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceYears>>> = ({ signal }) => getPerformanceYears({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceYears>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceYearsQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceYears>>>
+export type GetPerformanceYearsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all years with financial activity
+ */
+
+export function useGetPerformanceYears<TData = Awaited<ReturnType<typeof getPerformanceYears>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceYears>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceYearsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceAnnualUrl = (params?: GetPerformanceAnnualParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/annual?${stringifiedParams}` : `/api/performance/annual`
+}
+
+/**
+ * @summary Annual overview with per-month summaries
+ */
+export const getPerformanceAnnual = async (params?: GetPerformanceAnnualParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceAnnual> => {
+
+  return customFetch<PerformanceAnnual>(getGetPerformanceAnnualUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceAnnualQueryKey = (params?: GetPerformanceAnnualParams,) => {
+    return [
+    `/api/performance/annual`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceAnnualQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceAnnual>>, TError = ErrorType<unknown>>(params?: GetPerformanceAnnualParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceAnnual>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceAnnualQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceAnnual>>> = ({ signal }) => getPerformanceAnnual(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceAnnual>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceAnnualQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceAnnual>>>
+export type GetPerformanceAnnualQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Annual overview with per-month summaries
+ */
+
+export function useGetPerformanceAnnual<TData = Awaited<ReturnType<typeof getPerformanceAnnual>>, TError = ErrorType<unknown>>(
+ params?: GetPerformanceAnnualParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceAnnual>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceAnnualQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyUrl = (params?: GetPerformanceMonthlyParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly?${stringifiedParams}` : `/api/performance/monthly`
+}
+
+/**
+ * @summary Monthly performance dashboard with KPIs
+ */
+export const getPerformanceMonthly = async (params?: GetPerformanceMonthlyParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthly> => {
+
+  return customFetch<PerformanceMonthly>(getGetPerformanceMonthlyUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyQueryKey = (params?: GetPerformanceMonthlyParams,) => {
+    return [
+    `/api/performance/monthly`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthly>>, TError = ErrorType<unknown>>(params?: GetPerformanceMonthlyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthly>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthly>>> = ({ signal }) => getPerformanceMonthly(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthly>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthly>>>
+export type GetPerformanceMonthlyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Monthly performance dashboard with KPIs
+ */
+
+export function useGetPerformanceMonthly<TData = Awaited<ReturnType<typeof getPerformanceMonthly>>, TError = ErrorType<unknown>>(
+ params?: GetPerformanceMonthlyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthly>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyRevenueUrl = (params: GetPerformanceMonthlyRevenueParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/revenue?${stringifiedParams}` : `/api/performance/monthly/revenue`
+}
+
+/**
+ * @summary Revenue records for a specific month
+ */
+export const getPerformanceMonthlyRevenue = async (params: GetPerformanceMonthlyRevenueParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyRevenue> => {
+
+  return customFetch<PerformanceMonthlyRevenue>(getGetPerformanceMonthlyRevenueUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyRevenueQueryKey = (params?: GetPerformanceMonthlyRevenueParams,) => {
+    return [
+    `/api/performance/monthly/revenue`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyRevenueQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyRevenueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyRevenueQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>> = ({ signal }) => getPerformanceMonthlyRevenue(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyRevenueQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>>
+export type GetPerformanceMonthlyRevenueQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Revenue records for a specific month
+ */
+
+export function useGetPerformanceMonthlyRevenue<TData = Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyRevenueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyRevenue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyRevenueQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyExpensesUrl = (params: GetPerformanceMonthlyExpensesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/expenses?${stringifiedParams}` : `/api/performance/monthly/expenses`
+}
+
+/**
+ * @summary Expense records for a specific month
+ */
+export const getPerformanceMonthlyExpenses = async (params: GetPerformanceMonthlyExpensesParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyExpenses> => {
+
+  return customFetch<PerformanceMonthlyExpenses>(getGetPerformanceMonthlyExpensesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyExpensesQueryKey = (params?: GetPerformanceMonthlyExpensesParams,) => {
+    return [
+    `/api/performance/monthly/expenses`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyExpensesQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyExpensesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyExpensesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>> = ({ signal }) => getPerformanceMonthlyExpenses(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyExpensesQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>>
+export type GetPerformanceMonthlyExpensesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Expense records for a specific month
+ */
+
+export function useGetPerformanceMonthlyExpenses<TData = Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyExpensesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyExpenses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyExpensesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyProfitabilityUrl = (params: GetPerformanceMonthlyProfitabilityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/profitability?${stringifiedParams}` : `/api/performance/monthly/profitability`
+}
+
+/**
+ * @summary Event profitability for a specific month
+ */
+export const getPerformanceMonthlyProfitability = async (params: GetPerformanceMonthlyProfitabilityParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyProfitability> => {
+
+  return customFetch<PerformanceMonthlyProfitability>(getGetPerformanceMonthlyProfitabilityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyProfitabilityQueryKey = (params?: GetPerformanceMonthlyProfitabilityParams,) => {
+    return [
+    `/api/performance/monthly/profitability`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyProfitabilityQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyProfitabilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyProfitabilityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>> = ({ signal }) => getPerformanceMonthlyProfitability(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyProfitabilityQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>>
+export type GetPerformanceMonthlyProfitabilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Event profitability for a specific month
+ */
+
+export function useGetPerformanceMonthlyProfitability<TData = Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyProfitabilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyProfitability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyProfitabilityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyEventsUrl = (params: GetPerformanceMonthlyEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/events?${stringifiedParams}` : `/api/performance/monthly/events`
+}
+
+/**
+ * @summary Events list for a specific month
+ */
+export const getPerformanceMonthlyEvents = async (params: GetPerformanceMonthlyEventsParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyEvents> => {
+
+  return customFetch<PerformanceMonthlyEvents>(getGetPerformanceMonthlyEventsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyEventsQueryKey = (params?: GetPerformanceMonthlyEventsParams,) => {
+    return [
+    `/api/performance/monthly/events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyEventsQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyEventsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>> = ({ signal }) => getPerformanceMonthlyEvents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyEventsQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>>
+export type GetPerformanceMonthlyEventsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Events list for a specific month
+ */
+
+export function useGetPerformanceMonthlyEvents<TData = Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyCashflowUrl = (params: GetPerformanceMonthlyCashflowParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/cashflow?${stringifiedParams}` : `/api/performance/monthly/cashflow`
+}
+
+/**
+ * @summary Fund activity for a specific month
+ */
+export const getPerformanceMonthlyCashflow = async (params: GetPerformanceMonthlyCashflowParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyCashflow> => {
+
+  return customFetch<PerformanceMonthlyCashflow>(getGetPerformanceMonthlyCashflowUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyCashflowQueryKey = (params?: GetPerformanceMonthlyCashflowParams,) => {
+    return [
+    `/api/performance/monthly/cashflow`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyCashflowQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyCashflowParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyCashflowQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>> = ({ signal }) => getPerformanceMonthlyCashflow(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyCashflowQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>>
+export type GetPerformanceMonthlyCashflowQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Fund activity for a specific month
+ */
+
+export function useGetPerformanceMonthlyCashflow<TData = Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyCashflowParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyCashflow>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyCashflowQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPerformanceMonthlyActivityUrl = (params: GetPerformanceMonthlyActivityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/performance/monthly/activity?${stringifiedParams}` : `/api/performance/monthly/activity`
+}
+
+/**
+ * @summary Audit logs for a specific month
+ */
+export const getPerformanceMonthlyActivity = async (params: GetPerformanceMonthlyActivityParams, options?: Parameters<typeof customFetch>[1]): Promise<PerformanceMonthlyActivity> => {
+
+  return customFetch<PerformanceMonthlyActivity>(getGetPerformanceMonthlyActivityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPerformanceMonthlyActivityQueryKey = (params?: GetPerformanceMonthlyActivityParams,) => {
+    return [
+    `/api/performance/monthly/activity`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPerformanceMonthlyActivityQueryOptions = <TData = Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>, TError = ErrorType<unknown>>(params: GetPerformanceMonthlyActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPerformanceMonthlyActivityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>> = ({ signal }) => getPerformanceMonthlyActivity(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPerformanceMonthlyActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>>
+export type GetPerformanceMonthlyActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Audit logs for a specific month
+ */
+
+export function useGetPerformanceMonthlyActivity<TData = Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>, TError = ErrorType<unknown>>(
+ params: GetPerformanceMonthlyActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerformanceMonthlyActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPerformanceMonthlyActivityQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -31,6 +31,9 @@ export interface Client {
   lifetimeRevenue?: number;
   lifetimeGrossProfit?: number;
   totalOutstanding?: number;
+  totalCollected?: number;
+  creditBalance?: number;
+  unallocatedAmount?: number;
   repeatClient?: boolean;
   /** @nullable */
   firstEventDate?: Date | null;
