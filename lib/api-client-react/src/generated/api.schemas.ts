@@ -154,6 +154,9 @@ export interface Client {
   lifetimeRevenue?: number;
   lifetimeGrossProfit?: number;
   totalOutstanding?: number;
+  totalCollected?: number;
+  creditBalance?: number;
+  unallocatedAmount?: number;
   repeatClient?: boolean;
   /** @nullable */
   firstEventDate?: string | null;
@@ -217,6 +220,149 @@ export interface ClientProfitability {
   totalOutstanding: number;
   ltv?: number;
   events: ClientProfitabilityEventsItem[];
+}
+
+export type ClientReceivablesClient = {
+  id: number;
+  name: string;
+};
+
+export type ClientReceivablesEventsItem = {
+  eventId: number;
+  eventName: string;
+  /** @nullable */
+  eventDate?: string | null;
+  revenue: number;
+  legacyCollected?: number;
+  allocated?: number;
+  outstanding: number;
+};
+
+export interface ClientReceivables {
+  client: ClientReceivablesClient;
+  clientId: number;
+  totalBilled: number;
+  legacyCollected?: number;
+  totalReceived: number;
+  newReceived?: number;
+  outstanding: number;
+  credit: number;
+  unallocated: number;
+  events?: ClientReceivablesEventsItem[];
+}
+
+export type ClientReceivablesListResponseDataItem = {
+  id?: number;
+  name?: string;
+  totalBilled?: number;
+  legacyCollected?: number;
+  totalReceived?: number;
+  newReceived?: number;
+  outstanding?: number;
+  credit?: number;
+  unallocated?: number;
+};
+
+export interface ClientReceivablesListResponse {
+  data: ClientReceivablesListResponseDataItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ClientPaymentInputAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
+export interface ClientPaymentInput {
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  payment_date: string;
+  fund_account_id: number;
+  payment_method?: string;
+  reference?: string;
+  notes?: string;
+  /** Optional event allocations */
+  allocations?: ClientPaymentInputAllocationsItem[];
+}
+
+export interface ClientPayment {
+  id: number;
+  clientId: number;
+  amount: number;
+  paymentDate: string;
+  fundAccountId: number;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  allocated?: number;
+  unallocated?: number;
+  fundAccountName?: string;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt?: string;
+}
+
+export type ClientPaymentDetailAllocationsItem = {
+  id: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
+export type ClientPaymentDetail = ClientPayment & {
+  clientName?: string;
+  allocations?: ClientPaymentDetailAllocationsItem[];
+};
+
+export interface ClientPaymentUpdate {
+  /** @exclusiveMinimum 0 */
+  amount?: number;
+  payment_date?: string;
+  fund_account_id?: number;
+  /** @nullable */
+  payment_method?: string | null;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface ClientPaymentListResponse {
+  data: ClientPayment[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type PaymentAllocationInputAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
+export interface PaymentAllocationInput {
+  allocations: PaymentAllocationInputAllocationsItem[];
+}
+
+export type PaymentAllocationResponseAllocationsItem = {
+  id?: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
+export interface PaymentAllocationResponse {
+  allocations: PaymentAllocationResponseAllocationsItem[];
+  allocated: number;
+  unallocated: number;
 }
 
 export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
@@ -803,7 +949,7 @@ export interface OperatingExpenseInput {
   /** @nullable */
   eventId?: number | null;
   /** @nullable */
-  paidBy?: string | null;
+  paidBy: string | null;
   /** @nullable */
   paymentMethod?: string | null;
 }
@@ -1439,6 +1585,252 @@ export interface SearchResults {
   vendors: SearchResultsVendorsItem[];
 }
 
+export interface PerformanceYears {
+  years: number[];
+}
+
+export interface PerformanceMonthSummary {
+  month: number;
+  revenue: number;
+  directCosts: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  operatingExpenses: number;
+  ebitda: number;
+  netProfit: number;
+  eventCount: number;
+}
+
+export interface PerformanceAnnual {
+  year: number;
+  months: PerformanceMonthSummary[];
+  totals: PerformanceMonthSummary;
+}
+
+export interface PerformanceMonthly {
+  year: number;
+  month: number;
+  fromDate?: string;
+  toDate?: string;
+  revenue: number;
+  directCosts: number;
+  grossProfit: number;
+  grossMarginPct?: number;
+  operatingExpenses: number;
+  ebitda: number;
+  ebitdaMarginPct?: number;
+  netProfit: number;
+  netMarginPct?: number;
+  totalReceivables?: number;
+  overdueReceivables?: number;
+  eventCount: number;
+  totalCashOut?: number;
+  fundAccounts?: FundAccountBalance[];
+}
+
+export interface PerformanceRevenueRecord {
+  eventId: number;
+  eventName: string;
+  eventDate?: string;
+  eventType?: string;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  contractValue?: number;
+  discount?: number;
+  gst?: number;
+  netRevenue: number;
+  totalCollected?: number;
+  outstandingAmount?: number;
+  paymentStatus?: string;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+}
+
+export interface PerformanceMonthlyRevenue {
+  revenue: PerformanceRevenueRecord[];
+  total: number;
+}
+
+export interface PerformanceExpenseRecord {
+  id: number;
+  category: string;
+  description: string;
+  amount: number;
+  gst?: number;
+  cashOut?: number;
+  year: number;
+  month: number;
+  /** @nullable */
+  date?: string | null;
+  /** @nullable */
+  referenceNumber?: string | null;
+  /** @nullable */
+  eventId?: number | null;
+  /** @nullable */
+  eventName?: string | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt?: string;
+}
+
+export interface PerformanceCategoryBreakdown {
+  category: string;
+  count: number;
+  total: number;
+}
+
+export interface PerformancePayerBreakdown {
+  payer: string;
+  count: number;
+  total: number;
+}
+
+export interface PerformanceMonthlyExpenses {
+  expenses: PerformanceExpenseRecord[];
+  totalAmount: number;
+  totalGst: number;
+  totalCashOut: number;
+  count: number;
+  byCategory: PerformanceCategoryBreakdown[];
+  byPayer: PerformancePayerBreakdown[];
+}
+
+export interface PerformanceProfitabilityRecord {
+  eventId: number;
+  eventName: string;
+  eventDate?: string;
+  eventType?: string;
+  status?: string;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  revenue: number;
+  directCost: number;
+  profit: number;
+  marginPct: number;
+  outstandingAmount?: number;
+}
+
+export interface PerformanceMonthlyProfitability {
+  events: PerformanceProfitabilityRecord[];
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+}
+
+export interface PerformanceEventRecord {
+  id: number;
+  name: string;
+  eventDate: string;
+  eventType: string;
+  status: string;
+  /** @nullable */
+  venue?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  revenue?: number;
+  directCost?: number;
+  profit?: number;
+  marginPct?: number;
+  totalCollected?: number;
+  outstandingAmount?: number;
+}
+
+export interface PerformanceMonthlyEvents {
+  events: PerformanceEventRecord[];
+  count: number;
+}
+
+export interface PerformanceCashflowTransaction {
+  id: number;
+  accountId: number;
+  accountName: string;
+  type: string;
+  amount: number;
+  moneyIn: number;
+  moneyOut: number;
+  /** @nullable */
+  description?: string | null;
+  createdAt?: string;
+  /** @nullable */
+  createdBy?: string | null;
+}
+
+export interface PerformanceCashflowTransfer {
+  id: number;
+  fromAccount: string;
+  toAccount: string;
+  amount: number;
+  date: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+}
+
+export type PerformanceMonthlyCashflowClientPaymentsItem = {
+  id: number;
+  amount: number;
+  paymentDate: string;
+  fundAccountId: number;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  reference?: string | null;
+};
+
+export interface PerformanceMonthlyCashflow {
+  transactions: PerformanceCashflowTransaction[];
+  transfers: PerformanceCashflowTransfer[];
+  totalCashIn: number;
+  totalCashOut: number;
+  totalTransfers: number;
+  transactionCount: number;
+  transferCount: number;
+  clientPaymentTotal?: number;
+  clientPaymentReversalTotal?: number;
+  otherInflows?: number;
+  clientPayments?: PerformanceMonthlyCashflowClientPaymentsItem[];
+}
+
+/**
+ * @nullable
+ */
+export type PerformanceActivityLogOldValues = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type PerformanceActivityLogNewValues = { [key: string]: unknown } | null;
+
+export interface PerformanceActivityLog {
+  id: number;
+  userId: string;
+  /** @nullable */
+  userEmail?: string | null;
+  action: string;
+  entityType: string;
+  entityId: number;
+  /** @nullable */
+  oldValues?: PerformanceActivityLogOldValues;
+  /** @nullable */
+  newValues?: PerformanceActivityLogNewValues;
+  createdAt: string;
+}
+
+export interface PerformanceMonthlyActivity {
+  logs: PerformanceActivityLog[];
+  count: number;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -1499,6 +1891,22 @@ export const ListClientsSortBy = {
   events: 'events',
   ltv: 'ltv',
 } as const;
+
+export type ListClientPaymentsParams = {
+page?: number;
+limit?: number;
+fromDate?: string;
+toDate?: string;
+fundAccountId?: number;
+};
+
+export type ListClientReceivablesParams = {
+search?: string;
+page?: number;
+limit?: number;
+fromDate?: string;
+toDate?: string;
+};
 
 export type ListEventsParams = {
 search?: string;
@@ -1571,6 +1979,14 @@ unreadOnly?: boolean;
 export type ListAuditLogsParams = {
 entityType?: string;
 entityId?: number;
+/**
+ * Filter logs created on or after this ISO datetime
+ */
+from_date?: string;
+/**
+ * Filter logs created on or before this ISO datetime
+ */
+to_date?: string;
 page?: number;
 limit?: number;
 };
@@ -1583,5 +1999,44 @@ toDate?: string;
 export type GlobalSearchParams = {
 q: string;
 limit?: number;
+};
+
+export type GetPerformanceAnnualParams = {
+year?: number;
+};
+
+export type GetPerformanceMonthlyParams = {
+year?: number;
+month?: number;
+};
+
+export type GetPerformanceMonthlyRevenueParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyExpensesParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyProfitabilityParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyEventsParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyCashflowParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyActivityParams = {
+year: number;
+month: number;
 };
 

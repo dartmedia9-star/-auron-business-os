@@ -1,8 +1,10 @@
+import jarvisRouter from "./jarvis";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import dashboardRouter from "./dashboard";
 import clientsRouter from "./clients";
+import clientPaymentsRouter from "./client-payments";
 import eventsRouter from "./events";
 import leadsRouter from "./leads";
 import marketingRouter from "./marketing";
@@ -13,6 +15,7 @@ import employeesRouter from "./employees";
 import valuationRouter from "./valuation";
 import miscRouter from "./misc";
 import notesRouter from "./notes";
+import performanceRouter from "./performance";
 
 const router: IRouter = Router();
 
@@ -20,7 +23,9 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(dashboardRouter);
 router.use(clientsRouter);
+router.use(clientPaymentsRouter);
 router.use(eventsRouter);
+router.use(jarvisRouter);
 router.use(leadsRouter);
 router.use(marketingRouter);
 router.use(financeRouter);
@@ -30,5 +35,6 @@ router.use(employeesRouter);
 router.use(valuationRouter);
 router.use(miscRouter);
 router.use(notesRouter);
+router.use(performanceRouter);
 
 export default router;

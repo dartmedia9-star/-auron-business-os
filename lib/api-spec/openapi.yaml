@@ -15,6 +15,8 @@ tags:
     description: CEO dashboard and KPI aggregates
   - name: clients
     description: Client CRM
+  - name: clientPayments
+    description: Client payments and receivables
   - name: events
     description: Event management
   - name: eventRevenue
@@ -47,6 +49,8 @@ tags:
     description: Company settings
   - name: auditLogs
     description: Audit logs for financial changes
+  - name: performance
+    description: Financial performance and drill-down analytics
   - name: reports
     description: Analytics and reports
 
@@ -421,6 +425,267 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientProfitability"
+
+  # Client Payments & Receivables
+  /clients/{id}/receivables:
+    get:
+      operationId: getClientReceivables
+      tags: [clientPayments]
+      summary: Get client-level receivable summary and event allocation detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Client receivables
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientReceivables"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /clients/{id}/payments:
+    get:
+      operationId: listClientPayments
+      tags: [clientPayments]
+      summary: List payments for a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: fundAccountId
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Payments list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPaymentListResponse"
+    post:
+      operationId: createClientPayment
+      tags: [clientPayments]
+      summary: Record a new client payment (client-level cash collection)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientPaymentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPayment"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /finance/client-receivables:
+    get:
+      operationId: listClientReceivables
+      tags: [clientPayments]
+      summary: List receivable summaries for all clients
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 50
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Client receivables list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientReceivablesListResponse"
+
+  /payments/{id}:
+    get:
+      operationId: getClientPayment
+      tags: [clientPayments]
+      summary: Get a single client payment with allocations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPaymentDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateClientPayment
+      tags: [clientPayments]
+      summary: Update a client payment (amount, date, fund, method, reference, notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientPaymentUpdate"
+      responses:
+        "200":
+          description: Updated payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPayment"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteClientPayment
+      tags: [clientPayments]
+      summary: Reverse/delete a client payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+
+  /payments/{id}/allocations:
+    get:
+      operationId: getPaymentAllocations
+      tags: [clientPayments]
+      summary: Get allocations for a payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentAllocationResponse"
+    put:
+      operationId: updatePaymentAllocations
+      tags: [clientPayments]
+      summary: Replace the allocation set for a payment atomically
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentAllocationInput"
+      responses:
+        "200":
+          description: Updated allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentAllocationResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   # Events
   /events:
@@ -1860,6 +2125,20 @@ paths:
           required: false
           schema:
             type: number
+        - name: from_date
+          in: query
+          required: false
+          description: Filter logs created on or after this ISO datetime
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          required: false
+          description: Filter logs created on or before this ISO datetime
+          schema:
+            type: string
+            format: date-time
         - name: page
           in: query
           required: false
@@ -1945,6 +2224,207 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SearchResults"
+
+  # Performance
+  /performance/years:
+    get:
+      operationId: getPerformanceYears
+      tags: [performance]
+      summary: List all years with financial activity
+      responses:
+        "200":
+          description: Available years
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceYears"
+
+  /performance/annual:
+    get:
+      operationId: getPerformanceAnnual
+      tags: [performance]
+      summary: Annual overview with per-month summaries
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Annual performance overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceAnnual"
+
+  /performance/monthly:
+    get:
+      operationId: getPerformanceMonthly
+      tags: [performance]
+      summary: Monthly performance dashboard with KPIs
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly performance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthly"
+
+  /performance/monthly/revenue:
+    get:
+      operationId: getPerformanceMonthlyRevenue
+      tags: [performance]
+      summary: Revenue records for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly revenue details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyRevenue"
+
+  /performance/monthly/expenses:
+    get:
+      operationId: getPerformanceMonthlyExpenses
+      tags: [performance]
+      summary: Expense records for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly expense details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyExpenses"
+
+  /performance/monthly/profitability:
+    get:
+      operationId: getPerformanceMonthlyProfitability
+      tags: [performance]
+      summary: Event profitability for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly event profitability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyProfitability"
+
+  /performance/monthly/events:
+    get:
+      operationId: getPerformanceMonthlyEvents
+      tags: [performance]
+      summary: Events list for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyEvents"
+
+  /performance/monthly/cashflow:
+    get:
+      operationId: getPerformanceMonthlyCashflow
+      tags: [performance]
+      summary: Fund activity for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly cash flow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyCashflow"
+
+  /performance/monthly/activity:
+    get:
+      operationId: getPerformanceMonthlyActivity
+      tags: [performance]
+      summary: Audit logs for a specific month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly activity logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMonthlyActivity"
 
 components:
   parameters:
@@ -2209,6 +2689,12 @@ components:
           type: number
         totalOutstanding:
           type: number
+        totalCollected:
+          type: number
+        creditBalance:
+          type: number
+        unallocatedAmount:
+          type: number
         repeatClient:
           type: boolean
         firstEventDate:
@@ -2331,6 +2817,250 @@ components:
                 type: number
               grossMarginPct:
                 type: number
+
+    # Client Payment & Receivable schemas
+    ClientReceivables:
+      type: object
+      required: [client, clientId, totalBilled, totalReceived, outstanding, credit, unallocated]
+      properties:
+        client:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: number
+            name:
+              type: string
+        clientId:
+          type: number
+        totalBilled:
+          type: number
+        legacyCollected:
+          type: number
+        totalReceived:
+          type: number
+        newReceived:
+          type: number
+        outstanding:
+          type: number
+        credit:
+          type: number
+        unallocated:
+          type: number
+        events:
+          type: array
+          items:
+            type: object
+            required: [eventId, eventName, revenue, outstanding]
+            properties:
+              eventId:
+                type: number
+              eventName:
+                type: string
+              eventDate:
+                type: ["string", "null"]
+              revenue:
+                type: number
+              legacyCollected:
+                type: number
+              allocated:
+                type: number
+              outstanding:
+                type: number
+
+    ClientReceivablesListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: number
+              name:
+                type: string
+              totalBilled:
+                type: number
+              legacyCollected:
+                type: number
+              totalReceived:
+                type: number
+              newReceived:
+                type: number
+              outstanding:
+                type: number
+              credit:
+                type: number
+              unallocated:
+                type: number
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    ClientPaymentInput:
+      type: object
+      required: [amount, payment_date, fund_account_id]
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        payment_date:
+          type: string
+          format: date
+        fund_account_id:
+          type: number
+        payment_method:
+          type: string
+        reference:
+          type: string
+        notes:
+          type: string
+        allocations:
+          type: array
+          description: Optional event allocations
+          items:
+            type: object
+            required: [eventId, amount]
+            properties:
+              eventId:
+                type: number
+              amount:
+                type: number
+
+    ClientPayment:
+      type: object
+      required: [id, clientId, amount, paymentDate, fundAccountId]
+      properties:
+        id:
+          type: number
+        clientId:
+          type: number
+        amount:
+          type: number
+        paymentDate:
+          type: string
+          format: date
+        fundAccountId:
+          type: number
+        paymentMethod:
+          type: ["string", "null"]
+        reference:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        allocated:
+          type: number
+        unallocated:
+          type: number
+        fundAccountName:
+          type: string
+        createdBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ClientPaymentDetail:
+      allOf:
+        - $ref: "#/components/schemas/ClientPayment"
+        - type: object
+          properties:
+            clientName:
+              type: string
+            allocations:
+              type: array
+              items:
+                type: object
+                required: [id, paymentId, eventId, amount]
+                properties:
+                  id:
+                    type: number
+                  paymentId:
+                    type: number
+                  eventId:
+                    type: number
+                  amount:
+                    type: number
+                  eventName:
+                    type: ["string", "null"]
+
+    ClientPaymentUpdate:
+      type: object
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        payment_date:
+          type: string
+          format: date
+        fund_account_id:
+          type: number
+        payment_method:
+          type: ["string", "null"]
+        reference:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ClientPaymentListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientPayment"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+
+    PaymentAllocationInput:
+      type: object
+      required: [allocations]
+      properties:
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [eventId, amount]
+            properties:
+              eventId:
+                type: number
+              amount:
+                type: number
+
+    PaymentAllocationResponse:
+      type: object
+      required: [allocations, allocated, unallocated]
+      properties:
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [paymentId, eventId, amount]
+            properties:
+              id:
+                type: number
+              paymentId:
+                type: number
+              eventId:
+                type: number
+              amount:
+                type: number
+              eventName:
+                type: ["string", "null"]
+        allocated:
+          type: number
+        unallocated:
+          type: number
 
     # Event schemas
     Event:
@@ -3096,7 +3826,7 @@ components:
 
     OperatingExpenseInput:
       type: object
-      required: [category, description, amount, year, month]
+      required: [category, description, amount, year, month, paidBy]
       properties:
         category:
           type: string
@@ -4061,3 +4791,436 @@ components:
                 type: string
               type:
                 type: string
+
+    # Performance schemas
+    PerformanceYears:
+      type: object
+      required: [years]
+      properties:
+        years:
+          type: array
+          items:
+            type: number
+
+    PerformanceMonthSummary:
+      type: object
+      required: [month, revenue, directCosts, grossProfit, grossMarginPct, operatingExpenses, ebitda, netProfit, eventCount]
+      properties:
+        month:
+          type: number
+        revenue:
+          type: number
+        directCosts:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        operatingExpenses:
+          type: number
+        ebitda:
+          type: number
+        netProfit:
+          type: number
+        eventCount:
+          type: number
+
+    PerformanceAnnual:
+      type: object
+      required: [year, months, totals]
+      properties:
+        year:
+          type: number
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceMonthSummary"
+        totals:
+          $ref: "#/components/schemas/PerformanceMonthSummary"
+
+    PerformanceMonthly:
+      type: object
+      required: [year, month, revenue, directCosts, grossProfit, operatingExpenses, ebitda, netProfit, eventCount]
+      properties:
+        year:
+          type: number
+        month:
+          type: number
+        fromDate:
+          type: string
+        toDate:
+          type: string
+        revenue:
+          type: number
+        directCosts:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
+          type: number
+        operatingExpenses:
+          type: number
+        ebitda:
+          type: number
+        ebitdaMarginPct:
+          type: number
+        netProfit:
+          type: number
+        netMarginPct:
+          type: number
+        totalReceivables:
+          type: number
+        overdueReceivables:
+          type: number
+        eventCount:
+          type: number
+        totalCashOut:
+          type: number
+        fundAccounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundAccountBalance"
+
+    PerformanceRevenueRecord:
+      type: object
+      required: [eventId, eventName, netRevenue]
+      properties:
+        eventId:
+          type: number
+        eventName:
+          type: string
+        eventDate:
+          type: string
+        eventType:
+          type: string
+        clientName:
+          type: ["string", "null"]
+        clientId:
+          type: number
+        contractValue:
+          type: number
+        discount:
+          type: number
+        gst:
+          type: number
+        netRevenue:
+          type: number
+        totalCollected:
+          type: number
+        outstandingAmount:
+          type: number
+        paymentStatus:
+          type: string
+        invoiceNumber:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+
+    PerformanceMonthlyRevenue:
+      type: object
+      required: [revenue, total]
+      properties:
+        revenue:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceRevenueRecord"
+        total:
+          type: number
+
+    PerformanceExpenseRecord:
+      type: object
+      required: [id, category, description, amount, year, month]
+      properties:
+        id:
+          type: number
+        category:
+          type: string
+        description:
+          type: string
+        amount:
+          type: number
+        gst:
+          type: number
+        cashOut:
+          type: number
+        year:
+          type: number
+        month:
+          type: number
+        date:
+          type: ["string", "null"]
+        referenceNumber:
+          type: ["string", "null"]
+        eventId:
+          type: ["integer", "null"]
+        eventName:
+          type: ["string", "null"]
+        paidBy:
+          type: ["string", "null"]
+        paymentMethod:
+          type: ["string", "null"]
+        createdBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    PerformanceCategoryBreakdown:
+      type: object
+      required: [category, count, total]
+      properties:
+        category:
+          type: string
+        count:
+          type: number
+        total:
+          type: number
+
+    PerformancePayerBreakdown:
+      type: object
+      required: [payer, count, total]
+      properties:
+        payer:
+          type: string
+        count:
+          type: number
+        total:
+          type: number
+
+    PerformanceMonthlyExpenses:
+      type: object
+      required: [expenses, totalAmount, totalGst, totalCashOut, count, byCategory, byPayer]
+      properties:
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceExpenseRecord"
+        totalAmount:
+          type: number
+        totalGst:
+          type: number
+        totalCashOut:
+          type: number
+        count:
+          type: number
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceCategoryBreakdown"
+        byPayer:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformancePayerBreakdown"
+
+    PerformanceProfitabilityRecord:
+      type: object
+      required: [eventId, eventName, revenue, directCost, profit, marginPct]
+      properties:
+        eventId:
+          type: number
+        eventName:
+          type: string
+        eventDate:
+          type: string
+        eventType:
+          type: string
+        status:
+          type: string
+        clientName:
+          type: ["string", "null"]
+        clientId:
+          type: number
+        revenue:
+          type: number
+        directCost:
+          type: number
+        profit:
+          type: number
+        marginPct:
+          type: number
+        outstandingAmount:
+          type: number
+
+    PerformanceMonthlyProfitability:
+      type: object
+      required: [events, totalRevenue, totalCost, totalProfit]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceProfitabilityRecord"
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        totalProfit:
+          type: number
+
+    PerformanceEventRecord:
+      type: object
+      required: [id, name, eventDate, eventType, status]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        eventDate:
+          type: string
+        eventType:
+          type: string
+        status:
+          type: string
+        venue:
+          type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
+        clientId:
+          type: number
+        revenue:
+          type: number
+        directCost:
+          type: number
+        profit:
+          type: number
+        marginPct:
+          type: number
+        totalCollected:
+          type: number
+        outstandingAmount:
+          type: number
+
+    PerformanceMonthlyEvents:
+      type: object
+      required: [events, count]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceEventRecord"
+        count:
+          type: number
+
+    PerformanceCashflowTransaction:
+      type: object
+      required: [id, accountId, accountName, type, amount, moneyIn, moneyOut]
+      properties:
+        id:
+          type: number
+        accountId:
+          type: number
+        accountName:
+          type: string
+        type:
+          type: string
+        amount:
+          type: number
+        moneyIn:
+          type: number
+        moneyOut:
+          type: number
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        createdBy:
+          type: ["string", "null"]
+
+    PerformanceCashflowTransfer:
+      type: object
+      required: [id, fromAccount, toAccount, amount, date]
+      properties:
+        id:
+          type: number
+        fromAccount:
+          type: string
+        toAccount:
+          type: string
+        amount:
+          type: number
+        date:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdBy:
+          type: ["string", "null"]
+
+    PerformanceMonthlyCashflow:
+      type: object
+      required: [transactions, transfers, totalCashIn, totalCashOut, totalTransfers, transactionCount, transferCount]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceCashflowTransaction"
+        transfers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceCashflowTransfer"
+        totalCashIn:
+          type: number
+        totalCashOut:
+          type: number
+        totalTransfers:
+          type: number
+        transactionCount:
+          type: number
+        transferCount:
+          type: number
+        clientPaymentTotal:
+          type: number
+        clientPaymentReversalTotal:
+          type: number
+        otherInflows:
+          type: number
+        clientPayments:
+          type: array
+          items:
+            type: object
+            required: [id, amount, paymentDate, fundAccountId]
+            properties:
+              id:
+                type: number
+              amount:
+                type: number
+              paymentDate:
+                type: string
+                format: date
+              fundAccountId:
+                type: number
+              paymentMethod:
+                type: ["string", "null"]
+              reference:
+                type: ["string", "null"]
+
+    PerformanceActivityLog:
+      type: object
+      required: [id, userId, action, entityType, entityId, createdAt]
+      properties:
+        id:
+          type: number
+        userId:
+          type: string
+        userEmail:
+          type: ["string", "null"]
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: number
+        oldValues:
+          type: ["object", "null"]
+        newValues:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+
+    PerformanceMonthlyActivity:
+      type: object
+      required: [logs, count]
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerformanceActivityLog"
+        count:
+          type: number

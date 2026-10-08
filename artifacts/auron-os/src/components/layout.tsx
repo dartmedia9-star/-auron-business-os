@@ -17,7 +17,8 @@ import {
   BellRing,
   Search,
   Menu,
-  Text
+  Text,
+  Activity
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/vendors", label: "Vendors", icon: Briefcase },
   { href: "/team", label: "Team", icon: Users2 },
   { href: "/reports", label: "Reports", icon: PieChart },
+  { href: "/performance", label: "Performance", icon: Activity },
   { href: "/valuation", label: "Valuation Command", icon: Target, isGold: true },
 ];
 
