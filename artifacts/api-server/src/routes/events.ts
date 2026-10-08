@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { db, eventsTable, clientsTable, eventRevenueTable, eventCostsTable, companySettingsTable } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
+import { getReceivablesLedger, eventInvoiceValue, legacyEventOutstanding, round2 } from "../lib/client-receivables";
 
 const router: IRouter = Router();
 
@@ -25,8 +26,11 @@ async function getEventWithProfitability(eventId: number) {
   const totalCost = directCostsByEvent.get(eventId) ?? 0;
   const grossProfit = netRevenue - totalCost;
   const grossMarginPct = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
-  const totalCollected = parseFloat(String(revenue?.totalCollected ?? 0));
-  const totalOutstanding = parseFloat(String(revenue?.outstandingAmount ?? 0));
+  // Collected/outstanding include client payments allocated to this event
+  // (client-level unallocated payments are shown on the client, not here).
+  const receivable = (await getReceivablesLedger([event.event.clientId])).events.get(eventId);
+  const totalCollected = parseFloat(String(revenue?.totalCollected ?? 0)) + (receivable?.allocated ?? 0);
+  const totalOutstanding = receivable?.outstanding ?? legacyEventOutstanding(revenue);
 
   let profitabilityIndicator: string;
   if (netRevenue === 0 && totalCost === 0) profitabilityIndicator = "awaiting_data";
@@ -76,6 +80,7 @@ router.get("/events", async (req, res): Promise<void> => {
   ]);
 
   const directCostsByEvent = await getEventDirectCostTotals(events.map(row => row.event.id));
+  const receivables = await getReceivablesLedger([...new Set(events.map(row => row.event.clientId))]);
   const enriched = await Promise.all(events.map(async (row) => {
     const [revenue] = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, row.event.id));
     const netRevenue = parseFloat(String(revenue?.netRevenue ?? 0));
@@ -101,8 +106,8 @@ router.get("/events", async (req, res): Promise<void> => {
       grossProfit,
       grossMarginPct,
       profitabilityIndicator,
-      totalCollected: parseFloat(String(revenue?.totalCollected ?? 0)),
-      totalOutstanding: parseFloat(String(revenue?.outstandingAmount ?? 0)),
+      totalCollected: parseFloat(String(revenue?.totalCollected ?? 0)) + (receivables.events.get(row.event.id)?.allocated ?? 0),
+      totalOutstanding: receivables.events.get(row.event.id)?.outstanding ?? legacyEventOutstanding(revenue),
     };
   }));
 
@@ -130,13 +135,13 @@ router.get("/events/:id", async (req, res): Promise<void> => {
     contractValue: parseFloat(String(revenue.contractValue)),
     discount: parseFloat(String(revenue.discount)),
     gst: parseFloat(String(revenue.gst)),
-    totalInvoiceValue: parseFloat(String(revenue.totalInvoiceValue)),
+    totalInvoiceValue: eventInvoiceValue(revenue),
     netRevenue: parseFloat(String(revenue.netRevenue)),
     advanceReceived: parseFloat(String(revenue.advanceReceived)),
     secondPayment: parseFloat(String(revenue.secondPayment)),
     finalPayment: parseFloat(String(revenue.finalPayment)),
     totalCollected: parseFloat(String(revenue.totalCollected)),
-    outstandingAmount: parseFloat(String(revenue.outstandingAmount)),
+    outstandingAmount: legacyEventOutstanding(revenue),
     paymentStatus: revenue.paymentStatus, invoiceNumber: revenue.invoiceNumber, dueDate: revenue.dueDate,
     createdAt: revenue.createdAt,
   } : null;
@@ -179,13 +184,13 @@ router.get("/events/:eventId/revenue", async (req, res): Promise<void> => {
     contractValue: parseFloat(String(revenue.contractValue)),
     discount: parseFloat(String(revenue.discount)),
     gst: parseFloat(String(revenue.gst)),
-    totalInvoiceValue: parseFloat(String(revenue.totalInvoiceValue)),
+    totalInvoiceValue: eventInvoiceValue(revenue),
     netRevenue: parseFloat(String(revenue.netRevenue)),
     advanceReceived: parseFloat(String(revenue.advanceReceived)),
     secondPayment: parseFloat(String(revenue.secondPayment)),
     finalPayment: parseFloat(String(revenue.finalPayment)),
     totalCollected: parseFloat(String(revenue.totalCollected)),
-    outstandingAmount: parseFloat(String(revenue.outstandingAmount)),
+    outstandingAmount: legacyEventOutstanding(revenue),
   });
 });
 
@@ -200,10 +205,15 @@ router.post("/events/:eventId/revenue", async (req, res): Promise<void> => {
   const advance = parseFloat(String(advanceReceived));
   const second = parseFloat(String(secondPayment));
   const final = parseFloat(String(finalPayment));
-  const netRevenue = cv - disc;
-  const totalInvoiceValue = cv + gstAmt - disc;
-  const totalCollected = advance + second + final;
-  const outstandingAmount = Math.max(0, netRevenue - totalCollected);
+  // Contract value is GST-exclusive. Discount reduces the taxable value (GST is
+  // entered on the discounted amount), so:
+  //   revenue (P&L, excl. GST)  = contract - discount
+  //   invoice (receivable)      = contract - discount + GST
+  // Legacy collections are settled against the GST-inclusive invoice.
+  const netRevenue = round2(cv - disc);
+  const totalInvoiceValue = round2(cv - disc + gstAmt);
+  const totalCollected = round2(advance + second + final);
+  const outstandingAmount = round2(Math.max(0, totalInvoiceValue - totalCollected));
 
   const existing = await db.select().from(eventRevenueTable).where(eq(eventRevenueTable.eventId, eventId));
   let result;

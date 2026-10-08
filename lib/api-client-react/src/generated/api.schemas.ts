@@ -75,6 +75,7 @@ export interface DashboardSummary {
   avgProfitPerEvent: number;
   pipelineValue: number;
   weightedPipeline: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   outstandingReceivables: number;
   repeatClientRate: number;
   /** @nullable */
@@ -154,6 +155,9 @@ export interface Client {
   lifetimeRevenue?: number;
   lifetimeGrossProfit?: number;
   totalOutstanding?: number;
+  totalCollected?: number;
+  creditBalance?: number;
+  unallocatedAmount?: number;
   repeatClient?: boolean;
   /** @nullable */
   firstEventDate?: string | null;
@@ -217,6 +221,178 @@ export interface ClientProfitability {
   totalOutstanding: number;
   ltv?: number;
   events: ClientProfitabilityEventsItem[];
+}
+
+export type ClientReceivablesClient = {
+  id: number;
+  name: string;
+};
+
+export type ClientReceivablesEventsItem = {
+  eventId: number;
+  eventName: string;
+  /** @nullable */
+  eventDate?: string | null;
+  revenue: number;
+  legacyCollected?: number;
+  allocated?: number;
+  outstanding: number;
+};
+
+export interface ClientReceivables {
+  client: ClientReceivablesClient;
+  clientId: number;
+  totalBilled: number;
+  legacyCollected?: number;
+  totalReceived: number;
+  newReceived?: number;
+  outstanding: number;
+  credit: number;
+  unallocated: number;
+  events?: ClientReceivablesEventsItem[];
+}
+
+export type ClientReceivablesListResponseDataItem = {
+  id?: number;
+  name?: string;
+  totalBilled?: number;
+  legacyCollected?: number;
+  totalReceived?: number;
+  newReceived?: number;
+  outstanding?: number;
+  credit?: number;
+  unallocated?: number;
+};
+
+export interface ClientReceivablesListResponse {
+  data: ClientReceivablesListResponseDataItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ClientPaymentInputAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
+export interface ClientPaymentInput {
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  payment_date: string;
+  fund_account_id: number;
+  payment_method?: string;
+  reference?: string;
+  notes?: string;
+  /**
+     * Money received for one event. The event gets min(amount, its outstanding); any excess stays client-level (unallocated / client credit). Cannot be combined with allocations.
+     * @nullable
+     */
+  event_id?: number | null;
+  /**
+     * Client-generated key for one submission; resubmitting it returns the original payment
+     * @maxLength 200
+     */
+  idempotency_key?: string;
+  /** Optional explicit event allocations (strict; each must fit the event's outstanding) */
+  allocations?: ClientPaymentInputAllocationsItem[];
+}
+
+export type ClientPaymentAllocationsItem = {
+  id?: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
+export interface ClientPayment {
+  id: number;
+  clientId: number;
+  amount: number;
+  paymentDate: string;
+  fundAccountId: number;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  allocated?: number;
+  unallocated?: number;
+  fundAccountName?: string;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Event allocations. Empty means the whole payment is client-level / unallocated. */
+  allocations?: ClientPaymentAllocationsItem[];
+}
+
+export type ClientPaymentDetailAllocationsItem = {
+  id: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
+export type ClientPaymentDetail = ClientPayment & {
+  clientName?: string;
+  allocations?: ClientPaymentDetailAllocationsItem[];
+};
+
+export type ClientPaymentUpdateAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
+export interface ClientPaymentUpdate {
+  /** @exclusiveMinimum 0 */
+  amount?: number;
+  payment_date?: string;
+  fund_account_id?: number;
+  /** @nullable */
+  payment_method?: string | null;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** When present, replaces the payment's event allocations atomically. An empty array makes the payment client-level / unallocated. */
+  allocations?: ClientPaymentUpdateAllocationsItem[];
+}
+
+export interface ClientPaymentListResponse {
+  data: ClientPayment[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type PaymentAllocationInputAllocationsItem = {
+  eventId: number;
+  amount: number;
+};
+
+export interface PaymentAllocationInput {
+  allocations: PaymentAllocationInputAllocationsItem[];
+}
+
+export type PaymentAllocationResponseAllocationsItem = {
+  id?: number;
+  paymentId: number;
+  eventId: number;
+  amount: number;
+  /** @nullable */
+  eventName?: string | null;
+};
+
+export interface PaymentAllocationResponse {
+  allocations: PaymentAllocationResponseAllocationsItem[];
+  allocated: number;
+  unallocated: number;
 }
 
 export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
@@ -756,6 +932,7 @@ export interface FinanceSummary {
   ebitdaMarginPct: number;
   netProfit: number;
   netMarginPct: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   totalReceivables?: number;
   overdueReceivables?: number;
   /** Legacy convenience field — current balance of the "Auron Event Productions" account (0 when absent) */
@@ -803,7 +980,7 @@ export interface OperatingExpenseInput {
   /** @nullable */
   eventId?: number | null;
   /** @nullable */
-  paidBy?: string | null;
+  paidBy: string | null;
   /** @nullable */
   paymentMethod?: string | null;
 }
@@ -855,6 +1032,30 @@ export interface FundTransfer {
   created_at: string;
 }
 
+export interface FundTransferHistoryItem {
+  id: number;
+  from_account_id: number;
+  to_account_id: number;
+  /** @nullable */
+  from_account_name: string | null;
+  /** @nullable */
+  to_account_name: string | null;
+  amount: number;
+  date: string;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  created_by: string | null;
+  /**
+     * Display name of the user who recorded the transfer
+     * @nullable
+     */
+  created_by_name: string | null;
+  created_at: string;
+  /** True when both the transfer_out and transfer_in ledger entries exist */
+  ledger_posted: boolean;
+}
+
 export interface FundTransferInput {
   from_account_id: number;
   to_account_id: number;
@@ -872,6 +1073,8 @@ export const FundTransactionTransactionType = {
   transfer_in: 'transfer_in',
   transfer_out: 'transfer_out',
   adjustment: 'adjustment',
+  client_payment: 'client_payment',
+  client_payment_reversal: 'client_payment_reversal',
 } as const;
 
 export interface FundTransaction {
@@ -879,14 +1082,229 @@ export interface FundTransaction {
   fund_account_id: number;
   transaction_type: FundTransactionTransactionType;
   amount: number;
+  /** Effective business date of the cash movement (payment, expense or transfer date) */
+  transaction_date?: string;
   description?: string;
   /** @nullable */
   related_expense_id?: number | null;
   /** @nullable */
   related_transfer_id?: number | null;
+  /** @nullable */
+  related_client_payment_id?: number | null;
   created_at: string;
   created_by?: string;
 }
+
+export interface FundLedgerEventLink {
+  eventId: number;
+  /** @nullable */
+  eventName: string | null;
+  /**
+     * Amount of the payment allocated to the event (null for an expense's linked event)
+     * @nullable
+     */
+  amount: number | null;
+}
+
+export type FundLedgerEntryTransactionType = typeof FundLedgerEntryTransactionType[keyof typeof FundLedgerEntryTransactionType];
+
+
+export const FundLedgerEntryTransactionType = {
+  expense: 'expense',
+  expense_reversal: 'expense_reversal',
+  transfer_in: 'transfer_in',
+  transfer_out: 'transfer_out',
+  adjustment: 'adjustment',
+  client_payment: 'client_payment',
+  client_payment_reversal: 'client_payment_reversal',
+} as const;
+
+export type FundLedgerEntryCategory = typeof FundLedgerEntryCategory[keyof typeof FundLedgerEntryCategory];
+
+
+export const FundLedgerEntryCategory = {
+  client_payment: 'client_payment',
+  expense: 'expense',
+  transfer: 'transfer',
+  adjustment: 'adjustment',
+  other: 'other',
+} as const;
+
+export type FundLedgerEntryDirection = typeof FundLedgerEntryDirection[keyof typeof FundLedgerEntryDirection];
+
+
+export const FundLedgerEntryDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
+
+export type FundLedgerEntryStatus = typeof FundLedgerEntryStatus[keyof typeof FundLedgerEntryStatus];
+
+
+export const FundLedgerEntryStatus = {
+  posted: 'posted',
+  reversed: 'reversed',
+  reversal: 'reversal',
+} as const;
+
+export interface FundLedgerEntry {
+  id: number;
+  fundAccountId: number;
+  /** @nullable */
+  fundAccountName: string | null;
+  transactionType: FundLedgerEntryTransactionType;
+  category: FundLedgerEntryCategory;
+  amount: number;
+  /** Effect on the fund balance (positive in, negative out) */
+  signedAmount: number;
+  direction: FundLedgerEntryDirection;
+  isInternalTransfer: boolean;
+  transactionDate: string;
+  /** @nullable */
+  description: string | null;
+  status: FundLedgerEntryStatus;
+  /** @nullable */
+  clientId: number | null;
+  /** @nullable */
+  clientName: string | null;
+  events: FundLedgerEventLink[];
+  /** @nullable */
+  paymentMethod: string | null;
+  /** @nullable */
+  reference: string | null;
+  /** @nullable */
+  notes: string | null;
+  /** @nullable */
+  expenseCategory: string | null;
+  /** @nullable */
+  counterpartyFundId: number | null;
+  /** @nullable */
+  counterpartyFundName: string | null;
+  /** @nullable */
+  relatedClientPaymentId: number | null;
+  /** @nullable */
+  relatedExpenseId: number | null;
+  /** @nullable */
+  relatedTransferId: number | null;
+  paymentDeleted: boolean;
+  /** @nullable */
+  createdBy: string | null;
+  /** @nullable */
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export type FundLedgerListResponseTotals = {
+  cashIn: number;
+  cashOut: number;
+  netCash: number;
+  internalTransfersIn: number;
+  internalTransfersOut: number;
+};
+
+export interface FundLedgerListResponse {
+  data: FundLedgerEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totals: FundLedgerListResponseTotals;
+}
+
+export type FundLedgerLedgerEntryStatus = typeof FundLedgerLedgerEntryStatus[keyof typeof FundLedgerLedgerEntryStatus];
+
+
+export const FundLedgerLedgerEntryStatus = {
+  posted: 'posted',
+  reversed: 'reversed',
+  reversal: 'reversal',
+} as const;
+
+export interface FundLedgerLedgerEntry {
+  id: number;
+  transactionType: string;
+  /** @nullable */
+  fundAccountName: string | null;
+  amount: number;
+  signedAmount: number;
+  transactionDate: string;
+  status: FundLedgerLedgerEntryStatus;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type FundLedgerAuditEntryOldValues = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerAuditEntryNewValues = { [key: string]: unknown } | null;
+
+export interface FundLedgerAuditEntry {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number;
+  userId: string;
+  /** @nullable */
+  userName: string | null;
+  /** @nullable */
+  userEmail: string | null;
+  /** @nullable */
+  oldValues?: FundLedgerAuditEntryOldValues;
+  /** @nullable */
+  newValues?: FundLedgerAuditEntryNewValues;
+  createdAt: string;
+}
+
+/**
+ * The client payment (with allocations), or {id, deleted:true} when it was reversed and removed
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedPayment = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedTransfer = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailRelatedExpense = { [key: string]: unknown } | null;
+
+export type FundLedgerEntryDetailRelated = {
+  /**
+     * The client payment (with allocations), or {id, deleted:true} when it was reversed and removed
+     * @nullable
+     */
+  payment: FundLedgerEntryDetailRelatedPayment;
+  /** @nullable */
+  transfer: FundLedgerEntryDetailRelatedTransfer;
+  /** @nullable */
+  expense: FundLedgerEntryDetailRelatedExpense;
+  ledgerEntries: FundLedgerLedgerEntry[];
+};
+
+/**
+ * @nullable
+ */
+export type FundLedgerEntryDetailAllocationStatus = typeof FundLedgerEntryDetailAllocationStatus[keyof typeof FundLedgerEntryDetailAllocationStatus] | null;
+
+
+export const FundLedgerEntryDetailAllocationStatus = {
+  fully_allocated: 'fully_allocated',
+  partially_allocated: 'partially_allocated',
+  client_level: 'client_level',
+} as const;
+
+export type FundLedgerEntryDetail = FundLedgerEntry & {
+  related: FundLedgerEntryDetailRelated;
+  /** @nullable */
+  allocationStatus: FundLedgerEntryDetailAllocationStatus;
+  audit: FundLedgerAuditEntry[];
+};
 
 export interface Note {
   id: number;
@@ -911,7 +1329,12 @@ export interface NoteUpdate {
 export type ReceivablesSummaryByClientItem = {
   clientId: number;
   clientName: string;
+  totalBilled?: number;
+  totalReceived?: number;
   outstanding: number;
+  /** Overpayment / client credit (received above billed) */
+  credit?: number;
+  unallocated?: number;
 };
 
 export type ReceivablesSummaryByEventItem = {
@@ -932,6 +1355,8 @@ export interface ReceivablesSummary {
   overdue30: number;
   overdue60: number;
   overdue90: number;
+  /** Client-level unallocated payments that reduce totalReceivables but cannot be attributed to an event's due date (aging buckets exclude them) */
+  unallocatedPaymentsApplied?: number;
   byClient: ReceivablesSummaryByClientItem[];
   byEvent: ReceivablesSummaryByEventItem[];
 }
@@ -1415,6 +1840,276 @@ export interface SearchResults {
   vendors: SearchResultsVendorsItem[];
 }
 
+export interface PerformanceYears {
+  years: number[];
+}
+
+export interface PerformanceMonthSummary {
+  month: number;
+  revenue: number;
+  directCosts: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  operatingExpenses: number;
+  ebitda: number;
+  netProfit: number;
+  eventCount: number;
+  /** Present on annual totals only (already returned by the API) */
+  netMarginPct?: number;
+  /** Net cash collected from clients (client_payment minus client_payment_reversal ledger rows, by transaction_date). Same rule as netClientReceipts in the monthly cash flow. Not revenue. */
+  cashReceived?: number;
+}
+
+export interface PerformanceAnnual {
+  year: number;
+  months: PerformanceMonthSummary[];
+  totals: PerformanceMonthSummary;
+}
+
+export interface PerformanceMonthly {
+  year: number;
+  month: number;
+  fromDate?: string;
+  toDate?: string;
+  revenue: number;
+  directCosts: number;
+  grossProfit: number;
+  grossMarginPct?: number;
+  operatingExpenses: number;
+  ebitda: number;
+  ebitdaMarginPct?: number;
+  netProfit: number;
+  netMarginPct?: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
+  totalReceivables?: number;
+  overdueReceivables?: number;
+  eventCount: number;
+  totalCashOut?: number;
+  fundAccounts?: FundAccountBalance[];
+}
+
+export interface PerformanceRevenueRecord {
+  eventId: number;
+  eventName: string;
+  eventDate?: string;
+  eventType?: string;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  contractValue?: number;
+  discount?: number;
+  gst?: number;
+  /** P&L revenue, excluding GST (contract value - discount) */
+  netRevenue: number;
+  /** Invoice value including GST (contract value - discount + GST) */
+  totalInvoiceValue?: number;
+  totalCollected?: number;
+  outstandingAmount?: number;
+  paymentStatus?: string;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+}
+
+export interface PerformanceMonthlyRevenue {
+  revenue: PerformanceRevenueRecord[];
+  total: number;
+}
+
+export interface PerformanceExpenseRecord {
+  id: number;
+  category: string;
+  description: string;
+  amount: number;
+  gst?: number;
+  cashOut?: number;
+  year: number;
+  month: number;
+  /** @nullable */
+  date?: string | null;
+  /** @nullable */
+  referenceNumber?: string | null;
+  /** @nullable */
+  eventId?: number | null;
+  /** @nullable */
+  eventName?: string | null;
+  /** @nullable */
+  paidBy?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt?: string;
+}
+
+export interface PerformanceCategoryBreakdown {
+  category: string;
+  count: number;
+  total: number;
+}
+
+export interface PerformancePayerBreakdown {
+  payer: string;
+  count: number;
+  total: number;
+}
+
+export interface PerformanceMonthlyExpenses {
+  expenses: PerformanceExpenseRecord[];
+  totalAmount: number;
+  totalGst: number;
+  totalCashOut: number;
+  count: number;
+  byCategory: PerformanceCategoryBreakdown[];
+  byPayer: PerformancePayerBreakdown[];
+}
+
+export interface PerformanceProfitabilityRecord {
+  eventId: number;
+  eventName: string;
+  eventDate?: string;
+  eventType?: string;
+  status?: string;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  revenue: number;
+  directCost: number;
+  profit: number;
+  marginPct: number;
+  outstandingAmount?: number;
+}
+
+export interface PerformanceMonthlyProfitability {
+  events: PerformanceProfitabilityRecord[];
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+}
+
+export interface PerformanceEventRecord {
+  id: number;
+  name: string;
+  eventDate: string;
+  eventType: string;
+  status: string;
+  /** @nullable */
+  venue?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  clientId?: number;
+  revenue?: number;
+  directCost?: number;
+  profit?: number;
+  marginPct?: number;
+  totalCollected?: number;
+  outstandingAmount?: number;
+}
+
+export interface PerformanceMonthlyEvents {
+  events: PerformanceEventRecord[];
+  count: number;
+}
+
+export interface PerformanceCashflowTransaction {
+  id: number;
+  accountId: number;
+  accountName: string;
+  type: string;
+  amount: number;
+  moneyIn: number;
+  moneyOut: number;
+  /** True for transfer_in / transfer_out legs, which are excluded from cash in/out totals */
+  isInternalTransfer?: boolean;
+  /** @nullable */
+  relatedClientPaymentId?: number | null;
+  /** @nullable */
+  description?: string | null;
+  /** Effective business date (payment, expense or transfer date) used to bucket cash flow */
+  transactionDate?: string;
+  createdAt?: string;
+  /** @nullable */
+  createdBy?: string | null;
+}
+
+export interface PerformanceCashflowTransfer {
+  id: number;
+  fromAccount: string;
+  toAccount: string;
+  amount: number;
+  date: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+}
+
+export type PerformanceMonthlyCashflowClientPaymentsItem = {
+  id: number;
+  clientId?: number;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  fundAccountName?: string | null;
+  amount: number;
+  paymentDate: string;
+  fundAccountId: number;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  reference?: string | null;
+};
+
+export interface PerformanceMonthlyCashflow {
+  transactions: PerformanceCashflowTransaction[];
+  transfers: PerformanceCashflowTransfer[];
+  /** Business cash received (excludes internal transfers) */
+  totalCashIn: number;
+  /** Business cash paid out (excludes internal transfers) */
+  totalCashOut: number;
+  netCashFlow?: number;
+  /** Internal transfers between funds (not cash in/out) */
+  totalTransfers: number;
+  transactionCount: number;
+  transferCount: number;
+  clientPaymentTotal?: number;
+  clientPaymentReversalTotal?: number;
+  netClientReceipts?: number;
+  otherInflows?: number;
+  clientPayments?: PerformanceMonthlyCashflowClientPaymentsItem[];
+}
+
+/**
+ * @nullable
+ */
+export type PerformanceActivityLogOldValues = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type PerformanceActivityLogNewValues = { [key: string]: unknown } | null;
+
+export interface PerformanceActivityLog {
+  id: number;
+  userId: string;
+  /** @nullable */
+  userEmail?: string | null;
+  action: string;
+  entityType: string;
+  entityId: number;
+  /** @nullable */
+  oldValues?: PerformanceActivityLogOldValues;
+  /** @nullable */
+  newValues?: PerformanceActivityLogNewValues;
+  createdAt: string;
+}
+
+export interface PerformanceMonthlyActivity {
+  logs: PerformanceActivityLog[];
+  count: number;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -1476,6 +2171,22 @@ export const ListClientsSortBy = {
   ltv: 'ltv',
 } as const;
 
+export type ListClientPaymentsParams = {
+page?: number;
+limit?: number;
+fromDate?: string;
+toDate?: string;
+fundAccountId?: number;
+};
+
+export type ListClientReceivablesParams = {
+search?: string;
+page?: number;
+limit?: number;
+fromDate?: string;
+toDate?: string;
+};
+
 export type ListEventsParams = {
 search?: string;
 status?: string;
@@ -1526,6 +2237,37 @@ export type ListFundTransactions200 = {
   current_balance?: number;
 };
 
+export type ListFundLedgerParams = {
+fundAccountId?: number;
+category?: ListFundLedgerCategory;
+type?: string;
+direction?: ListFundLedgerDirection;
+clientId?: number;
+fromDate?: string;
+toDate?: string;
+search?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListFundLedgerCategory = typeof ListFundLedgerCategory[keyof typeof ListFundLedgerCategory];
+
+
+export const ListFundLedgerCategory = {
+  client_payment: 'client_payment',
+  expense: 'expense',
+  transfer: 'transfer',
+  adjustment: 'adjustment',
+} as const;
+
+export type ListFundLedgerDirection = typeof ListFundLedgerDirection[keyof typeof ListFundLedgerDirection];
+
+
+export const ListFundLedgerDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
+
 export type ListNotesParams = {
 unreadOnly?: boolean;
 };
@@ -1547,6 +2289,14 @@ unreadOnly?: boolean;
 export type ListAuditLogsParams = {
 entityType?: string;
 entityId?: number;
+/**
+ * Filter logs created on or after this ISO datetime
+ */
+from_date?: string;
+/**
+ * Filter logs created on or before this ISO datetime
+ */
+to_date?: string;
 page?: number;
 limit?: number;
 };
@@ -1559,5 +2309,44 @@ toDate?: string;
 export type GlobalSearchParams = {
 q: string;
 limit?: number;
+};
+
+export type GetPerformanceAnnualParams = {
+year?: number;
+};
+
+export type GetPerformanceMonthlyParams = {
+year?: number;
+month?: number;
+};
+
+export type GetPerformanceMonthlyRevenueParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyExpensesParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyProfitabilityParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyEventsParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyCashflowParams = {
+year: number;
+month: number;
+};
+
+export type GetPerformanceMonthlyActivityParams = {
+year: number;
+month: number;
 };
 

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { PageHeader } from "@/components/ds/page-header";
+import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListLeads, 
   useGetPipelineSummary, 
@@ -8,7 +10,7 @@ import {
   useUpdateLead,
   useDeleteLead
 } from "@workspace/api-client-react";
-import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Target, TrendingUp, ListTodo, Plus, Trash2, Search, ArrowUpDown, RotateCcw } from "lucide-react";
@@ -30,7 +32,7 @@ const PIPELINE_STAGES = [
   { id: "requirement_received", label: "Req Received", color: "bg-violet-500/10 text-violet-500 border-violet-500/20" },
   { id: "proposal_sent", label: "Proposal Sent", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
   { id: "negotiation", label: "Negotiation", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  { id: "won", label: "Won", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  { id: "won", label: "Won", color: "bg-emerald-500/10 text-money-in border-emerald-500/20" },
 ];
 
 const SOURCES = ['referral', 'instagram', 'facebook', 'website', 'google', 'walk_in', 'event_expo', 'other'];
@@ -222,15 +224,11 @@ export default function LeadsPipeline() {
 
   return (
     <div className="space-y-6 h-full flex flex-col min-h-[100dvh] md:min-h-0">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sales Pipeline</h2>
-          <p className="text-muted-foreground mt-1">Track deals from lead to closed-won.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Lead
-        </Button>
-      </div>
+      <PageHeader
+        title="Sales Pipeline"
+        description="Track deals from lead to closed-won."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Lead </Button>}
+      />
 
       {summary && (
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4 shrink-0">
@@ -240,7 +238,7 @@ export default function LeadsPipeline() {
               <Target className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold truncate">{formatCompactCurrency(summary.pipelineValue)}</div>
+              <div className="text-xl sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.pipelineValue)}</div>
               <p className="text-xs text-muted-foreground mt-1">{summary.totalLeads} active deals</p>
             </CardContent>
           </Card>
@@ -250,7 +248,7 @@ export default function LeadsPipeline() {
               <TrendingUp className="h-4 w-4 text-primary hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-primary truncate">{formatCompactCurrency(summary.weightedPipeline)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-primary tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.weightedPipeline)}</div>
               <p className="text-xs text-muted-foreground mt-1">Prob adjusted</p>
             </CardContent>
           </Card>
@@ -270,7 +268,7 @@ export default function LeadsPipeline() {
               <ListTodo className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-xl sm:text-2xl font-bold truncate">{formatCompactCurrency(summary.avgDealSize)}</div>
+              <div className="text-xl sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere]">{formatCurrency(summary.avgDealSize)}</div>
             </CardContent>
           </Card>
         </div>
@@ -356,7 +354,7 @@ export default function LeadsPipeline() {
                     </span>
                     <span className="text-xs text-muted-foreground">{stageLeads.length}</span>
                   </div>
-                  <div className="text-sm font-medium">{formatCompactCurrency(stageValue)}</div>
+                  <div className="text-sm font-medium">{formatCurrency(stageValue)}</div>
                 </div>
                 
                 <div className="flex-1 p-3 overflow-y-auto space-y-3">
@@ -405,7 +403,7 @@ export default function LeadsPipeline() {
                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold border", stage.color)}>
                   {stage.label} ({stageLeads.length})
                 </span>
-                <span className="text-sm font-medium">{formatCompactCurrency(stageValue)}</span>
+                <span className="text-sm font-medium">{formatCurrency(stageValue)}</span>
               </div>
               <div className="space-y-3">
                 {stageLeads.map(lead => (
@@ -475,7 +473,7 @@ export default function LeadsPipeline() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Expected Value</Label>
-                <Input type="number" inputMode="decimal" value={expectedValue} onChange={e => setExpectedValue(e.target.value)} />
+                <MoneyInput value={expectedValue} onValueChange={setExpectedValue} />
               </div>
               <div className="space-y-2">
                 <Label>Probability (%)</Label>
@@ -503,8 +501,8 @@ export default function LeadsPipeline() {
                 {FormContent}
                 <DialogFooter className="shrink-0 pt-4 border-t">
                   <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreate} disabled={createLead.isPending}>
-                    {createLead.isPending ? "Saving..." : "Save Lead"}
+                  <Button onClick={handleCreate} loading={createLead.isPending}>
+                    Save Lead
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -522,8 +520,8 @@ export default function LeadsPipeline() {
                   </Button>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdate} disabled={updateLead.isPending}>
-                      {updateLead.isPending ? "Saving..." : "Save Changes"}
+                    <Button onClick={handleUpdate} loading={updateLead.isPending}>
+                      Save Changes
                     </Button>
                   </div>
                 </DialogFooter>

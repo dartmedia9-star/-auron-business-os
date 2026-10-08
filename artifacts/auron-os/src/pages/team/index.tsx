@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { TableSkeleton, EmptyState } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
+import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListEmployees, 
   getListEmployeesQueryKey,
@@ -151,7 +154,7 @@ export default function TeamList() {
         </div>
         <div className="space-y-2">
           <Label>Salary</Label>
-          <Input type="number" inputMode="decimal" value={salary} onChange={e => setSalary(e.target.value)} />
+          <MoneyInput value={salary} onValueChange={setSalary} />
         </div>
       </div>
       <div className="space-y-2">
@@ -173,15 +176,11 @@ export default function TeamList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Team Management</h2>
-          <p className="text-muted-foreground mt-1">Manage personnel, track productivity and associated revenue.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Team Member
-        </Button>
-      </div>
+      <PageHeader
+        title="Team Management"
+        description="Manage personnel, track productivity and associated revenue."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Team Member </Button>}
+      />
 
       <Card>
         <CardContent className="p-0">
@@ -201,7 +200,7 @@ export default function TeamList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">Loading team...</TableCell>
+                    <TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : data && data.length > 0 ? (
                   data.map((employee) => (
@@ -230,7 +229,7 @@ export default function TeamList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No team members found.</TableCell>
+                    <TableCell colSpan={7} className="p-0 hover:bg-transparent"><EmptyState compact title="No team members found." /></TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -247,8 +246,8 @@ export default function TeamList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createEmployee.isPending}>
-              {createEmployee.isPending ? "Saving..." : "Save Member"}
+            <Button onClick={handleCreate} loading={createEmployee.isPending}>
+              Save Member
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -262,8 +261,8 @@ export default function TeamList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateEmployee.isPending}>
-              {updateEmployee.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateEmployee.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

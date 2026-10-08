@@ -17,6 +17,8 @@ export interface ReceivablesSummary {
   overdue30: number;
   overdue60: number;
   overdue90: number;
+  /** Client-level unallocated payments that reduce totalReceivables but cannot be attributed to an event's due date (aging buckets exclude them) */
+  unallocatedPaymentsApplied?: number;
   byClient: ReceivablesSummaryByClientItem[];
   byEvent: ReceivablesSummaryByEventItem[];
 }

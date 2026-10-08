@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, ilike, or, sql } from "drizzle-orm";
 import { db, clientsTable, eventsTable, eventRevenueTable } from "@workspace/db";
+import { getReceivablesLedger } from "../lib/client-receivables";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
 const router: IRouter = Router();
@@ -8,21 +9,32 @@ const router: IRouter = Router();
 async function computeClientStats(clientId: number) {
   const events = await db.select().from(eventsTable).where(eq(eventsTable.clientId, clientId));
   const eventIds = events.map(event => event.id);
-  const [revenues, directCostsByEvent] = await Promise.all([
+  const [revenues, directCostsByEvent, ledger] = await Promise.all([
     db.select().from(eventRevenueTable),
     getEventDirectCostTotals(eventIds),
+    getReceivablesLedger([clientId]),
   ]);
   const clientRevenues = revenues.filter(revenue => eventIds.includes(revenue.eventId));
   const lifetimeRevenue = clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.netRevenue)), 0);
   const totalDirectCost = eventIds.reduce((sum, eventId) => sum + (directCostsByEvent.get(eventId) ?? 0), 0);
+
+  // Received / outstanding / credit come from the shared receivables ledger
+  // (legacy event collections + client payments, see lib/client-receivables).
+  const receivable = ledger.clients.get(clientId);
+  const totalReceived = receivable?.totalReceived ?? 0;
+  const totalOutstanding = receivable?.outstanding ?? 0;
+  const creditBalance = receivable?.credit ?? 0;
+  const unallocatedAmount = receivable?.unallocated ?? 0;
 
   return [{
     clientId,
     totalEvents: eventIds.length,
     lifetimeRevenue,
     lifetimeGrossProfit: lifetimeRevenue - totalDirectCost,
-    totalCollected: clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.totalCollected)), 0),
-    totalOutstanding: clientRevenues.reduce((sum, revenue) => sum + parseFloat(String(revenue.outstandingAmount)), 0),
+    totalCollected: totalReceived,
+    totalOutstanding,
+    creditBalance,
+    unallocatedAmount,
   }];
 }
 
@@ -59,6 +71,9 @@ router.get("/clients", async (req, res): Promise<void> => {
       lifetimeRevenue: parseFloat(String(s?.lifetimeRevenue ?? 0)),
       lifetimeGrossProfit: parseFloat(String(s?.lifetimeGrossProfit ?? 0)),
       totalOutstanding: parseFloat(String(s?.totalOutstanding ?? 0)),
+      totalCollected: parseFloat(String(s?.totalCollected ?? 0)),
+      creditBalance: parseFloat(String(s?.creditBalance ?? 0)),
+      unallocatedAmount: parseFloat(String(s?.unallocatedAmount ?? 0)),
       repeatClient,
       firstEventDate: events[0]?.eventDate ?? null,
       lastEventDate: events[events.length - 1]?.eventDate ?? null,
@@ -77,7 +92,7 @@ router.post("/clients", async (req, res): Promise<void> => {
     name, clientType, ...rest, createdBy: req.user.id,
   }).returning();
   const stats = await computeClientStats(client.id);
-  res.status(201).json({ ...client, totalEvents: 0, lifetimeRevenue: 0, lifetimeGrossProfit: 0, totalOutstanding: 0, repeatClient: false, firstEventDate: null, lastEventDate: null });
+  res.status(201).json({ ...client, totalEvents: 0, lifetimeRevenue: 0, lifetimeGrossProfit: 0, totalOutstanding: 0, totalCollected: 0, creditBalance: 0, unallocatedAmount: 0, repeatClient: false, firstEventDate: null, lastEventDate: null });
 });
 
 router.get("/clients/:id", async (req, res): Promise<void> => {
@@ -95,6 +110,9 @@ router.get("/clients/:id", async (req, res): Promise<void> => {
     lifetimeRevenue: parseFloat(String(s?.lifetimeRevenue ?? 0)),
     lifetimeGrossProfit: parseFloat(String(s?.lifetimeGrossProfit ?? 0)),
     totalOutstanding: parseFloat(String(s?.totalOutstanding ?? 0)),
+    totalCollected: parseFloat(String(s?.totalCollected ?? 0)),
+    creditBalance: parseFloat(String(s?.creditBalance ?? 0)),
+    unallocatedAmount: parseFloat(String(s?.unallocatedAmount ?? 0)),
     repeatClient: totalEvents > 1,
     firstEventDate: events[0]?.eventDate ?? null,
     lastEventDate: events[events.length - 1]?.eventDate ?? null,
@@ -112,7 +130,7 @@ router.patch("/clients/:id", async (req, res): Promise<void> => {
   const s = stats[0];
   const events = await db.select({ eventDate: eventsTable.eventDate }).from(eventsTable).where(eq(eventsTable.clientId, id)).orderBy(eventsTable.eventDate);
   const totalEvents = s?.totalEvents ?? 0;
-  res.json({ ...client, totalEvents, lifetimeRevenue: parseFloat(String(s?.lifetimeRevenue ?? 0)), lifetimeGrossProfit: parseFloat(String(s?.lifetimeGrossProfit ?? 0)), totalOutstanding: parseFloat(String(s?.totalOutstanding ?? 0)), repeatClient: totalEvents > 1, firstEventDate: events[0]?.eventDate ?? null, lastEventDate: events[events.length - 1]?.eventDate ?? null });
+  res.json({ ...client, totalEvents, lifetimeRevenue: parseFloat(String(s?.lifetimeRevenue ?? 0)), lifetimeGrossProfit: parseFloat(String(s?.lifetimeGrossProfit ?? 0)), totalOutstanding: parseFloat(String(s?.totalOutstanding ?? 0)), totalCollected: parseFloat(String(s?.totalCollected ?? 0)), creditBalance: parseFloat(String(s?.creditBalance ?? 0)), unallocatedAmount: parseFloat(String(s?.unallocatedAmount ?? 0)), repeatClient: totalEvents > 1, firstEventDate: events[0]?.eventDate ?? null, lastEventDate: events[events.length - 1]?.eventDate ?? null });
 });
 
 router.delete("/clients/:id", async (req, res): Promise<void> => {

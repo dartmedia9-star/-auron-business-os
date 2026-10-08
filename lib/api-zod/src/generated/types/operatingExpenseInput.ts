@@ -20,7 +20,7 @@ export interface OperatingExpenseInput {
   /** @nullable */
   eventId?: number | null;
   /** @nullable */
-  paidBy?: string | null;
+  paidBy: string | null;
   /** @nullable */
   paymentMethod?: string | null;
 }

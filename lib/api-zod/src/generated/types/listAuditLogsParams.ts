@@ -9,6 +9,14 @@
 export type ListAuditLogsParams = {
 entityType?: string;
 entityId?: number;
+/**
+ * Filter logs created on or after this ISO datetime
+ */
+from_date?: Date;
+/**
+ * Filter logs created on or before this ISO datetime
+ */
+to_date?: Date;
 page?: number;
 limit?: number;
 };

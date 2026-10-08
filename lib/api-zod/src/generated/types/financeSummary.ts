@@ -17,6 +17,7 @@ export interface FinanceSummary {
   ebitdaMarginPct: number;
   netProfit: number;
   netMarginPct: number;
+  /** Outstanding for the period's events after allocated payments, capped per client at that client's overall outstanding (client-level payments and credit cannot be assigned to a month) */
   totalReceivables?: number;
   overdueReceivables?: number;
   /** Legacy convenience field — current balance of the "Auron Event Productions" account (0 when absent) */

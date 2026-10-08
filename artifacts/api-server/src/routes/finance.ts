@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, asc, sql, and, gte, lte, isNull } from "drizzle-orm";
+import { eq, desc, asc, sql, and, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   db,
   auditLogsTable,
@@ -9,30 +9,28 @@ import {
   fundAccountsTable,
   fundTransfersTable,
   fundTransactionsTable,
+  usersTable,
+  clientPaymentsTable,
+  clientsTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
+import { getReceivablesLedger, receivablesForEvents, totalOutstanding } from "../lib/client-receivables";
+import { businessToday, isValidDate } from "../lib/business-date";
+import { loadUserNames } from "../lib/user-names";
+import { computeBalance, round2, signedEffect, toMoney, type Tx } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// Fund ledger model
+// Fund ledger model: see lib/fund-ledger.ts for the per-type effects.
 //
-// transaction_type  | effect on the fund's balance
-// ------------------+--------------------------------------------------------
-// expense           | -amount   money OUT (operating expense paid from fund)
-// expense_reversal  | +amount   money IN  (reversal/correction of an expense)
-// transfer_out      | -amount   money OUT (sent to another fund account)
-// transfer_in       | +amount   money IN  (received from another fund account)
-// adjustment        | ±amount   signed value (positive = in, negative = out)
-//
-// Stored amounts ALWAYS represent the actual cash movement. For expenses this
-// includes GST (see expenseCashOut below). Balance =
-// account.opening_balance + sum(signed effects). Unknown transaction types
-// contribute 0 so legacy/noise rows cannot silently corrupt balances.
+// transaction_date is the effective business date (transfer date, expense
+// date, payment date); reports bucket by it, never by created_at. A reversal
+// carries the date of the entry it reverses.
 // ---------------------------------------------------------------------------
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
+// Legacy finance-summary fields (auronBalance / rajeshBalance) still report
+// these two accounts by name. Nothing else depends on fund names.
 const AURON_ACCOUNT_NAME = "Auron Event Productions";
 const RAJESH_ACCOUNT_NAME = "Rajesh PR";
 
@@ -44,41 +42,75 @@ function expenseCashOut(amount: number, gst: number): number {
   return Math.round((amount + gst) * 100) / 100;
 }
 
-function toMoney(value: unknown): number {
-  const n = parseFloat(String(value));
-  return Number.isFinite(n) ? n : 0;
-}
+// "Other" / "Other - <name>" is the untracked payer label used by the expense
+// form, so no fund account may be named like it.
+const UNTRACKED_PAYER_PATTERN = /^other(\s*[-–—].*)?$/i;
 
-function signedEffect(transactionType: string, amount: number): number {
-  switch (transactionType) {
-    case "expense":
-    case "transfer_out":
-      return -amount;
-    case "expense_reversal":
-    case "transfer_in":
-      return amount;
-    case "adjustment":
-      return amount;
-    default:
-      return 0;
-  }
-}
-
-function computeBalance(openingBalance: unknown, transactions: Array<{ transaction_type: string; amount: unknown }>): number {
-  let balance = toMoney(openingBalance);
-  for (const t of transactions) {
-    balance += signedEffect(t.transaction_type, toMoney(t.amount));
-  }
-  return Math.round(balance * 100) / 100;
-}
-
-// Resolves a payer label to a tracked fund account id. Returns null for any
-// payer that does not map to one of the tracked accounts (e.g. "Other" or
-// null) — those expenses must not deduct either fund.
-async function resolveTrackedFundAccountId(tx: Tx, paidBy: string | null | undefined): Promise<number | null> {
-  if (paidBy !== AURON_ACCOUNT_NAME && paidBy !== RAJESH_ACCOUNT_NAME) return null;
+// Resolves an expense's Paid By label to the fund account with exactly that
+// name. Every fund account, including ones created later, is a valid payer.
+// Labels that are not a fund account ("Other", "Other - X", null) are
+// untracked and never touch a fund.
+async function resolvePayerFundAccountId(tx: Tx, paidBy: string | null | undefined): Promise<number | null> {
+  if (typeof paidBy !== "string" || paidBy.trim() === "" || UNTRACKED_PAYER_PATTERN.test(paidBy.trim())) return null;
   const [account] = await tx.select({ id: fundAccountsTable.id }).from(fundAccountsTable).where(eq(fundAccountsTable.name, paidBy));
   return account?.id ?? null;
+}
+
+// What an expense has actually taken out of each fund so far, from its own
+// ledger rows (expense minus expense_reversal), with the date of its latest
+// expense row there. Edits and deletes reverse exactly this, so an expense
+// that never posted (e.g. paid from a fund before dynamic payers existed)
+// cannot credit money back that was never deducted.
+async function postedExpenseByFund(tx: Tx, expenseId: number): Promise<Map<number, { net: number; date: string | null }>> {
+  const rows = await tx
+    .select({
+      id: fundTransactionsTable.id,
+      fund_account_id: fundTransactionsTable.fund_account_id,
+      transaction_type: fundTransactionsTable.transaction_type,
+      amount: fundTransactionsTable.amount,
+      transaction_date: fundTransactionsTable.transaction_date,
+    })
+    .from(fundTransactionsTable)
+    .where(eq(fundTransactionsTable.related_expense_id, expenseId))
+    .orderBy(asc(fundTransactionsTable.id));
+  const byFund = new Map<number, { net: number; date: string | null }>();
+  for (const r of rows) {
+    if (r.transaction_type !== "expense" && r.transaction_type !== "expense_reversal") continue;
+    const entry = byFund.get(r.fund_account_id) ?? { net: 0, date: null };
+    entry.net = round2(entry.net - signedEffect(r.transaction_type, toMoney(r.amount)));
+    if (r.transaction_type === "expense") entry.date = r.transaction_date;
+    byFund.set(r.fund_account_id, entry);
+  }
+  return byFund;
+}
+
+// Posts an expense_reversal for everything the expense currently has on the
+// ledger, fund by fund, each on the date of the entry it reverses.
+async function reversePostedExpense(tx: Tx, expense: { id: number; date: string | null }, description: string, userId: string): Promise<void> {
+  for (const [fundAccountId, posted] of await postedExpenseByFund(tx, expense.id)) {
+    if (posted.net <= 0) continue;
+    await tx.insert(fundTransactionsTable).values({
+      fund_account_id: fundAccountId,
+      transaction_type: "expense_reversal",
+      amount: String(posted.net),
+      transaction_date: posted.date ?? expense.date ?? businessToday(),
+      description,
+      related_expense_id: expense.id,
+      created_by: userId,
+    });
+  }
+}
+
+// Date of the expense's latest posted ledger entry, so a reversal lands on
+// the same date as the entry it reverses. Falls back to the expense date.
+async function currentExpenseLedgerDate(tx: Tx, expenseId: number, expenseDate: string | null): Promise<string> {
+  const [row] = await tx
+    .select({ transaction_date: fundTransactionsTable.transaction_date })
+    .from(fundTransactionsTable)
+    .where(and(eq(fundTransactionsTable.related_expense_id, expenseId), eq(fundTransactionsTable.transaction_type, "expense")))
+    .orderBy(desc(fundTransactionsTable.id))
+    .limit(1);
+  return row?.transaction_date ?? expenseDate ?? businessToday();
 }
 
 async function requireFundAccount(tx: Tx, id: number): Promise<boolean> {
@@ -122,6 +154,10 @@ router.post("/fund-accounts", async (req, res): Promise<void> => {
   const accountName = typeof name === "string" ? name.trim() : "";
   if (!accountName) {
     res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (UNTRACKED_PAYER_PATTERN.test(accountName)) {
+    res.status(400).json({ error: `"${accountName}" is reserved for untracked expense payers. Choose another name.` });
     return;
   }
 
@@ -259,10 +295,17 @@ router.delete("/fund-accounts/:id", async (req, res): Promise<void> => {
         .from(operatingExpensesTable)
         .where(eq(operatingExpensesTable.paidBy, account.name));
 
+      // Client payments reference the fund account directly.
+      const [clientPaymentCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(clientPaymentsTable)
+        .where(eq(clientPaymentsTable.fundAccountId, id));
+
       const hasHistory =
         Number(transactionCount?.count ?? 0) > 0 ||
         Number(transferCount?.count ?? 0) > 0 ||
-        Number(expenseCount?.count ?? 0) > 0;
+        Number(expenseCount?.count ?? 0) > 0 ||
+        Number(clientPaymentCount?.count ?? 0) > 0;
 
       if (hasHistory) {
         throw new FundAccountDeleteError(
@@ -307,11 +350,13 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
     id: fundTransactionsTable.id,
     transaction_type: fundTransactionsTable.transaction_type,
     amount: fundTransactionsTable.amount,
+    transaction_date: fundTransactionsTable.transaction_date,
     description: fundTransactionsTable.description,
     related_expense_id: fundTransactionsTable.related_expense_id,
     related_transfer_id: fundTransactionsTable.related_transfer_id,
+    related_client_payment_id: fundTransactionsTable.related_client_payment_id,
     created_at: fundTransactionsTable.created_at,
-  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
+  }).from(fundTransactionsTable).where(eq(fundTransactionsTable.fund_account_id, id)).orderBy(asc(fundTransactionsTable.transaction_date), asc(fundTransactionsTable.created_at), asc(fundTransactionsTable.id));
 
   let runningBalance = toMoney(account.opening_balance);
   const result = transactions.map((t) => {
@@ -336,6 +381,45 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
 
 class TransferError extends Error {}
 
+// GET /fund-transfers - Transfer history feed, newest first. Reads the existing
+// fund_transfers records (the single source of truth for transfers) and
+// resolves fund names and the creating user for display. `ledger_posted` is
+// true when both the transfer_out and transfer_in ledger rows exist, so any
+// transfer whose balance effect is incomplete is visible in the feed.
+// Transfers are internal movements and never touch revenue, expenses or P&L.
+router.get("/fund-transfers", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const transfers = await db
+    .select({
+      id: fundTransfersTable.id,
+      from_account_id: fundTransfersTable.from_account_id,
+      to_account_id: fundTransfersTable.to_account_id,
+      amount: fundTransfersTable.amount,
+      date: fundTransfersTable.date,
+      description: fundTransfersTable.description,
+      created_by: fundTransfersTable.created_by,
+      created_at: fundTransfersTable.created_at,
+      // Fully-qualified raw SQL for the same reason as has_financial_history.
+      ledger_posted:
+        sql<boolean>`exists (select 1 from fund_transactions ft where ft.related_transfer_id = fund_transfers.id and ft.transaction_type = 'transfer_out') and exists (select 1 from fund_transactions ft where ft.related_transfer_id = fund_transfers.id and ft.transaction_type = 'transfer_in')`.mapWith(Boolean),
+    })
+    .from(fundTransfersTable)
+    .orderBy(desc(fundTransfersTable.date), desc(fundTransfersTable.created_at), desc(fundTransfersTable.id));
+
+  const accounts = await db.select({ id: fundAccountsTable.id, name: fundAccountsTable.name }).from(fundAccountsTable);
+  const accountNames = new Map(accounts.map((a) => [a.id, a.name]));
+
+  const creatorNames = await loadUserNames(transfers.map((t) => t.created_by));
+
+  res.json(transfers.map((t) => ({
+    ...t,
+    amount: toMoney(t.amount),
+    from_account_name: accountNames.get(t.from_account_id) ?? null,
+    to_account_name: accountNames.get(t.to_account_id) ?? null,
+    created_by_name: t.created_by ? creatorNames.get(t.created_by) ?? null : null,
+  })));
+});
+
 // POST /fund-transfers - Create a fund transfer (atomic: transfer record +
 // transfer_out + transfer_in are committed together; transfers have no P&L impact).
 router.post("/fund-transfers", async (req, res): Promise<void> => {
@@ -346,6 +430,9 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
   }
   if (from_account_id === to_account_id) {
     res.status(400).json({ error: "From and to accounts must be different" }); return;
+  }
+  if (!isValidDate(date)) {
+    res.status(400).json({ error: "date must be a valid date (YYYY-MM-DD)" }); return;
   }
 
   const amountNum = toMoney(amount);
@@ -374,6 +461,7 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
         fund_account_id: from_account_id,
         transaction_type: "transfer_out",
         amount: String(amountNum),
+        transaction_date: date,
         description: description || "Fund transfer",
         related_transfer_id: transferRecord.id,
         created_by: req.user.id,
@@ -384,9 +472,21 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
         fund_account_id: to_account_id,
         transaction_type: "transfer_in",
         amount: String(amountNum),
+        transaction_date: date,
         description: description || "Fund transfer",
         related_transfer_id: transferRecord.id,
         created_by: req.user.id,
+      });
+
+      // Audit entry in the same transaction so a transfer never exists
+      // without its audit trail.
+      await tx.insert(auditLogsTable).values({
+        userId: req.user.id,
+        userEmail: req.user.email ?? null,
+        action: "create",
+        entityType: "fund_transfer",
+        entityId: transferRecord.id,
+        newValues: transferRecord,
       });
 
       return transferRecord;
@@ -423,6 +523,9 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
   if (!category || !description || !amount || !year || !month) {
     res.status(400).json({ error: "category, description, amount, year, month are required" }); return;
   }
+  if (!paidBy || (typeof paidBy === "string" && paidBy.trim() === "")) {
+    res.status(400).json({ error: "paidBy is required. Select a fund account or 'Other'." }); return;
+  }
   const amountNum = toMoney(amount);
   const gstNum = toMoney(gst);
   if (amountNum < 0) { res.status(400).json({ error: "amount must be zero or greater" }); return; }
@@ -443,19 +546,29 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
       category, description, amount: String(amountNum), gst: String(gstNum), year: parseInt(String(year), 10), month: parseInt(String(month), 10), eventId: linkedEventId, paidBy, paymentMethod, ...rest, createdBy: req.user.id,
     }).returning();
 
-    // Deduct from the payer's tracked fund account. Payers that do not map to
-    // a tracked account (e.g. "Other"/null) do not touch either fund.
-    const accountId = await resolveTrackedFundAccountId(tx, paidBy);
+    // Deduct from the paying fund account (any fund, matched by its name).
+    // Untracked payers ("Other"/null) do not touch any fund.
+    const accountId = await resolvePayerFundAccountId(tx, paidBy);
     if (accountId !== null && cashOut > 0) {
       await tx.insert(fundTransactionsTable).values({
         fund_account_id: accountId,
         transaction_type: "expense",
         amount: String(cashOut),
+        transaction_date: created.date ?? businessToday(),
         description: description || "Expense",
         related_expense_id: created.id,
         created_by: req.user.id,
       });
     }
+
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "create",
+      entityType: "operating_expense",
+      entityId: created.id,
+      newValues: { ...created, fundAccountId: accountId, cashOut: accountId !== null ? cashOut : 0 },
+    });
 
     return created;
   });
@@ -513,37 +626,44 @@ router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
     const oldCash = expenseCashOut(toMoney(old.amount), toMoney(old.gst));
     const newCash = expenseCashOut(toMoney(updated.amount), toMoney(updated.gst));
 
+    // Effective date of the cash movement currently on the ledger. A date
+    // change alone also moves the ledger entry (reverse + re-apply).
+    const oldDate = await currentExpenseLedgerDate(tx, old.id, old.date);
+    const newDate = updated.date ?? oldDate;
+
     const fundRelevantChanged =
       oldPayer !== newPayer ||
-      Math.round(oldCash * 100) !== Math.round(newCash * 100);
+      Math.round(oldCash * 100) !== Math.round(newCash * 100) ||
+      oldDate !== newDate;
 
     if (fundRelevantChanged) {
-      // Reverse the old effect: money goes back into the previously charged fund.
-      const oldAccountId = await resolveTrackedFundAccountId(tx, oldPayer);
-      if (oldAccountId !== null && oldCash > 0) {
-        await tx.insert(fundTransactionsTable).values({
-          fund_account_id: oldAccountId,
-          transaction_type: "expense_reversal",
-          amount: String(oldCash),
-          description: `Reversal of expense #${old.id} paid by ${oldPayer}`,
-          related_expense_id: old.id,
-          created_by: req.user.id,
-        });
-      }
+      // Reverse what the expense actually took out so far (fund by fund).
+      await reversePostedExpense(tx, old, `Reversal of expense #${old.id} paid by ${oldPayer}`, req.user.id);
 
       // Apply the new effect: money leaves the newly responsible fund.
-      const newAccountId = await resolveTrackedFundAccountId(tx, newPayer);
+      const newAccountId = await resolvePayerFundAccountId(tx, newPayer);
       if (newAccountId !== null && newCash > 0) {
         await tx.insert(fundTransactionsTable).values({
           fund_account_id: newAccountId,
           transaction_type: "expense",
           amount: String(newCash),
+          transaction_date: newDate,
           description: updated.description || "Expense",
           related_expense_id: updated.id,
           created_by: req.user.id,
         });
       }
     }
+
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "update",
+      entityType: "operating_expense",
+      entityId: old.id,
+      oldValues: old,
+      newValues: updated,
+    });
 
     return [updated];
   });
@@ -563,20 +683,17 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
     const [expense] = await tx.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
     if (!expense) return;
 
-    const cashOut = expenseCashOut(toMoney(expense.amount), toMoney(expense.gst));
-    const accountId = await resolveTrackedFundAccountId(tx, expense.paidBy);
+    // Money back into the fund(s) it was actually paid from.
+    await reversePostedExpense(tx, expense, `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`, req.user.id);
 
-    // Reverse the fund transaction (money back into the fund it was paid from).
-    if (accountId !== null && cashOut > 0) {
-      await tx.insert(fundTransactionsTable).values({
-        fund_account_id: accountId,
-        transaction_type: "expense_reversal",
-        amount: String(cashOut),
-        description: `Reversal of deleted expense #${expense.id} paid by ${expense.paidBy}`,
-        related_expense_id: expense.id,
-        created_by: req.user.id,
-      });
-    }
+    await tx.insert(auditLogsTable).values({
+      userId: req.user.id,
+      userEmail: req.user.email ?? null,
+      action: "delete",
+      entityType: "operating_expense",
+      entityId: expense.id,
+      oldValues: expense,
+    });
 
     await tx.delete(operatingExpensesTable).where(eq(operatingExpensesTable.id, id));
   });
@@ -626,8 +743,9 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
   const netProfit = ebitda;
   const netMarginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-  const totalReceivables = revenues.reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
-  const overdueReceivables = revenues.filter(r => r.paymentStatus === "overdue").reduce((s, r) => s + parseFloat(String(r.outstandingAmount)), 0);
+  // Receivables for the period's events, net of client payments (allocated
+  // and client-level). Payments never change revenue or profit above.
+  const { total: totalReceivables, overdue: overdueReceivables } = receivablesForEvents(await getReceivablesLedger(), eventIds);
 
   // Capital & funds: current balance of every fund account.
   const fundAccounts = await db.select().from(fundAccountsTable).orderBy(desc(fundAccountsTable.created_at));
@@ -663,20 +781,30 @@ router.get("/finance/summary", async (req, res): Promise<void> => {
 });
 
 // GET /finance/receivables
+// totalReceivables is client-level: legacy event collections AND client
+// payments (allocated or client-level) both reduce it. Aging buckets and
+// byEvent use event-level outstanding after allocations; client-level
+// unallocated payments cannot be attributed to a due date, so they are
+// reported separately as unallocatedPaymentsApplied (buckets sum may exceed
+// the total by exactly that amount).
 router.get("/finance/receivables", async (req, res): Promise<void> => {
-  const revenues = await db.select({ r: eventRevenueTable, e: eventsTable }).from(eventRevenueTable)
-    .leftJoin(eventsTable, eq(eventsTable.id, eventRevenueTable.eventId))
-    .where(sql`${eventRevenueTable.outstandingAmount} > 0`);
+  const [ledger, events, clients] = await Promise.all([
+    getReceivablesLedger(),
+    db.select({ id: eventsTable.id, name: eventsTable.name }).from(eventsTable),
+    db.select({ id: clientsTable.id, name: clientsTable.name }).from(clientsTable),
+  ]);
+  const eventNames = new Map(events.map(e => [e.id, e.name]));
+  const clientNames = new Map(clients.map(c => [c.id, c.name]));
 
   const today = new Date();
-  let totalReceivables = 0, dueToday = 0, dueThisWeek = 0, dueThisMonth = 0;
+  let dueToday = 0, dueThisWeek = 0, dueThisMonth = 0;
   let overdue = 0, overdue30 = 0, overdue60 = 0, overdue90 = 0;
 
-  for (const row of revenues) {
-    const outstanding = parseFloat(String(row.r.outstandingAmount));
-    totalReceivables += outstanding;
-    if (row.r.dueDate) {
-      const due = new Date(row.r.dueDate);
+  const openEvents = [...ledger.events.values()].filter(e => e.outstanding > 0);
+  for (const e of openEvents) {
+    const outstanding = e.outstanding;
+    if (e.dueDate) {
+      const due = new Date(e.dueDate);
       const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays === 0) dueToday += outstanding;
       if (diffDays <= 7 && diffDays >= 0) dueThisWeek += outstanding;
@@ -685,13 +813,30 @@ router.get("/finance/receivables", async (req, res): Promise<void> => {
     }
   }
 
-  const byEvent = revenues.map(row => ({
-    eventId: row.r.eventId, eventName: row.e?.name ?? "Unknown",
-    outstanding: parseFloat(String(row.r.outstandingAmount)),
-    dueDate: row.r.dueDate, paymentStatus: row.r.paymentStatus,
+  const totalReceivables = totalOutstanding(ledger);
+  const eventOutstandingTotal = openEvents.reduce((s, e) => s + e.outstanding, 0);
+  const unallocatedPaymentsApplied = Math.round(Math.max(0, eventOutstandingTotal - totalReceivables) * 100) / 100;
+
+  const byClient = [...ledger.clients.values()]
+    .filter(c => c.outstanding > 0 || c.credit > 0)
+    .map(c => ({
+      clientId: c.clientId,
+      clientName: clientNames.get(c.clientId) ?? "Unknown",
+      totalBilled: c.totalBilled,
+      totalReceived: c.totalReceived,
+      outstanding: c.outstanding,
+      credit: c.credit,
+      unallocated: c.unallocated,
+    }))
+    .sort((a, b) => b.outstanding - a.outstanding || b.credit - a.credit);
+
+  const byEvent = openEvents.map(e => ({
+    eventId: e.eventId, eventName: eventNames.get(e.eventId) ?? "Unknown",
+    outstanding: e.outstanding,
+    dueDate: e.dueDate, paymentStatus: e.paymentStatus ?? "pending",
   }));
 
-  res.json({ totalReceivables, dueToday, dueThisWeek, dueThisMonth, overdue, overdue30, overdue60, overdue90, byClient: [], byEvent });
+  res.json({ totalReceivables, unallocatedPaymentsApplied, dueToday, dueThisWeek, dueThisMonth, overdue, overdue30, overdue60, overdue90, byClient, byEvent });
 });
 
 export default router;

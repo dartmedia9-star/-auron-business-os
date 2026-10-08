@@ -27,6 +27,17 @@ import FundTransfers from '@/pages/fund-transfers';
 import NotesList from '@/pages/notes';
 import ReportsList from '@/pages/reports/index';
 import AssetsList from '@/pages/assets/index';
+import PerformanceIndex from '@/pages/performance/index';
+import PerformanceAnnual from '@/pages/performance/annual';
+import PerformanceMonthly from '@/pages/performance/monthly';
+import PerformanceRevenue from '@/pages/performance/revenue';
+import PerformanceExpenses from '@/pages/performance/expenses';
+import PerformanceProfitability from '@/pages/performance/profitability';
+import PerformanceEvents from '@/pages/performance/events';
+import PerformanceCashflow from '@/pages/performance/cashflow';
+import PerformanceActivity from '@/pages/performance/activity';
+import PerformanceEbitda from '@/pages/performance/ebitda';
+import PerformanceNetProfit from '@/pages/performance/net-profit';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +85,17 @@ function AuthenticatedApp() {
           <Route path="/assets" component={AssetsList} />
           <Route path="/team" component={TeamList} />
           <Route path="/reports" component={ReportsList} />
+          <Route path="/performance" component={PerformanceIndex} />
+          <Route path="/performance/:year" component={PerformanceAnnual} />
+          <Route path="/performance/:year/:month" component={PerformanceMonthly} />
+          <Route path="/performance/:year/:month/revenue" component={PerformanceRevenue} />
+          <Route path="/performance/:year/:month/expenses" component={PerformanceExpenses} />
+          <Route path="/performance/:year/:month/profitability" component={PerformanceProfitability} />
+          <Route path="/performance/:year/:month/events" component={PerformanceEvents} />
+          <Route path="/performance/:year/:month/cashflow" component={PerformanceCashflow} />
+          <Route path="/performance/:year/:month/activity" component={PerformanceActivity} />
+          <Route path="/performance/:year/:month/ebitda" component={PerformanceEbitda} />
+          <Route path="/performance/:year/:month/net-profit" component={PerformanceNetProfit} />
           <Route path="/settings" component={SettingsPage} />
           <Route component={NotFound} />
         </Switch>

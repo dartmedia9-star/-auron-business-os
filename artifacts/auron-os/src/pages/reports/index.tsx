@@ -1,24 +1,21 @@
 import { useGetEventProfitabilityReport, getGetEventProfitabilityReportQueryKey } from "@workspace/api-client-react";
-import { formatCurrency, formatCompactCurrency, formatPercentage } from "@/lib/utils";
+import { CardsSkeleton, ErrorState, TableSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function ReportsList() {
-  const { data, isLoading } = useGetEventProfitabilityReport(undefined, {
+  const { data, isLoading, error, refetch } = useGetEventProfitabilityReport(undefined, {
     query: { queryKey: getGetEventProfitabilityReportQueryKey() }
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
-          <p className="text-muted-foreground mt-1">Deep dive into event type profitability and overall performance.</p>
-        </div>
-      </div>
+      <PageHeader title="Analytics & Reports" description="Deep dive into event type profitability and overall performance." />
 
       {isLoading ? (
-        <div className="p-8">Loading reports...</div>
+        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-xl border bg-card shadow-card"><TableSkeleton /></div></div>
       ) : data ? (
         <>
           <div className="grid gap-4 md:grid-cols-4">
@@ -27,7 +24,7 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-muted-foreground">Total Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCompactCurrency(data.summary.totalRevenue)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(data.summary.totalRevenue)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -35,7 +32,7 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-primary">Total Gross Profit</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-primary">{formatCompactCurrency(data.summary.totalGrossProfit)}</div>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(data.summary.totalGrossProfit)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -43,7 +40,7 @@ export default function ReportsList() {
                 <CardTitle className="text-sm text-muted-foreground">Avg Gross Margin</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-500">{formatPercentage(data.summary.avgGrossMarginPct)}</div>
+                <div className="text-2xl font-bold text-money-in">{formatPercentage(data.summary.avgGrossMarginPct)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -80,7 +77,7 @@ export default function ReportsList() {
                           <TableCell className="text-center">{item.eventCount}</TableCell>
                           <TableCell className="text-right">{formatCurrency(item.totalRevenue)}</TableCell>
                           <TableCell className="text-right font-medium text-primary">{formatCurrency(item.grossProfit)}</TableCell>
-                          <TableCell className="text-right font-medium text-emerald-500">{formatPercentage(item.grossMarginPct)}</TableCell>
+                          <TableCell className="text-right font-medium text-money-in">{formatPercentage(item.grossMarginPct)}</TableCell>
                         </TableRow>
                       ))
                     ) : (
@@ -120,7 +117,7 @@ export default function ReportsList() {
                           <TableCell className="hidden sm:table-cell">{event.eventType}</TableCell>
                           <TableCell className="text-right">{formatCurrency(event.revenue)}</TableCell>
                           <TableCell className="text-right font-medium text-primary">{formatCurrency(event.grossProfit)}</TableCell>
-                          <TableCell className="text-right hidden md:table-cell text-emerald-500">{formatPercentage(event.grossMarginPct)}</TableCell>
+                          <TableCell className="text-right hidden md:table-cell text-money-in">{formatPercentage(event.grossMarginPct)}</TableCell>
                         </TableRow>
                       ))
                     ) : (
@@ -134,6 +131,8 @@ export default function ReportsList() {
             </CardContent>
           </Card>
         </>
+      ) : error ? (
+        <ErrorState title="Couldn't load reports" error={error} onRetry={() => refetch()} />
       ) : null}
     </div>
   );
