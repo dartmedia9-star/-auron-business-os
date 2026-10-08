@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { PageHeader } from "@/components/ds/page-header";
+import { CardsSkeleton, EmptyState, ErrorState, TableSkeleton } from "@/components/ds/states";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetMarketingRoi,
@@ -28,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, TrendingUp } from "lucide-react";
 
 const MONTH_NAMES = [
   "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -45,7 +47,7 @@ export default function MarketingList() {
   const roiParams = { year: selectedYear };
   const spendParams = { year: selectedYear };
 
-  const { data, isLoading } = useGetMarketingRoi(
+  const { data, isLoading, error, refetch } = useGetMarketingRoi(
     roiParams,
     { query: { queryKey: getGetMarketingRoiQueryKey(roiParams) } }
   );
@@ -76,15 +78,11 @@ export default function MarketingList() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Marketing ROI</h2>
-          <p className="text-muted-foreground mt-1">
-            Track customer acquisition cost and channel performance.
-          </p>
-        </div>
-        {/* Year selector */}
-        <div className="flex gap-1">
+      <PageHeader
+        title="Marketing ROI"
+        description="Track customer acquisition cost and channel performance."
+        actions={
+        <div className="flex gap-1" role="group" aria-label="Year">
           {yearOptions.map((y) => (
             <Button
               key={y}
@@ -96,10 +94,11 @@ export default function MarketingList() {
             </Button>
           ))}
         </div>
-      </div>
+        }
+      />
 
       {isLoading ? (
-        <div className="p-8 text-muted-foreground">Loading marketing data…</div>
+        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-xl border bg-card shadow-card"><TableSkeleton /></div></div>
       ) : data ? (
         <>
           {/* Summary cards */}
@@ -173,7 +172,7 @@ export default function MarketingList() {
                         <TableCell className="text-right">{formatCurrency(channel.spend)}</TableCell>
                         <TableCell className="text-right">{channel.leadsGenerated}</TableCell>
                         <TableCell className="text-right">{channel.customersAcquired}</TableCell>
-                        <TableCell className="text-right font-medium text-amber-500">
+                        <TableCell className="text-right font-medium text-warning">
                           {channel.cac ? formatCurrency(channel.cac) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-medium text-primary">
@@ -186,9 +185,7 @@ export default function MarketingList() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                        No channel spend data for {selectedYear}.
-                      </TableCell>
+                      <TableCell colSpan={7} className="p-0 hover:bg-transparent"><EmptyState compact title={`No channel spend data for ${selectedYear}.`} /></TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -244,9 +241,7 @@ export default function MarketingList() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                        No spend records for {selectedYear}.
-                      </TableCell>
+                      <TableCell colSpan={8} className="p-0 hover:bg-transparent"><EmptyState compact title={`No spend records for ${selectedYear}.`} /></TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -255,7 +250,7 @@ export default function MarketingList() {
           </Card>
         </>
       ) : (
-        <div className="p-8 text-muted-foreground">No marketing data available.</div>
+        error ? <ErrorState title="Couldn't load marketing data" error={error} onRetry={() => refetch()} /> : <EmptyState icon={TrendingUp} title="No marketing data yet" description="Channel spend and acquisition figures appear here once recorded." />
       )}
 
       {/* Delete confirmation dialog */}

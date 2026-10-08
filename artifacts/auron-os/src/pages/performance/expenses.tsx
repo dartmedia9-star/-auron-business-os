@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/ds/page-header";
 import { useGetPerformanceMonthlyExpenses } from "@workspace/api-client-react";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowDown, Search } from "lucide-react";
+import { ArrowDown, Search } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -78,35 +79,22 @@ export default function PerformanceExpenses() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}/${month}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <ArrowDown className="h-7 w-7 text-money-out" />
-            Expense Details
-          </h2>
-          <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — {data.count} expense{data.count !== 1 ? "s" : ""}</p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}/${month}`} icon={ArrowDown} title="Expense Details" description={<>{MONTH_NAMES[month]} {year} — {data.count} expense{data.count !== 1 ? "s" : ""}</>} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-l-4 border-l-red-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Amount</p>
             <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalAmount)}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total GST</p>
-            <p className="text-2xl font-bold text-orange-500">{formatCurrency(data.totalGst)}</p>
+            <p className="text-2xl font-bold text-warning">{formatCurrency(data.totalGst)}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-red-500/70">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Cash Out</p>
             <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalCashOut)}</p>

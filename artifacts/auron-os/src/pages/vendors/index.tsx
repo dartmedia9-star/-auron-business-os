@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { TableSkeleton, EmptyState } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { 
   useListVendors, 
   getListVendorsQueryKey,
@@ -230,15 +232,11 @@ export default function VendorsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor Management</h2>
-          <p className="text-muted-foreground mt-1">Manage suppliers, track spending and outstanding payments.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Vendor
-        </Button>
-      </div>
+      <PageHeader
+        title="Vendor Management"
+        description="Manage suppliers, track spending and outstanding payments."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Vendor </Button>}
+      />
 
       <Card>
         <CardHeader className="py-4 border-b space-y-3">
@@ -319,7 +317,7 @@ export default function VendorsList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">Loading vendors...</TableCell>
+                    <TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : filteredVendors.length > 0 ? (
                   filteredVendors.map((vendor: any) => (
@@ -336,7 +334,7 @@ export default function VendorsList() {
                       <TableCell className="text-center font-medium">{vendor.totalEvents || 0}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(vendor.totalSpend)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(vendor.avgCostPerEvent)}</TableCell>
-                      <TableCell className={cn("text-right font-medium", vendor.outstandingPayment && vendor.outstandingPayment > 0 ? "text-amber-500" : "")}>
+                      <TableCell className={cn("text-right font-medium", vendor.outstandingPayment && vendor.outstandingPayment > 0 ? "text-warning" : "")}>
                         {formatCurrency(vendor.outstandingPayment)}
                       </TableCell>
                       <TableCell>
@@ -353,9 +351,7 @@ export default function VendorsList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      {isFiltered ? "No vendors match your filters." : "No vendors found."}
-                    </TableCell>
+                    <TableCell colSpan={7} className="p-0 hover:bg-transparent"><EmptyState compact title={isFiltered ? "No vendors match your filters." : "No vendors found."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -372,8 +368,8 @@ export default function VendorsList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createVendor.isPending}>
-              {createVendor.isPending ? "Saving..." : "Save Vendor"}
+            <Button onClick={handleCreate} loading={createVendor.isPending}>
+              Save Vendor
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -387,8 +383,8 @@ export default function VendorsList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateVendor.isPending}>
-              {updateVendor.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateVendor.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

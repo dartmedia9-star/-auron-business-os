@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/ds/page-header";
+import { EmptyState, ErrorState, PageSkeleton } from "@/components/ds/states";
+import { CalendarX2 } from "lucide-react";
 import { parseAmount, sumMoney } from "@/lib/money";
 import { MoneyInput } from "@/components/ds/money-input";
 import { useRoute, Link, useLocation } from "wouter";
@@ -16,11 +19,11 @@ import {
 import { cn, formatCurrency, formatDate, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Wallet, TrendingUp, AlertTriangle, Trash2, Plus, Banknote, Receipt, HandCoins } from "lucide-react";
+import { Edit, Wallet, TrendingUp, AlertTriangle, Trash2, Plus, Banknote, Receipt, HandCoins } from "lucide-react";
 import { KpiCard } from "@/components/ds/kpi-card";
 import { formatINR } from "@/components/ds/money";
 import { useNewTransaction } from "@/components/new-transaction";
-import { ProfitabilityBadge, StatusBadge } from "./index";
+import { ProfitabilityBadge, StatusBadge } from "@/components/ds/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -43,7 +46,7 @@ export default function EventDetail() {
   const [, setLocation] = useLocation();
   const id = params?.id ? parseInt(params.id, 10) : 0;
   
-  const { data: event, isLoading } = useGetEvent(id, {
+  const { data: event, isLoading, error: eventError, refetch: refetchEvent } = useGetEvent(id, {
     query: { 
       enabled: !!id,
       queryKey: getGetEventQueryKey(id)
@@ -247,51 +250,68 @@ export default function EventDetail() {
     });
   };
 
-  if (isLoading) return <div className="p-8">Loading event data...</div>;
-  if (!event) return <div className="p-8">Event not found.</div>;
+  if (isLoading) return <PageSkeleton kpis={4} />;
+  if (eventError && !event && !/HTTP 404/.test(String((eventError as Error)?.message))) {
+    return <ErrorState title="Couldn't load this event" error={eventError} onRetry={() => refetchEvent()} />;
+  }
+  if (!event) {
+    return (
+      <EmptyState
+        icon={CalendarX2}
+        title="Event not found"
+        description="It may have been deleted, or the link is wrong."
+        action={
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/events">Back to Events</Link>
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="h-8 w-8 shrink-0">
-            <Link href="/events"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex flex-wrap items-center gap-2 sm:gap-3">
-              {event.name}
-              <StatusBadge status={event.status} />
-              <ProfitabilityBadge indicator={event.profitabilityIndicator} />
-            </h2>
-            <div className="text-sm sm:text-base text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-              <span>{formatDate(event.eventDate)}</span>
-              <span className="hidden sm:inline">•</span>
-              <Link href={`/clients/${event.clientId}`} className="hover:text-primary">
-                {event.clientName}
-              </Link>
-              <span className="hidden sm:inline">•</span>
-              <span>{event.eventType}</span>
-              {event.location && (
-                <>
-                  <span className="hidden sm:inline">•</span>
-                  <span>{event.location}</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => newTransaction.open({ kind: "money_received", clientId: event.clientId, eventId: event.id })}>
-            <Plus className="mr-2 h-4 w-4" /> Record Money Received
-          </Button>
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Edit className="mr-2 h-4 w-4" /> Edit
-          </Button>
-          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        back="/events"
+        backLabel="Back to Events"
+        title={
+          <span className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {event.name}
+            <StatusBadge status={event.status} />
+            <ProfitabilityBadge indicator={event.profitabilityIndicator} />
+          </span>
+        }
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{formatDate(event.eventDate)}</span>
+            <span aria-hidden>·</span>
+            <Link href={`/clients/${event.clientId}`} className="font-medium text-foreground/80 hover:text-gold-ink">
+              {event.clientName}
+            </Link>
+            <span aria-hidden>·</span>
+            <span>{event.eventType}</span>
+            {event.location && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{event.location}</span>
+              </>
+            )}
+          </span>
+        }
+        actions={
+          <>
+            <Button onClick={() => newTransaction.open({ kind: "money_received", clientId: event.clientId, eventId: event.id })}>
+              <Plus className="mr-2 h-4 w-4" /> Record Money Received
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </Button>
+            <Button variant="outline" className="text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Revenue (excl. GST)" value={event.totalRevenue ?? 0} icon={TrendingUp} tone="primary" />
@@ -397,9 +417,9 @@ export default function EventDetail() {
                         <TableCell>
                           <span className={cn(
                             "text-xs px-2 py-1 rounded-full",
-                            cost.paymentStatus === 'paid' ? "bg-emerald-500/10 text-money-in" :
-                            cost.paymentStatus === 'pending' ? "bg-amber-500/10 text-amber-500" :
-                            "bg-blue-500/10 text-blue-500"
+                            cost.paymentStatus === 'paid' ? "bg-success/10 text-money-in" :
+                            cost.paymentStatus === 'pending' ? "bg-warning/10 text-warning" :
+                            "bg-info/10 text-info"
                           )}>
                             {cost.paymentStatus}
                           </span>
@@ -414,9 +434,7 @@ export default function EventDetail() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                        No costs recorded yet.
-                      </TableCell>
+                      <TableCell colSpan={5} className="p-0 hover:bg-transparent"><EmptyState compact title="No costs recorded yet." /></TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -483,8 +501,8 @@ export default function EventDetail() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateEvent} disabled={updateEvent.isPending}>
-              {updateEvent.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdateEvent} loading={updateEvent.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -568,8 +586,8 @@ export default function EventDetail() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCostOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddCost} disabled={createCost.isPending}>
-              {createCost.isPending ? "Saving..." : "Add Cost"}
+            <Button onClick={handleAddCost} loading={createCost.isPending}>
+              Add Cost
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -665,8 +683,8 @@ export default function EventDetail() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setRevenueOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateRevenue} disabled={upsertRevenue.isPending}>
-              {upsertRevenue.isPending ? "Saving..." : "Save Revenue"}
+            <Button onClick={handleUpdateRevenue} loading={upsertRevenue.isPending}>
+              Save Revenue
             </Button>
           </DialogFooter>
         </DialogContent>

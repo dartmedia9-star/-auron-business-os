@@ -1,9 +1,10 @@
 import { useGetPerformanceMonthly } from "@workspace/api-client-react";
+import { PageHeader } from "@/components/ds/page-header";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, TrendingUp, ArrowUp, ArrowDown, Minus } from "lucide-react";
-import { Link, useParams } from "wouter";
+
+import { TrendingUp, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const MONTH_NAMES = [
@@ -29,22 +30,9 @@ export default function PerformanceEbitda() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}/${month}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <TrendingUp className="h-7 w-7 text-money-in" />
-            EBITDA
-          </h2>
-          <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — Earnings Before Interest, Tax, Depreciation & Amortisation</p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}/${month}`} icon={TrendingUp} title="EBITDA" description={<>{MONTH_NAMES[month]} {year} — Earnings Before Interest, Tax, Depreciation & Amortisation</>} />
 
-      <Card className="border-l-4 border-l-emerald-500 shadow-md">
+      <Card className="">
         <CardContent className="p-6">
           <p className="text-sm text-muted-foreground mb-1">EBITDA</p>
           <p className="text-3xl font-bold text-money-in">{formatCurrency(data.ebitda)}</p>
@@ -59,13 +47,13 @@ export default function PerformanceEbitda() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <ArrowUp className="h-5 w-5 text-blue-500" />
+              <ArrowUp className="h-5 w-5 text-foreground" />
               <div>
                 <p className="font-medium">Revenue</p>
                 <p className="text-xs text-muted-foreground">Net revenue from all events this month</p>
               </div>
             </div>
-            <p className="font-bold text-blue-500">{formatCurrency(data.revenue)}</p>
+            <p className="font-bold text-foreground">{formatCurrency(data.revenue)}</p>
           </div>
 
           <div className="flex items-center justify-between py-3 border-b">
@@ -94,13 +82,13 @@ export default function PerformanceEbitda() {
 
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <ArrowDown className="h-5 w-5 text-orange-500" />
+              <ArrowDown className="h-5 w-5 text-warning" />
               <div>
                 <p className="font-medium">Operating Expenses</p>
                 <p className="text-xs text-muted-foreground">Rent, payroll, marketing, admin (non-event)</p>
               </div>
             </div>
-            <p className="font-bold text-orange-500">-{formatCurrency(data.operatingExpenses)}</p>
+            <p className="font-bold text-warning">-{formatCurrency(data.operatingExpenses)}</p>
           </div>
 
           <div className="flex items-center justify-between py-3 bg-muted/50 rounded-lg px-3">

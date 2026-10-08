@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { PageHeader } from "@/components/ds/page-header";
 import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListLeads, 
@@ -223,15 +224,11 @@ export default function LeadsPipeline() {
 
   return (
     <div className="space-y-6 h-full flex flex-col min-h-[100dvh] md:min-h-0">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sales Pipeline</h2>
-          <p className="text-muted-foreground mt-1">Track deals from lead to closed-won.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Lead
-        </Button>
-      </div>
+      <PageHeader
+        title="Sales Pipeline"
+        description="Track deals from lead to closed-won."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Lead </Button>}
+      />
 
       {summary && (
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4 shrink-0">
@@ -504,8 +501,8 @@ export default function LeadsPipeline() {
                 {FormContent}
                 <DialogFooter className="shrink-0 pt-4 border-t">
                   <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreate} disabled={createLead.isPending}>
-                    {createLead.isPending ? "Saving..." : "Save Lead"}
+                  <Button onClick={handleCreate} loading={createLead.isPending}>
+                    Save Lead
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -523,8 +520,8 @@ export default function LeadsPipeline() {
                   </Button>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdate} disabled={updateLead.isPending}>
-                      {updateLead.isPending ? "Saving..." : "Save Changes"}
+                    <Button onClick={handleUpdate} loading={updateLead.isPending}>
+                      Save Changes
                     </Button>
                   </div>
                 </DialogFooter>

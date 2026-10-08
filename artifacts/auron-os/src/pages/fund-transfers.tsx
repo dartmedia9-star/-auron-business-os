@@ -499,8 +499,8 @@ export default function FundTransfers() {
                 Cancel
               </Button>
 
-              <Button type="submit" disabled={createAccount.isPending}>
-                {createAccount.isPending ? "Creating..." : "Create Account"}
+              <Button type="submit" loading={createAccount.isPending}>
+                Create Account
               </Button>
             </DialogFooter>
           </form>

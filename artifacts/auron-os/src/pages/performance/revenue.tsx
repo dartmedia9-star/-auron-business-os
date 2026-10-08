@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/ds/page-header";
 import { useGetPerformanceMonthlyRevenue } from "@workspace/api-client-react";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowUp, Search } from "lucide-react";
+import { ArrowUp, Search } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -45,38 +46,25 @@ export default function PerformanceRevenue() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}/${month}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <ArrowUp className="h-7 w-7 text-blue-500" />
-            Revenue Details
-          </h2>
-          <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — {data.revenue.length} record{data.revenue.length !== 1 ? "s" : ""}</p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}/${month}`} icon={ArrowUp} title="Revenue Details" description={<>{MONTH_NAMES[month]} {year} — {data.revenue.length} record{data.revenue.length !== 1 ? "s" : ""}</>} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Revenue</p>
-            <p className="text-2xl font-bold text-blue-500">{formatCurrency(data.total)}</p>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(data.total)}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Events with Revenue</p>
             <p className="text-2xl font-bold">{data.revenue.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Outstanding</p>
-            <p className="text-2xl font-bold text-orange-500">
+            <p className="text-2xl font-bold text-warning">
               {formatCurrency(data.revenue.reduce((s, r) => s + (r.outstandingAmount ?? 0), 0))}
             </p>
           </CardContent>
@@ -127,15 +115,15 @@ export default function PerformanceRevenue() {
                       <TableCell className="text-muted-foreground">{r.clientName ?? "—"}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(r.netRevenue)}</TableCell>
                       <TableCell className="text-right text-money-in">{formatCurrency(r.totalCollected)}</TableCell>
-                      <TableCell className={cn("text-right", (r.outstandingAmount ?? 0) > 0 ? "text-orange-500" : "text-muted-foreground")}>
+                      <TableCell className={cn("text-right", (r.outstandingAmount ?? 0) > 0 ? "text-warning" : "text-muted-foreground")}>
                         {formatCurrency(r.outstandingAmount ?? 0)}
                       </TableCell>
                       <TableCell>
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          (r.paymentStatus ?? "") === "paid" && "bg-emerald-500/10 text-money-in",
-                          (r.paymentStatus ?? "") === "partial" && "bg-amber-500/10 text-amber-500",
-                          (r.paymentStatus ?? "") === "overdue" && "bg-red-500/10 text-money-out",
+                          (r.paymentStatus ?? "") === "paid" && "bg-success/10 text-money-in",
+                          (r.paymentStatus ?? "") === "partial" && "bg-warning/10 text-warning",
+                          (r.paymentStatus ?? "") === "overdue" && "bg-destructive/10 text-money-out",
                           (r.paymentStatus ?? "") === "pending" && "bg-muted text-muted-foreground",
                           !["paid", "partial", "overdue", "pending"].includes(r.paymentStatus ?? "") && "bg-muted text-muted-foreground",
                         )}>

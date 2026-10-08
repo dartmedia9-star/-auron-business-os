@@ -1,4 +1,7 @@
 import { useState, useMemo } from "react";
+import { MobileList, MobileListItem } from "@/components/ds/mobile-list";
+import { EmptyState, ListSkeleton, TableSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { useListClients, getListClientsQueryKey, useCreateClient } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -141,15 +144,11 @@ export default function ClientsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Client CRM</h2>
-          <p className="text-muted-foreground mt-1">Manage client relationships, track LTV and profitability.</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Client
-        </Button>
-      </div>
+      <PageHeader
+        title="Client CRM"
+        description="Manage client relationships, track LTV and profitability."
+        actions={<Button onClick={() => setCreateOpen(true)}> <Plus className="mr-2 h-4 w-4" /> Add Client </Button>}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90dvh] flex flex-col sm:max-w-lg">
@@ -209,8 +208,8 @@ export default function ClientsList() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createClient.isPending}>
-              {createClient.isPending ? "Saving..." : "Save Client"}
+            <Button onClick={handleCreate} loading={createClient.isPending}>
+              Save Client
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -291,7 +290,29 @@ export default function ClientsList() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <MobileList>
+            {isLoading ? (
+              <li><ListSkeleton rows={4} className="p-4" /></li>
+            ) : filteredClients.length === 0 ? (
+              <li><EmptyState compact title={isFiltered ? "No clients match your filters." : "No clients found."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></li>
+            ) : (
+              filteredClients.map((client) => (
+                <MobileListItem
+                  key={client.id}
+                  href={`/clients/${client.id}`}
+                  title={client.name}
+                  subtitle={`${client.clientType} · ${client.totalEvents || 0} event${client.totalEvents === 1 ? "" : "s"}`}
+                  value={formatCurrency(client.lifetimeRevenue)}
+                  meta={
+                    (client.totalOutstanding ?? 0) > 0 ? (
+                      <span>Outstanding <span className="font-medium tabular-nums text-warning">{formatCurrency(client.totalOutstanding)}</span></span>
+                    ) : undefined
+                  }
+                />
+              ))
+            )}
+          </MobileList>
+          <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -307,9 +328,7 @@ export default function ClientsList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      Loading clients...
-                    </TableCell>
+                    <TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : filteredClients.length > 0 ? (
                   filteredClients.map((client) => (
@@ -331,7 +350,7 @@ export default function ClientsList() {
                       <TableCell className="text-center font-medium">{client.totalEvents || 0}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(client.lifetimeRevenue)}</TableCell>
                       <TableCell className="text-right text-primary font-medium">{formatCurrency(client.lifetimeGrossProfit)}</TableCell>
-                      <TableCell className={cn("text-right font-medium", client.totalOutstanding && client.totalOutstanding > 0 ? "text-amber-500" : "")}>
+                      <TableCell className={cn("text-right font-medium", client.totalOutstanding && client.totalOutstanding > 0 ? "text-warning" : "")}>
                         {formatCurrency(client.totalOutstanding)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -343,9 +362,7 @@ export default function ClientsList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      {isFiltered ? "No clients match your filters." : "No clients found."}
-                    </TableCell>
+                    <TableCell colSpan={7} className="p-0 hover:bg-transparent"><EmptyState compact title={isFiltered ? "No clients match your filters." : "No clients found."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></TableCell>
                   </TableRow>
                 )}
               </TableBody>

@@ -1,11 +1,9 @@
 import { useGetPerformanceMonthly } from "@workspace/api-client-react";
+import { PageHeader } from "@/components/ds/page-header";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft, ArrowUp, ArrowDown, Minus, TrendingUp, Calendar,
-  Wallet, Landmark, Target, BarChart3,
-} from "lucide-react";
+
+import { ArrowUp, ArrowDown, Minus, TrendingUp, Calendar, Wallet, Landmark, Target, BarChart3 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -21,23 +19,23 @@ function KpiCard({
   color: string; href: string; negative?: boolean;
 }) {
   const colorMap: Record<string, { bg: string; icon: string; text: string; border: string }> = {
-    blue: { bg: "bg-blue-500/10", icon: "text-blue-500", text: "text-blue-500", border: "border-l-blue-500" },
-    red: { bg: "bg-red-500/10", icon: "text-money-out", text: "text-money-out", border: "border-l-red-500" },
-    gold: { bg: "bg-primary/10", icon: "text-primary", text: "text-primary", border: "border-l-primary" },
-    orange: { bg: "bg-orange-500/10", icon: "text-orange-500", text: "text-orange-500", border: "border-l-orange-500" },
-    emerald: { bg: "bg-emerald-500/10", icon: "text-money-in", text: "text-money-in", border: "border-l-emerald-500" },
-    violet: { bg: "bg-violet-500/10", icon: "text-violet-500", text: "text-violet-500", border: "border-l-violet-500" },
-    teal: { bg: "bg-teal-500/10", icon: "text-teal-500", text: "text-teal-500", border: "border-l-teal-500" },
+    blue: { bg: "bg-muted", icon: "text-foreground", text: "text-foreground", border: "border-l-blue-500" },
+    red: { bg: "bg-destructive/10", icon: "text-money-out", text: "text-money-out", border: "border-l-red-500" },
+    gold: { bg: "bg-primary/12", icon: "text-gold-ink", text: "text-gold-ink", border: "border-l-primary" },
+    orange: { bg: "bg-warning/10", icon: "text-warning", text: "text-warning", border: "border-l-orange-500" },
+    emerald: { bg: "bg-success/10", icon: "text-money-in", text: "text-money-in", border: "border-l-emerald-500" },
+    violet: { bg: "bg-muted", icon: "text-slate", text: "text-slate", border: "border-l-violet-500" },
+    teal: { bg: "bg-teal/10", icon: "text-teal", text: "text-teal", border: "border-l-teal-500" },
     slate: { bg: "bg-muted", icon: "text-muted-foreground", text: "text-foreground", border: "border-l-muted-foreground" },
   };
   const c = colorMap[color] ?? colorMap.blue;
 
   return (
-    <Link href={href}>
-      <Card className={cn("border-l-4 cursor-pointer hover:bg-muted/30 transition-colors shadow-sm", c.border)}>
+    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Card className="cursor-pointer transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-lift">
         <CardContent className="flex items-center justify-between p-4 sm:p-6">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", c.bg)}>
+            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", c.bg)}>
               <Icon className={cn("h-5 w-5", c.icon)} />
             </div>
             <div className="min-w-0">
@@ -45,7 +43,7 @@ function KpiCard({
               <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
             </div>
           </div>
-          <div className={cn("text-lg sm:text-2xl font-bold shrink-0 ml-4", negative ? c.text : "")}>
+          <div className={cn("text-lg sm:text-2xl font-semibold tracking-tight tabular-nums shrink-0 ml-4", negative ? c.text : "")}>
             {value}
           </div>
         </CardContent>
@@ -80,21 +78,7 @@ export default function PerformanceMonthly() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            {monthName} {year}
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            {`${monthName} 1 – ${monthName} ${lastDay}, ${year}`}
-          </p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}`} title={`${monthName} ${year}`} description={`${monthName} 1 – ${monthName} ${lastDay}, ${year}`} />
 
       {!hasAnyData ? (
         <Card>

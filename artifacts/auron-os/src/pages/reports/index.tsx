@@ -1,24 +1,21 @@
 import { useGetEventProfitabilityReport, getGetEventProfitabilityReportQueryKey } from "@workspace/api-client-react";
+import { CardsSkeleton, ErrorState, TableSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function ReportsList() {
-  const { data, isLoading } = useGetEventProfitabilityReport(undefined, {
+  const { data, isLoading, error, refetch } = useGetEventProfitabilityReport(undefined, {
     query: { queryKey: getGetEventProfitabilityReportQueryKey() }
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Analytics & Reports</h2>
-          <p className="text-muted-foreground mt-1">Deep dive into event type profitability and overall performance.</p>
-        </div>
-      </div>
+      <PageHeader title="Analytics & Reports" description="Deep dive into event type profitability and overall performance." />
 
       {isLoading ? (
-        <div className="p-8">Loading reports...</div>
+        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-xl border bg-card shadow-card"><TableSkeleton /></div></div>
       ) : data ? (
         <>
           <div className="grid gap-4 md:grid-cols-4">
@@ -134,6 +131,8 @@ export default function ReportsList() {
             </CardContent>
           </Card>
         </>
+      ) : error ? (
+        <ErrorState title="Couldn't load reports" error={error} onRetry={() => refetch()} />
       ) : null}
     </div>
   );

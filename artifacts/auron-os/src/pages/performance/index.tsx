@@ -1,4 +1,5 @@
 import { useGetPerformanceYears } from "@workspace/api-client-react";
+import { PageHeader } from "@/components/ds/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart3, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
@@ -11,12 +12,7 @@ export default function PerformanceIndex() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Performance</h2>
-        <p className="text-muted-foreground mt-1">
-          Financial performance history and drill-down analytics.
-        </p>
-      </div>
+      <PageHeader title="Performance" description="Financial performance history and drill-down analytics." />
 
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

@@ -44,6 +44,20 @@
   --color-money-in: hsl(var(--money-in));
   --color-money-out: hsl(var(--money-out));
 
+  /* Auron palette: gold for emphasis, ink for data, teal and slate as the
+     only secondary accents. Charts use these, nothing else. */
+  --color-gold: hsl(var(--gold));
+  --color-gold-ink: hsl(var(--gold-ink));
+  --color-ink: hsl(var(--ink));
+  --color-teal: hsl(var(--teal));
+  --color-slate: hsl(var(--slate));
+  --color-surface-2: hsl(var(--surface-2));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
@@ -61,15 +75,16 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --shadow-xs: 0 1px 2px 0 rgb(17 17 17 / 0.04);
-  --shadow-card: 0 1px 2px 0 rgb(17 17 17 / 0.04), 0 1px 3px 0 rgb(17 17 17 / 0.03);
-  --shadow-lift: 0 4px 12px -2px rgb(17 17 17 / 0.08), 0 2px 4px -2px rgb(17 17 17 / 0.04);
-  --shadow-overlay: 0 24px 48px -12px rgb(17 17 17 / 0.18);
+  --shadow-xs: 0 1px 2px 0 rgb(28 22 12 / 0.04);
+  --shadow-card: 0 1px 2px 0 rgb(28 22 12 / 0.04), 0 0 0 1px rgb(28 22 12 / 0.015);
+  --shadow-lift: 0 10px 24px -12px rgb(28 22 12 / 0.16), 0 2px 6px -2px rgb(28 22 12 / 0.06);
+  --shadow-overlay: 0 24px 56px -16px rgb(28 22 12 / 0.28), 0 4px 12px -4px rgb(28 22 12 / 0.08);
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 
   --animate-fade-up: fade-up 0.32s var(--ease-out-quint) both;
   --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
 
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(6px); }
@@ -78,6 +93,10 @@
   @keyframes fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
   }
 }
 
@@ -122,7 +141,14 @@
   --money-in: 152 62% 32%;
   --money-out: 0 66% 46%;
 
-  --sidebar: 40 14% 97%;
+  --gold: 44 53% 54%;
+  --gold-ink: 40 58% 34%;
+  --ink: 28 10% 13%;
+  --teal: 176 52% 33%;
+  --slate: 215 14% 52%;
+  --surface-2: 38 18% 96%;
+
+  --sidebar: 40 16% 97%;
   --sidebar-foreground: 0 0% 30%;
   --sidebar-border: 0 0% 90%;
   --sidebar-primary: 44 53% 54%;
@@ -131,11 +157,11 @@
   --sidebar-accent-foreground: 0 0% 9%;
   --sidebar-ring: 44 53% 54%;
   
-  --chart-1: 44 53% 54%;
-  --chart-2: 0 0% 30%;
-  --chart-3: 0 0% 50%;
-  --chart-4: 0 0% 70%;
-  --chart-5: 0 0% 85%;
+  --chart-1: 44 53% 54%;  /* gold: revenue */
+  --chart-2: 28 10% 18%;  /* ink: net profit */
+  --chart-3: 176 52% 33%; /* teal: cash */
+  --chart-4: 215 14% 60%; /* slate: supporting */
+  --chart-5: 36 10% 86%;  /* neutral: grid/bars at rest */
 }
 
 .dark {
@@ -187,10 +213,17 @@
   --sidebar-ring: 44 53% 54%;
   
   --chart-1: 44 53% 54%; /* Gold */
-  --chart-2: 0 0% 40%;
-  --chart-3: 0 0% 60%;
-  --chart-4: 0 0% 20%;
-  --chart-5: 0 0% 80%;
+  --chart-2: 0 0% 85%;
+  --chart-3: 176 44% 50%;
+  --chart-4: 215 14% 60%;
+  --chart-5: 0 0% 20%;
+
+  --gold: 44 53% 54%;
+  --gold-ink: 44 60% 62%;
+  --ink: 0 0% 92%;
+  --teal: 176 44% 50%;
+  --slate: 215 14% 60%;
+  --surface-2: 0 0% 10%;
 }
 
 @layer base {
@@ -202,7 +235,11 @@
     font-feature-settings: "cv11", "ss01";
   }
   h1, h2, h3 {
-    letter-spacing: -0.015em;
+    letter-spacing: -0.018em;
+  }
+  /* Figures line up in columns everywhere. */
+  .tabular-nums, table {
+    font-variant-numeric: tabular-nums;
   }
   :focus-visible {
     outline: 2px solid hsl(var(--ring));

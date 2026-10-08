@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useFlash } from "@/hooks/use-flash";
+import { PageSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { MoneyInput } from "@/components/ds/money-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +19,8 @@ export default function SettingsPage() {
   });
   
   const updateSettings = useUpdateSettings();
+  // Brief check on the button after a successful save (keyed on the success time).
+  const saved = useFlash(updateSettings.isSuccess ? updateSettings.submittedAt : 0);
 
   const [companyName, setCompanyName] = useState("");
   const [gstNumber, setGstNumber] = useState("");
@@ -63,14 +68,11 @@ export default function SettingsPage() {
     });
   };
 
-  if (isLoading) return <div className="p-8">Loading settings...</div>;
+  if (isLoading) return <PageSkeleton kpis={0} />;
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">System Settings</h2>
-        <p className="text-muted-foreground mt-1">Configure Auron Business OS parameters and thresholds.</p>
-      </div>
+      <PageHeader title="System Settings" description="Configure Auron Business OS parameters and thresholds." />
 
       <Card>
         <CardHeader>
@@ -90,7 +92,7 @@ export default function SettingsPage() {
             <Label htmlFor="gstRate">Default GST Rate (%)</Label>
             <Input id="gstRate" type="number" value={gstRate} onChange={e => setGstRate(e.target.value)} />
           </div>
-          <Button onClick={handleSave} disabled={updateSettings.isPending}>Save Details</Button>
+          <Button onClick={handleSave} loading={updateSettings.isPending} success={saved && !updateSettings.isPending}>Save Details</Button>
         </CardContent>
       </Card>
 
@@ -123,7 +125,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={handleSave} disabled={updateSettings.isPending}>Update Thresholds</Button>
+          <Button variant="outline" onClick={handleSave} loading={updateSettings.isPending} success={saved && !updateSettings.isPending}>Update Thresholds</Button>
         </CardContent>
       </Card>
 
@@ -138,7 +140,7 @@ export default function SettingsPage() {
             <MoneyInput value={valuationTarget} onValueChange={setValuationTarget} />
             <p className="text-xs text-muted-foreground">e.g. 900,000,000.00 for ₹90 Cr</p>
           </div>
-          <Button onClick={handleSave} disabled={updateSettings.isPending}>Save Targets</Button>
+          <Button onClick={handleSave} loading={updateSettings.isPending} success={saved && !updateSettings.isPending}>Save Targets</Button>
         </CardContent>
       </Card>
     </div>

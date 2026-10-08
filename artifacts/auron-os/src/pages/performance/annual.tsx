@@ -1,11 +1,12 @@
 import { formatAxisMoney } from "@/lib/money";
+import { PageHeader } from "@/components/ds/page-header";
 import { useMemo } from "react";
 import { useGetPerformanceAnnual } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, BarChart3, ChevronRight } from "lucide-react";
+
+import { BarChart3, ChevronRight } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
@@ -46,20 +47,7 @@ export default function PerformanceAnnual() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href="/performance">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-primary" />
-            {year}
-          </h2>
-          <p className="text-muted-foreground mt-1">Annual financial performance overview.</p>
-        </div>
-      </div>
+      <PageHeader back="/performance" icon={BarChart3} title={year} description={<>Annual financial performance overview.</>} />
 
       {hasAnyData && (
         <Card>
@@ -70,14 +58,14 @@ export default function PerformanceAnnual() {
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatAxisMoney(v)} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="Revenue" fill="#3b82f6" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="Expenses" fill="#f97316" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="Profit" fill="#10b981" radius={[2, 2, 0, 0]} />
+                  <CartesianGrid vertical={false} stroke="var(--color-border)" />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="var(--color-muted-foreground)" />
+                  <YAxis tickLine={false} axisLine={false} fontSize={11} width={52} stroke="var(--color-muted-foreground)" tickFormatter={(v: number) => formatAxisMoney(v)} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={{ fill: "var(--color-muted)", opacity: 0.6 }} contentStyle={{ borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-popover)", fontSize: 12 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Revenue" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
+                  <Bar dataKey="Expenses" fill="var(--color-chart-4)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
+                  <Bar dataKey="Profit" fill="var(--color-chart-2)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -120,7 +108,7 @@ export default function PerformanceAnnual() {
                           {MONTH_NAMES[m.month]}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right text-blue-500">
+                      <TableCell className="text-right text-foreground">
                         <Link href={`/performance/${year}/${m.month}`} className="block">
                           {hasData ? formatCurrency(m.revenue) : "—"}
                         </Link>
@@ -140,7 +128,7 @@ export default function PerformanceAnnual() {
                           )}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right text-orange-500">
+                      <TableCell className="text-right text-warning">
                         <Link href={`/performance/${year}/${m.month}`} className="block">
                           {hasData && m.operatingExpenses > 0 ? `-${formatCurrency(m.operatingExpenses)}` : "—"}
                         </Link>
@@ -166,10 +154,10 @@ export default function PerformanceAnnual() {
                 {/* Year totals row */}
                 <TableRow className="bg-muted/50 font-bold border-t-2">
                   <TableCell>Total</TableCell>
-                  <TableCell className="text-right text-blue-500">{formatCurrency(data.totals.revenue)}</TableCell>
+                  <TableCell className="text-right text-foreground">{formatCurrency(data.totals.revenue)}</TableCell>
                   <TableCell className="text-right text-money-out">{data.totals.directCosts > 0 ? `-${formatCurrency(data.totals.directCosts)}` : "—"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(data.totals.grossProfit)}</TableCell>
-                  <TableCell className="text-right text-orange-500">{data.totals.operatingExpenses > 0 ? `-${formatCurrency(data.totals.operatingExpenses)}` : "—"}</TableCell>
+                  <TableCell className="text-right text-warning">{data.totals.operatingExpenses > 0 ? `-${formatCurrency(data.totals.operatingExpenses)}` : "—"}</TableCell>
                   <TableCell className={cn("text-right", data.totals.netProfit >= 0 ? "text-money-in" : "text-money-out")}>
                     {formatCurrency(data.totals.netProfit)}
                   </TableCell>

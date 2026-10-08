@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/ds/page-header";
 import { useGetPerformanceMonthlyProfitability } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Minus, Search } from "lucide-react";
+import { Minus, Search } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -64,35 +65,22 @@ export default function PerformanceProfitability() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}/${month}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <Minus className="h-7 w-7 text-primary" />
-            Event Profitability
-          </h2>
-          <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — {data.events.length} event{data.events.length !== 1 ? "s" : ""}</p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}/${month}`} icon={Minus} title="Event Profitability" description={<>{MONTH_NAMES[month]} {year} — {data.events.length} event{data.events.length !== 1 ? "s" : ""}</>} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Revenue</p>
-            <p className="text-2xl font-bold text-blue-500">{formatCurrency(data.totalRevenue)}</p>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(data.totalRevenue)}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-red-500">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Direct Costs</p>
             <p className="text-2xl font-bold text-money-out">{formatCurrency(data.totalCost)}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-primary">
+        <Card className="">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Gross Profit</p>
             <p className="text-2xl font-bold text-primary">{formatCurrency(data.totalProfit)}</p>
@@ -165,7 +153,7 @@ export default function PerformanceProfitability() {
                       <TableCell className={cn("text-right font-medium", (e.profit ?? 0) >= 0 ? "text-money-in" : "text-money-out")}>
                         {formatCurrency(e.profit ?? 0)}
                       </TableCell>
-                      <TableCell className={cn("text-right", (e.marginPct ?? 0) >= 20 ? "text-money-in" : (e.marginPct ?? 0) >= 10 ? "text-amber-500" : "text-money-out")}>
+                      <TableCell className={cn("text-right", (e.marginPct ?? 0) >= 20 ? "text-money-in" : (e.marginPct ?? 0) >= 10 ? "text-warning" : "text-money-out")}>
                         {(e.revenue ?? 0) > 0 ? formatPercentage(e.marginPct ?? 0) : "—"}
                       </TableCell>
                     </TableRow>

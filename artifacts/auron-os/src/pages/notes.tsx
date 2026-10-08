@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { ListSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import {
   useListNotes,
   getListNotesQueryKey,
@@ -212,15 +214,11 @@ export default function NotesList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Notes</h2>
-          <p className="text-muted-foreground mt-1">Quick reminders, ideas, and follow-ups.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Note
-        </Button>
-      </div>
+      <PageHeader
+        title="Notes"
+        description="Quick reminders, ideas, and follow-ups."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Note </Button>}
+      />
 
       <Card>
         <CardHeader className="py-4 border-b space-y-3">
@@ -262,7 +260,7 @@ export default function NotesList() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-10 text-center text-muted-foreground">Loading notes...</div>
+            <ListSkeleton rows={4} className="p-5" />
           ) : filteredNotes.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground flex flex-col items-center gap-2">
               <StickyNote className="h-8 w-8 opacity-40" />
@@ -335,8 +333,8 @@ export default function NotesList() {
           {FormFields}
           <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createNote.isPending}>
-              {createNote.isPending ? "Saving..." : "Save Note"}
+            <Button onClick={handleCreate} loading={createNote.isPending}>
+              Save Note
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -351,8 +349,8 @@ export default function NotesList() {
           {FormFields}
           <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateNote.isPending}>
-              {updateNote.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateNote.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

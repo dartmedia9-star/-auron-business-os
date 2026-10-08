@@ -1,4 +1,7 @@
 import { useState, useMemo } from "react";
+import { MobileList, MobileListItem } from "@/components/ds/mobile-list";
+import { EmptyState, ListSkeleton, TableSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { 
   useListEvents, 
   getListEventsQueryKey, 
@@ -6,9 +9,9 @@ import {
   useListClients 
 } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { 
   Table, 
   TableBody, 
@@ -26,43 +29,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
-
-export function ProfitabilityBadge({ indicator }: { indicator?: string }) {
-  if (!indicator) return <Badge variant="outline">Awaiting data</Badge>;
-  
-  const config: Record<string, { bg: string, text: string, label: string }> = {
-    excellent: { bg: "bg-emerald-500/10", text: "text-money-in", label: "Excellent" },
-    healthy: { bg: "bg-green-500/10", text: "text-green-500", label: "Healthy" },
-    warning: { bg: "bg-amber-500/10", text: "text-amber-500", label: "Warning" },
-    loss: { bg: "bg-red-500/10", text: "text-money-out", label: "Loss" },
-    awaiting_data: { bg: "bg-slate-500/10", text: "text-slate-500", label: "Awaiting Data" },
-  };
-  
-  const style = config[indicator] || config.awaiting_data;
-  
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-transparent", style.bg, style.text)}>
-      {style.label}
-    </span>
-  );
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { bg: string, text: string, label: string }> = {
-    upcoming: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Upcoming" },
-    in_progress: { bg: "bg-amber-500/10", text: "text-amber-500", label: "In Progress" },
-    completed: { bg: "bg-emerald-500/10", text: "text-money-in", label: "Completed" },
-    cancelled: { bg: "bg-red-500/10", text: "text-money-out", label: "Cancelled" },
-  };
-  
-  const style = config[status] || { bg: "bg-slate-500/10", text: "text-slate-500", label: status };
-  
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-transparent", style.bg, style.text)}>
-      {style.label}
-    </span>
-  );
-}
+import { ProfitabilityBadge, StatusBadge } from "@/components/ds/status-badge";
 
 const EVENT_TYPES = ['Wedding', 'Corporate', 'Birthday', 'Cultural', 'Conference', 'Reception', 'Other'];
 const STATUSES = ['upcoming', 'in_progress', 'completed', 'cancelled'];
@@ -191,15 +158,11 @@ export default function EventsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Events Ledger</h2>
-          <p className="text-muted-foreground mt-1">Manage event productions and track their financial performance.</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> New Event
-        </Button>
-      </div>
+      <PageHeader
+        title="Events Ledger"
+        description="Manage event productions and track their financial performance."
+        actions={<Button onClick={() => setCreateOpen(true)}> <Plus className="mr-2 h-4 w-4" /> New Event </Button>}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90dvh] flex flex-col sm:max-w-lg">
@@ -257,8 +220,8 @@ export default function EventsList() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createEvent.isPending}>
-              {createEvent.isPending ? "Saving..." : "Save Event"}
+            <Button onClick={handleSubmit} loading={createEvent.isPending}>
+              Save Event
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -352,7 +315,31 @@ export default function EventsList() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <MobileList>
+            {isLoading ? (
+              <li><ListSkeleton rows={4} className="p-4" /></li>
+            ) : filteredEvents.length === 0 ? (
+              <li><EmptyState compact title={isFiltered ? "No events match your filters." : "No events found."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></li>
+            ) : (
+              filteredEvents.map((event) => (
+                <MobileListItem
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  title={event.name}
+                  subtitle={`${event.clientName || "—"} · ${formatDate(event.eventDate)}`}
+                  value={formatCurrency(event.totalRevenue)}
+                  badge={<StatusBadge status={event.status} />}
+                  meta={
+                    <span className="flex items-center justify-between gap-2">
+                      <span>Gross profit <span className="font-medium tabular-nums text-foreground">{formatCurrency(event.grossProfit)}</span></span>
+                      <ProfitabilityBadge indicator={event.profitabilityIndicator} />
+                    </span>
+                  }
+                />
+              ))
+            )}
+          </MobileList>
+          <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -369,9 +356,7 @@ export default function EventsList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
-                      Loading events...
-                    </TableCell>
+                    <TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : filteredEvents.length > 0 ? (
                   filteredEvents.map((event) => (
@@ -403,9 +388,7 @@ export default function EventsList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                      {isFiltered ? "No events match your filters." : "No events found."}
-                    </TableCell>
+                    <TableCell colSpan={8} className="p-0 hover:bg-transparent"><EmptyState compact title={isFiltered ? "No events match your filters." : "No events found."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></TableCell>
                   </TableRow>
                 )}
               </TableBody>

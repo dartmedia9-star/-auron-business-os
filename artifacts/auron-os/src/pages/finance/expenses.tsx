@@ -1,4 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
+import { MobileList, MobileListItem } from "@/components/ds/mobile-list";
+import { EmptyState, ListSkeleton, TableSkeleton } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { MoneyInput } from "@/components/ds/money-input";
 import { invalidateFinance } from "@/lib/finance-queries";
 import {
@@ -426,15 +429,11 @@ export default function ExpensesList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Operating Expenses</h2>
-          <p className="text-muted-foreground mt-1">Track SG&A, rent, marketing, and other overheads.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Log Expense
-        </Button>
-      </div>
+      <PageHeader
+        title="Operating Expenses"
+        description="Track SG&A, rent, marketing, and other overheads."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Log Expense </Button>}
+      />
 
       <Card>
         <CardHeader className="py-4 border-b space-y-3">
@@ -536,7 +535,34 @@ export default function ExpensesList() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <MobileList>
+            {isLoading ? (
+              <li><ListSkeleton rows={4} className="p-4" /></li>
+            ) : filteredExpenses.length === 0 ? (
+              <li><EmptyState compact title={isFiltered ? "No expenses match your filters." : "No expenses recorded."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></li>
+            ) : (
+              filteredExpenses.map((exp) => (
+                <MobileListItem
+                  key={exp.id}
+                  title={exp.description}
+                  subtitle={`${exp.category} · ${exp.date ? new Date(exp.date).toLocaleDateString() : `${exp.month}/${exp.year}`}`}
+                  value={formatCurrency(exp.amount)}
+                  meta={exp.eventId ? <>Event: <span className="font-medium text-foreground">{eventMap.get(exp.eventId) || `Event #${exp.eventId}`}</span></> : undefined}
+                  actions={
+                    <>
+                      <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Edit expense" onClick={() => openEdit(exp)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive hover:text-destructive" aria-label="Delete expense" onClick={() => { setSelectedExpense(exp); setDeleteOpen(true); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  }
+                />
+              ))
+            )}
+          </MobileList>
+          <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -551,7 +577,7 @@ export default function ExpensesList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">Loading expenses...</TableCell>
+                    <TableCell colSpan={6} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : filteredExpenses.length > 0 ? (
                   filteredExpenses.map((exp) => (
@@ -568,7 +594,7 @@ export default function ExpensesList() {
                         )}
                       </TableCell>
                       <TableCell>{exp.referenceNumber || "—"}</TableCell>
-                      <TableCell className="text-right font-medium text-orange-500">{formatCurrency(exp.amount)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(exp.amount)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(exp)}>
@@ -583,9 +609,7 @@ export default function ExpensesList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                      {isFiltered ? "No expenses match your filters." : "No expenses recorded."}
-                    </TableCell>
+                    <TableCell colSpan={6} className="p-0 hover:bg-transparent"><EmptyState compact title={isFiltered ? "No expenses match your filters." : "No expenses recorded."} description={isFiltered ? "Try clearing a filter or the search." : undefined} /></TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -602,8 +626,8 @@ export default function ExpensesList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createExpense.isPending}>
-              {createExpense.isPending ? "Saving..." : "Save Expense"}
+            <Button onClick={handleCreate} loading={createExpense.isPending}>
+              Save Expense
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -617,8 +641,8 @@ export default function ExpensesList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateExpense.isPending}>
-              {updateExpense.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateExpense.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

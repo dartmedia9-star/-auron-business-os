@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/ds/page-header";
+import { StatusBadge } from "@/components/ds/status-badge";
 import { useGetPerformanceMonthlyEvents } from "@workspace/api-client-react";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Calendar, Search } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -14,13 +16,6 @@ const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-const STATUS_COLORS: Record<string, string> = {
-  completed: "bg-emerald-500/10 text-money-in",
-  upcoming: "bg-blue-500/10 text-blue-500",
-  in_progress: "bg-amber-500/10 text-amber-500",
-  cancelled: "bg-red-500/10 text-money-out",
-};
 
 export default function PerformanceEvents() {
   const params = useParams<{ year: string; month: string }>();
@@ -68,20 +63,7 @@ export default function PerformanceEvents() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href={`/performance/${year}/${month}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl flex items-center gap-3">
-            <Calendar className="h-7 w-7 text-violet-500" />
-            Events
-          </h2>
-          <p className="text-muted-foreground mt-1">{MONTH_NAMES[month]} {year} — {data.count} event{data.count !== 1 ? "s" : ""}</p>
-        </div>
-      </div>
+      <PageHeader back={`/performance/${year}/${month}`} icon={Calendar} title="Events" description={<>{MONTH_NAMES[month]} {year} — {data.count} event{data.count !== 1 ? "s" : ""}</>} />
 
       <Card>
         <CardContent className="py-4 border-b space-y-3">
@@ -167,9 +149,7 @@ export default function PerformanceEvents() {
                         {e.revenue || e.directCost ? formatCurrency(e.profit ?? 0) : "—"}
                       </TableCell>
                       <TableCell>
-                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", STATUS_COLORS[e.status] ?? "bg-muted text-muted-foreground")}>
-                          {e.status?.replace("_", " ")}
-                        </span>
+                        <StatusBadge status={e.status ?? ""} />
                       </TableCell>
                       <TableCell className="text-muted-foreground">{formatDate(e.eventDate)}</TableCell>
                     </TableRow>

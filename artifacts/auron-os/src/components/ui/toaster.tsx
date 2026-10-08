@@ -18,7 +18,7 @@ export function Toaster() {
         const Icon = props.variant === 'success' ? CheckCircle2 : props.variant === 'destructive' ? AlertCircle : null;
         return (
           <Toast key={id} {...props}>
-            {Icon && <Icon aria-hidden className={props.variant === 'success' ? 'mt-0.5 h-5 w-5 shrink-0 text-success' : 'mt-0.5 h-5 w-5 shrink-0'} />}
+            {Icon && <Icon aria-hidden className={props.variant === 'success' ? 'mt-0.5 h-5 w-5 shrink-0 text-success animate-in zoom-in-50 duration-300' : 'mt-0.5 h-5 w-5 shrink-0 text-destructive'} />}
             <div className="grid flex-1 gap-1">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (

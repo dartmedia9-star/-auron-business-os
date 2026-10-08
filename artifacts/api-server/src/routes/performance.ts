@@ -15,7 +15,7 @@ import {
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 import { getReceivablesLedger, receivablesForEvents, eventInvoiceValue, legacyEventOutstanding } from "../lib/client-receivables";
-import { isInternalTransfer, round2, signedEffect, toMoney } from "../lib/fund-ledger";
+import { isInternalTransfer, round2, signedEffect, summarizeClientReceipts, toMoney } from "../lib/fund-ledger";
 
 const router: IRouter = Router();
 
@@ -102,6 +102,30 @@ router.get("/performance/annual", async (req, res): Promise<void> => {
     opexByMonth.set(e.month, (opexByMonth.get(e.month) ?? 0) + toMoney(e.amount));
   }
 
+  // Cash collected from clients, by ledger transaction_date (same rule as
+  // the monthly cash flow view). Not revenue; shown alongside it.
+  const receiptRows = await db
+    .select({
+      transaction_type: fundTransactionsTable.transaction_type,
+      amount: fundTransactionsTable.amount,
+      transaction_date: fundTransactionsTable.transaction_date,
+    })
+    .from(fundTransactionsTable)
+    .where(
+      and(
+        gte(fundTransactionsTable.transaction_date, fromDate),
+        lte(fundTransactionsTable.transaction_date, toDate),
+        inArray(fundTransactionsTable.transaction_type, ["client_payment", "client_payment_reversal"]),
+      ),
+    );
+  const receiptsByMonth = new Map<number, typeof receiptRows>();
+  for (const r of receiptRows) {
+    const m = parseInt(r.transaction_date.split("-")[1], 10);
+    const list = receiptsByMonth.get(m) ?? [];
+    list.push(r);
+    receiptsByMonth.set(m, list);
+  }
+
   const months = [];
   for (let m = 1; m <= 12; m++) {
     const monthEventIds = eventsByMonth.get(m) ?? [];
@@ -131,6 +155,7 @@ router.get("/performance/annual", async (req, res): Promise<void> => {
       ebitda,
       netProfit,
       eventCount: monthEventIds.length,
+      cashReceived: summarizeClientReceipts(receiptsByMonth.get(m) ?? []).netClientReceipts,
     });
   }
 
@@ -156,6 +181,7 @@ router.get("/performance/annual", async (req, res): Promise<void> => {
       netProfit: yearNetProfit,
       netMarginPct: yearRevenue > 0 ? (yearNetProfit / yearRevenue) * 100 : 0,
       eventCount: yearEventCount,
+      cashReceived: summarizeClientReceipts(receiptRows).netClientReceipts,
     },
   });
 });
@@ -660,9 +686,7 @@ router.get("/performance/monthly/cashflow", async (req, res): Promise<void> => {
 
   // Client payments are a distinct inflow category (cash collection, not P&L
   // revenue), counted from the ledger by payment date.
-  const clientPaymentTotal = round2(transactions.filter((t) => t.type === "client_payment").reduce((s, t) => s + t.moneyIn, 0));
-  const clientPaymentReversalTotal = round2(transactions.filter((t) => t.type === "client_payment_reversal").reduce((s, t) => s + t.moneyOut, 0));
-  const netClientReceipts = round2(clientPaymentTotal - clientPaymentReversalTotal);
+  const { clientPaymentTotal, clientPaymentReversalTotal, netClientReceipts } = summarizeClientReceipts(fundTxs);
   const otherInflows = round2(totalCashIn - clientPaymentTotal);
 
   // The client-payment records dated in this month, for listing.

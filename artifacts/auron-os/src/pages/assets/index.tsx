@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { TableSkeleton, EmptyState } from "@/components/ds/states";
+import { PageHeader } from "@/components/ds/page-header";
 import { MoneyInput } from "@/components/ds/money-input";
 import { 
   useListAssets, 
@@ -190,15 +192,11 @@ export default function AssetsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Asset Management</h2>
-          <p className="text-muted-foreground mt-1">Track inventory, condition, and ROI on owned assets.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Asset
-        </Button>
-      </div>
+      <PageHeader
+        title="Asset Management"
+        description="Track inventory, condition, and ROI on owned assets."
+        actions={<Button onClick={() => { resetForm(); setCreateOpen(true); }}> <Plus className="mr-2 h-4 w-4" /> Add Asset </Button>}
+      />
 
       <Card>
         <CardContent className="p-0">
@@ -218,7 +216,7 @@ export default function AssetsList() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">Loading assets...</TableCell>
+                    <TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell>
                   </TableRow>
                 ) : data && data.length > 0 ? (
                   data.map((asset) => (
@@ -247,7 +245,7 @@ export default function AssetsList() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No assets found.</TableCell>
+                    <TableCell colSpan={7} className="p-0 hover:bg-transparent"><EmptyState compact title="No assets found." /></TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -264,8 +262,8 @@ export default function AssetsList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createAsset.isPending}>
-              {createAsset.isPending ? "Saving..." : "Save Asset"}
+            <Button onClick={handleCreate} loading={createAsset.isPending}>
+              Save Asset
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -279,8 +277,8 @@ export default function AssetsList() {
           {FormContent}
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateAsset.isPending}>
-              {updateAsset.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateAsset.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

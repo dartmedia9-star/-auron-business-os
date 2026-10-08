@@ -5194,6 +5194,12 @@ components:
           type: number
         eventCount:
           type: number
+        netMarginPct:
+          type: number
+          description: Present on annual totals only (already returned by the API)
+        cashReceived:
+          type: number
+          description: Net cash collected from clients (client_payment minus client_payment_reversal ledger rows, by transaction_date). Same rule as netClientReceipts in the monthly cash flow. Not revenue.
 
     PerformanceAnnual:
       type: object

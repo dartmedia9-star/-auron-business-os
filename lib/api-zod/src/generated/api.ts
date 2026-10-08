@@ -2954,7 +2954,9 @@ export const GetPerformanceAnnualResponse = zod.object({
   "operatingExpenses": zod.number(),
   "ebitda": zod.number(),
   "netProfit": zod.number(),
-  "eventCount": zod.number()
+  "eventCount": zod.number(),
+  "netMarginPct": zod.number().optional().describe('Present on annual totals only (already returned by the API)'),
+  "cashReceived": zod.number().optional().describe('Net cash collected from clients (client_payment minus client_payment_reversal ledger rows, by transaction_date). Same rule as netClientReceipts in the monthly cash flow. Not revenue.')
 })),
   "totals": zod.object({
   "month": zod.number(),
@@ -2965,7 +2967,9 @@ export const GetPerformanceAnnualResponse = zod.object({
   "operatingExpenses": zod.number(),
   "ebitda": zod.number(),
   "netProfit": zod.number(),
-  "eventCount": zod.number()
+  "eventCount": zod.number(),
+  "netMarginPct": zod.number().optional().describe('Present on annual totals only (already returned by the API)'),
+  "cashReceived": zod.number().optional().describe('Net cash collected from clients (client_payment minus client_payment_reversal ledger rows, by transaction_date). Same rule as netClientReceipts in the monthly cash flow. Not revenue.')
 })
 })
 

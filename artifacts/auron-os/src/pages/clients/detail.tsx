@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/ds/page-header";
+import { EmptyState, ErrorState, PageSkeleton } from "@/components/ds/states";
+import { UserX } from "lucide-react";
 import { useRoute, Link } from "wouter";
 import { 
   useGetClient, 
@@ -10,9 +13,9 @@ import {
 import { formatCurrency, formatDate, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Mail, Phone, MapPin, Building, Briefcase } from "lucide-react";
+import { Edit, Mail, Phone, MapPin, Building, Briefcase } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ProfitabilityBadge } from "../events";
+import { ProfitabilityBadge } from "@/components/ds/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +31,7 @@ export default function ClientDetail() {
   const [, params] = useRoute("/clients/:id");
   const id = params?.id ? parseInt(params.id, 10) : 0;
   
-  const { data: client, isLoading: isLoadingClient } = useGetClient(id, {
+  const { data: client, isLoading: isLoadingClient, error: clientError, refetch: refetchClient } = useGetClient(id, {
     query: { enabled: !!id, queryKey: getGetClientQueryKey(id) }
   });
 
@@ -98,36 +101,49 @@ export default function ClientDetail() {
     });
   };
 
-  if (isLoadingClient || isLoadingProf) return <div className="p-8">Loading client data...</div>;
-  if (!client) return <div className="p-8">Client not found.</div>;
+  if (isLoadingClient || isLoadingProf) return <PageSkeleton kpis={4} />;
+  if (clientError && !client && !/HTTP 404/.test(String((clientError as Error)?.message))) {
+    return <ErrorState title="Couldn't load this client" error={clientError} onRetry={() => refetchClient()} />;
+  }
+  if (!client) {
+    return (
+      <EmptyState
+        icon={UserX}
+        title="Client not found"
+        description="It may have been deleted, or the link is wrong."
+        action={
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/clients">Back to Clients</Link>
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b pb-4 gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="h-8 w-8 shrink-0">
-            <Link href="/clients"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{client.name}</h2>
-            <div className="text-sm sm:text-base text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                {client.clientType}
-              </span>
-              {client.company && <span>• {client.company}</span>}
-              {client.industry && <span>• {client.industry}</span>}
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setEditOpen(true)}>
-            <Edit className="mr-2 h-4 w-4" /> Edit
-          </Button>
-          <Button className="flex-1 sm:flex-none" asChild>
-            <Link href="/events">New Event</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        back="/clients"
+        backLabel="Back to Clients"
+        title={client.name}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">{client.clientType}</span>
+            {client.company && <span>· {client.company}</span>}
+            {client.industry && <span>· {client.industry}</span>}
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setEditOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </Button>
+            <Button className="flex-1 sm:flex-none" asChild>
+              <Link href="/events">New Event</Link>
+            </Button>
+          </>
+        }
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90dvh] flex flex-col sm:max-w-lg">
@@ -187,8 +203,8 @@ export default function ClientDetail() {
           </div>
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={updateClient.isPending}>
-              {updateClient.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleUpdate} loading={updateClient.isPending}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -271,7 +287,7 @@ export default function ClientDetail() {
                 <CardTitle className="text-xs sm:text-sm text-muted-foreground truncate">Outstanding</CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
-                <div className="text-xl sm:text-2xl font-bold text-amber-500 truncate">{formatCurrency(client.totalOutstanding)}</div>
+                <div className="text-xl sm:text-2xl font-bold text-warning truncate">{formatCurrency(client.totalOutstanding)}</div>
               </CardContent>
             </Card>
           </div>
@@ -310,9 +326,7 @@ export default function ClientDetail() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          No events found.
-                        </TableCell>
+                        <TableCell colSpan={5} className="p-0 hover:bg-transparent"><EmptyState compact title="No events found." /></TableCell>
                       </TableRow>
                     )}
                   </TableBody>

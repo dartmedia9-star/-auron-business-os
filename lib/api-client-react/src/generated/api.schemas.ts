@@ -1854,6 +1854,10 @@ export interface PerformanceMonthSummary {
   ebitda: number;
   netProfit: number;
   eventCount: number;
+  /** Present on annual totals only (already returned by the API) */
+  netMarginPct?: number;
+  /** Net cash collected from clients (client_payment minus client_payment_reversal ledger rows, by transaction_date). Same rule as netClientReceipts in the monthly cash flow. Not revenue. */
+  cashReceived?: number;
 }
 
 export interface PerformanceAnnual {

@@ -1,4 +1,6 @@
 import { formatAxisMoney } from "@/lib/money";
+import { PageHeader } from "@/components/ds/page-header";
+import { ErrorState, PageSkeleton } from "@/components/ds/states";
 import { useGetValuationCommandCenter, getGetValuationCommandCenterQueryKey } from "@workspace/api-client-react";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,20 +8,12 @@ import { Target, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 export default function ValuationCommand() {
-  const { data, isLoading } = useGetValuationCommandCenter({
+  const { data, isLoading, error, refetch } = useGetValuationCommandCenter({
     query: { queryKey: getGetValuationCommandCenterQueryKey() }
   });
 
-  if (isLoading || !data) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {[1,2,3].map(i => <Card key={i} className="h-64 bg-muted/50 animate-pulse" />)}
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton kpis={4} />;
+  if (!data) return <ErrorState title="Couldn't load valuation data" error={error} onRetry={() => refetch()} />;
 
   // Construct fake projection data for the chart based on current and target
   const currentValuation = data.scenarios.find(s => s.scenarioType === 'base')?.estimatedValuation || 0;
@@ -34,13 +28,12 @@ export default function ValuationCommand() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl text-primary flex items-center gap-3">
-          <Target className="h-8 w-8" />
-          ₹90 Crore Valuation Command
-        </h2>
-        <p className="text-muted-foreground mt-1">Strategic scenarios and gap analysis to reach target exit valuation.</p>
-      </div>
+      <PageHeader
+        icon={Target}
+        eyebrow={`Target ${formatCurrency(data.targetValuation)}`}
+        title="Valuation Command"
+        description="Strategic scenarios and gap analysis to reach target exit valuation."
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-card border-primary/50 col-span-4 md:col-span-1">
@@ -102,7 +95,7 @@ export default function ValuationCommand() {
                 <div className="text-sm text-muted-foreground mb-1">Estimated Valuation</div>
                 <div className="text-3xl font-bold">{formatCurrency(scenario.estimatedValuation)}</div>
                 {scenario.gapToTarget && scenario.gapToTarget > 0 ? (
-                  <div className="text-sm text-amber-500 mt-1 flex items-center gap-1">
+                  <div className="text-sm text-warning mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     Gap: {formatCurrency(scenario.gapToTarget)}
                   </div>

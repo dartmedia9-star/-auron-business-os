@@ -84,3 +84,26 @@ const MONEY_TEXT = new Intl.NumberFormat("en-US", { style: "currency", currency:
 export function formatMoneyText(value: number): string {
   return MONEY_TEXT.format(round2(value));
 }
+
+/**
+ * Net client receipts: cash collected from clients, the one rule shared by
+ * the monthly cash flow and the annual performance views. Sums client_payment
+ * inflows minus client_payment_reversal outflows; callers pick the ledger rows
+ * by transaction_date (the payment's business date). Not revenue.
+ */
+export function summarizeClientReceipts(rows: Array<{ transaction_type: string; amount: unknown }>): {
+  clientPaymentTotal: number;
+  clientPaymentReversalTotal: number;
+  netClientReceipts: number;
+} {
+  let paid = 0;
+  let reversed = 0;
+  for (const r of rows) {
+    const effect = signedEffect(r.transaction_type, toMoney(r.amount));
+    if (r.transaction_type === "client_payment" && effect > 0) paid += effect;
+    else if (r.transaction_type === "client_payment_reversal" && effect < 0) reversed += -effect;
+  }
+  const clientPaymentTotal = round2(paid);
+  const clientPaymentReversalTotal = round2(reversed);
+  return { clientPaymentTotal, clientPaymentReversalTotal, netClientReceipts: round2(clientPaymentTotal - clientPaymentReversalTotal) };
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, useReducedMotion } from "framer-motion";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 
 /*
  * Counts from the previously shown value to `value` once, quickly. Used for
@@ -9,12 +10,15 @@ import { animate, useReducedMotion } from "framer-motion";
 export function AnimatedNumber({
   value,
   format,
-  duration = 0.6,
+  duration = DURATION.number,
+  delay = 0,
   className,
 }: {
   value: number;
   format: (n: number) => string;
   duration?: number;
+  /** Seconds to wait before counting, to stagger a row of figures. */
+  delay?: number;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -29,13 +33,14 @@ export function AnimatedNumber({
     }
     const controls = animate(from.current, value, {
       duration,
-      ease: [0.22, 1, 0.36, 1],
+      delay,
+      ease: EASE_OUT,
       onUpdate: (latest) => setDisplay(latest),
       onComplete: () => setDisplay(value),
     });
     from.current = value;
     return () => controls.stop();
-  }, [value, duration, reduceMotion]);
+  }, [value, duration, delay, reduceMotion]);
 
   return (
     <span className={className} aria-label={format(value)}>
