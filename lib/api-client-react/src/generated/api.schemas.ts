@@ -855,6 +855,30 @@ export interface FundTransfer {
   created_at: string;
 }
 
+export interface FundTransferHistoryItem {
+  id: number;
+  from_account_id: number;
+  to_account_id: number;
+  /** @nullable */
+  from_account_name: string | null;
+  /** @nullable */
+  to_account_name: string | null;
+  amount: number;
+  date: string;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  created_by: string | null;
+  /**
+     * Display name of the user who recorded the transfer
+     * @nullable
+     */
+  created_by_name: string | null;
+  created_at: string;
+  /** True when both the transfer_out and transfer_in ledger entries exist */
+  ledger_posted: boolean;
+}
+
 export interface FundTransferInput {
   from_account_id: number;
   to_account_id: number;

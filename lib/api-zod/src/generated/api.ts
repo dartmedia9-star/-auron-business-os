@@ -1473,6 +1473,27 @@ export const ListFundTransactionsResponse = zod.object({
 
 
 /**
+ * Persistent history of internal transfers between fund accounts, with fund names and the user who recorded each transfer. Transfers are internal movements and never affect revenue, expenses or profit.
+ * @summary Fund transfer history, newest first
+ */
+export const ListFundTransfersResponseItem = zod.object({
+  "id": zod.number(),
+  "from_account_id": zod.number(),
+  "to_account_id": zod.number(),
+  "from_account_name": zod.string().nullable(),
+  "to_account_name": zod.string().nullable(),
+  "amount": zod.number(),
+  "date": zod.coerce.date(),
+  "description": zod.string().nullable(),
+  "created_by": zod.string().nullable(),
+  "created_by_name": zod.string().nullable().describe('Display name of the user who recorded the transfer'),
+  "created_at": zod.coerce.date(),
+  "ledger_posted": zod.boolean().describe('True when both the transfer_out and transfer_in ledger entries exist')
+})
+export const ListFundTransfersResponse = zod.array(ListFundTransfersResponseItem)
+
+
+/**
  * @summary Create a fund transfer between accounts
  */
 export const CreateFundTransferBody = zod.object({

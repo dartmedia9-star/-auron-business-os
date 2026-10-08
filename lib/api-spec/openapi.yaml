@@ -1235,6 +1235,29 @@ paths:
           description: Fund account not found
 
   /fund-transfers:
+    get:
+      operationId: listFundTransfers
+      tags: [fundTransfers]
+      summary: Fund transfer history, newest first
+      description: >
+        Persistent history of internal transfers between fund accounts, with
+        fund names and the user who recorded each transfer. Transfers are
+        internal movements and never affect revenue, expenses or profit.
+      responses:
+        "200":
+          description: Fund transfer history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FundTransferHistoryItem"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     post:
       operationId: createFundTransfer
       tags: [fundTransfers]
@@ -3181,6 +3204,39 @@ components:
         created_at:
           type: string
           format: date-time
+
+    FundTransferHistoryItem:
+      type: object
+      required: [id, from_account_id, to_account_id, from_account_name, to_account_name, amount, date, description, created_by, created_by_name, created_at, ledger_posted]
+      properties:
+        id:
+          type: integer
+        from_account_id:
+          type: integer
+        to_account_id:
+          type: integer
+        from_account_name:
+          type: ["string", "null"]
+        to_account_name:
+          type: ["string", "null"]
+        amount:
+          type: number
+        date:
+          type: string
+          format: date
+        description:
+          type: ["string", "null"]
+        created_by:
+          type: ["string", "null"]
+        created_by_name:
+          type: ["string", "null"]
+          description: Display name of the user who recorded the transfer
+        created_at:
+          type: string
+          format: date-time
+        ledger_posted:
+          type: boolean
+          description: True when both the transfer_out and transfer_in ledger entries exist
 
     FundTransferInput:
       type: object

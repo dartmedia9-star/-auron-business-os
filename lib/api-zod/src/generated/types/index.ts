@@ -68,6 +68,7 @@ export * from './fundAccountInput';
 export * from './fundTransaction';
 export * from './fundTransactionTransactionType';
 export * from './fundTransfer';
+export * from './fundTransferHistoryItem';
 export * from './fundTransferInput';
 export * from './getDashboardSummaryParams';
 export * from './getDashboardSummaryPeriod';

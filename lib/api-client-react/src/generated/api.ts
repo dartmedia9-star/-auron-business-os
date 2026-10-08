@@ -55,6 +55,7 @@ import type {
   FundAccount,
   FundAccountInput,
   FundTransfer,
+  FundTransferHistoryItem,
   FundTransferInput,
   GetDashboardSummaryParams,
   GetEventProfitabilityReportParams,
@@ -4165,6 +4166,84 @@ export function useListFundTransactions<TData = Awaited<ReturnType<typeof listFu
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListFundTransactionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListFundTransfersUrl = () => {
+
+
+
+
+  return `/api/fund-transfers`
+}
+
+/**
+ * Persistent history of internal transfers between fund accounts, with fund names and the user who recorded each transfer. Transfers are internal movements and never affect revenue, expenses or profit.
+ * @summary Fund transfer history, newest first
+ */
+export const listFundTransfers = async ( options?: Parameters<typeof customFetch>[1]): Promise<FundTransferHistoryItem[]> => {
+
+  return customFetch<FundTransferHistoryItem[]>(getListFundTransfersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFundTransfersQueryKey = () => {
+    return [
+    `/api/fund-transfers`
+    ] as const;
+    }
+
+
+export const getListFundTransfersQueryOptions = <TData = Awaited<ReturnType<typeof listFundTransfers>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFundTransfers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFundTransfersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFundTransfers>>> = ({ signal }) => listFundTransfers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFundTransfers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFundTransfersQueryResult = NonNullable<Awaited<ReturnType<typeof listFundTransfers>>>
+export type ListFundTransfersQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Fund transfer history, newest first
+ */
+
+export function useListFundTransfers<TData = Awaited<ReturnType<typeof listFundTransfers>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFundTransfers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFundTransfersQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

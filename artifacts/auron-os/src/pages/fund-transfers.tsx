@@ -7,7 +7,9 @@ import {
   useDeleteFundAccount,
   getGetFinanceSummaryQueryKey,
   getListFundTransactionsQueryKey,
+  getListFundTransfersQueryKey,
 } from "@workspace/api-client-react";
+import { FundTransferHistory } from "@/components/fund-transfer-history";
 import type { FundAccount } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -243,6 +245,10 @@ export default function FundTransfers() {
 
           await queryClient.invalidateQueries({
             queryKey: getListFundTransactionsQueryKey(Number(toId)),
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: getListFundTransfersQueryKey(),
           });
 
           await loadBalances();
@@ -602,6 +608,8 @@ export default function FundTransfers() {
           )}
         </CardContent>
       </Card>
+
+      <FundTransferHistory />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, asc, sql, and, gte, lte, isNull } from "drizzle-orm";
+import { eq, desc, asc, sql, and, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   db,
   auditLogsTable,
@@ -9,6 +9,7 @@ import {
   fundAccountsTable,
   fundTransfersTable,
   fundTransactionsTable,
+  usersTable,
 } from "@workspace/db";
 import { getEventDirectCostTotals } from "../lib/event-financials";
 
@@ -336,6 +337,57 @@ router.get("/fund-accounts/:id/transactions", async (req, res): Promise<void> =>
 
 class TransferError extends Error {}
 
+function userDisplayName(user: { firstName: string | null; lastName: string | null; username: string | null; email: string | null }): string | null {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return fullName || user.username || user.email || null;
+}
+
+// GET /fund-transfers - Transfer history feed, newest first. Reads the existing
+// fund_transfers records (the single source of truth for transfers) and
+// resolves fund names and the creating user for display. `ledger_posted` is
+// true when both the transfer_out and transfer_in ledger rows exist, so any
+// transfer whose balance effect is incomplete is visible in the feed.
+// Transfers are internal movements and never touch revenue, expenses or P&L.
+router.get("/fund-transfers", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const transfers = await db
+    .select({
+      id: fundTransfersTable.id,
+      from_account_id: fundTransfersTable.from_account_id,
+      to_account_id: fundTransfersTable.to_account_id,
+      amount: fundTransfersTable.amount,
+      date: fundTransfersTable.date,
+      description: fundTransfersTable.description,
+      created_by: fundTransfersTable.created_by,
+      created_at: fundTransfersTable.created_at,
+      // Fully-qualified raw SQL for the same reason as has_financial_history.
+      ledger_posted:
+        sql<boolean>`exists (select 1 from fund_transactions ft where ft.related_transfer_id = fund_transfers.id and ft.transaction_type = 'transfer_out') and exists (select 1 from fund_transactions ft where ft.related_transfer_id = fund_transfers.id and ft.transaction_type = 'transfer_in')`.mapWith(Boolean),
+    })
+    .from(fundTransfersTable)
+    .orderBy(desc(fundTransfersTable.date), desc(fundTransfersTable.created_at), desc(fundTransfersTable.id));
+
+  const accounts = await db.select({ id: fundAccountsTable.id, name: fundAccountsTable.name }).from(fundAccountsTable);
+  const accountNames = new Map(accounts.map((a) => [a.id, a.name]));
+
+  const creatorIds = [...new Set(transfers.map((t) => t.created_by).filter((id): id is string => !!id))];
+  const creators = creatorIds.length > 0
+    ? await db
+        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, username: usersTable.username, email: usersTable.email })
+        .from(usersTable)
+        .where(inArray(usersTable.id, creatorIds))
+    : [];
+  const creatorNames = new Map(creators.map((u) => [u.id, userDisplayName(u)]));
+
+  res.json(transfers.map((t) => ({
+    ...t,
+    amount: toMoney(t.amount),
+    from_account_name: accountNames.get(t.from_account_id) ?? null,
+    to_account_name: accountNames.get(t.to_account_id) ?? null,
+    created_by_name: t.created_by ? creatorNames.get(t.created_by) ?? null : null,
+  })));
+});
+
 // POST /fund-transfers - Create a fund transfer (atomic: transfer record +
 // transfer_out + transfer_in are committed together; transfers have no P&L impact).
 router.post("/fund-transfers", async (req, res): Promise<void> => {
@@ -387,6 +439,17 @@ router.post("/fund-transfers", async (req, res): Promise<void> => {
         description: description || "Fund transfer",
         related_transfer_id: transferRecord.id,
         created_by: req.user.id,
+      });
+
+      // Audit entry in the same transaction so a transfer never exists
+      // without its audit trail.
+      await tx.insert(auditLogsTable).values({
+        userId: req.user.id,
+        userEmail: req.user.email ?? null,
+        action: "create",
+        entityType: "fund_transfer",
+        entityId: transferRecord.id,
+        newValues: transferRecord,
       });
 
       return transferRecord;
