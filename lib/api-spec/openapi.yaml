@@ -53,6 +53,8 @@ tags:
     description: Financial performance and drill-down analytics
   - name: reports
     description: Analytics and reports
+  - name: rateCatalog
+    description: Rate Calculator master catalog (internal reference rates, not financial records)
 
 paths:
   /healthz:
@@ -2544,6 +2546,225 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PerformanceMonthlyActivity"
+
+  # Rate Calculator catalog (internal reference rates; never financial records)
+  /rate-catalog/categories:
+    get:
+      operationId: listRateCategories
+      tags: [rateCatalog]
+      summary: List rate catalog categories
+      responses:
+        "200":
+          description: Categories, in display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RateCategory"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createRateCategory
+      tags: [rateCatalog]
+      summary: Create a rate catalog category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateCategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateCategory"
+        "400":
+          description: Invalid category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A category with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /rate-catalog/categories/{id}:
+    patch:
+      operationId: updateRateCategory
+      tags: [rateCatalog]
+      summary: Rename or reorder a rate catalog category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateCategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateCategory"
+        "400":
+          description: Invalid category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A category with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteRateCategory
+      tags: [rateCatalog]
+      summary: Delete an empty rate catalog category
+      description: >
+        Only a category with no items (active or inactive) can be deleted;
+        otherwise 409 Conflict. Items are never deleted, only deactivated.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Category still has items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /rate-catalog/items:
+    get:
+      operationId: listRateItems
+      tags: [rateCatalog]
+      summary: List rate catalog items, active and inactive, with their relations
+      responses:
+        "200":
+          description: Catalog items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RateItem"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createRateItem
+      tags: [rateCatalog]
+      summary: Create a rate catalog item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateItem"
+        "400":
+          description: Invalid item configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: An item with this name already exists in the category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /rate-catalog/items/{id}:
+    patch:
+      operationId: updateRateItem
+      tags: [rateCatalog]
+      summary: Update a rate catalog item (including deactivate / reactivate)
+      description: >
+        Changing a rate affects only future selections; calculations keep the
+        rate they captured. Items are never deleted: set isActive to false.
+        When `relations` is sent it replaces the item's relations.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateItem"
+        "400":
+          description: Invalid item configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: An item with this name already exists in the category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
 components:
   parameters:
@@ -5627,3 +5848,275 @@ components:
             $ref: "#/components/schemas/PerformanceActivityLog"
         count:
           type: number
+
+    # Rate Calculator catalog
+    RatePricingMethod:
+      type: string
+      enum: [per_sqft, per_sqm, per_rft, per_rmt, per_unit, fixed, percentage]
+      description: >
+        per_sqft / per_sqm = length × width × rate; per_rft / per_rmt =
+        length × rate; per_unit = quantity × rate; fixed = the rate;
+        percentage = base amount × rate %.
+
+    RatePercentageBase:
+      type: string
+      enum: [manual, selected_items, all_other_items]
+
+    RateDimensionUnit:
+      type: string
+      enum: [ft, m]
+
+    RateRelationType:
+      type: string
+      enum: [includes, conflicts, requires, addon]
+
+    RateCategory:
+      type: object
+      required: [id, name, sortOrder, itemCount, activeItemCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        itemCount:
+          type: integer
+        activeItemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RateCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sortOrder:
+          type: integer
+
+    RateCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sortOrder:
+          type: integer
+
+    RateItemRelation:
+      type: object
+      required: [relatedItemId, relationType]
+      properties:
+        relatedItemId:
+          type: integer
+        relationType:
+          $ref: "#/components/schemas/RateRelationType"
+        note:
+          type: ["string", "null"]
+          maxLength: 300
+
+    RateItem:
+      type: object
+      required: [id, name, categoryId, categoryName, aliases, rate, pricingMethod, percentageBaseItemIds, isActive, relations, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        aliases:
+          type: array
+          items:
+            type: string
+        rate:
+          type: ["number", "null"]
+          description: Unit rate in ₹ (or the percentage for percentage items). Null when not configured.
+        pricingMethod:
+          $ref: "#/components/schemas/RatePricingMethod"
+        unitLabel:
+          type: ["string", "null"]
+        percentageBase:
+          oneOf:
+            - $ref: "#/components/schemas/RatePercentageBase"
+            - type: "null"
+        percentageBaseItemIds:
+          type: array
+          items:
+            type: integer
+        defaultLength:
+          type: ["number", "null"]
+        defaultWidth:
+          type: ["number", "null"]
+        defaultQuantity:
+          type: ["number", "null"]
+        defaultDimensionUnit:
+          oneOf:
+            - $ref: "#/components/schemas/RateDimensionUnit"
+            - type: "null"
+        minBillable:
+          type: ["number", "null"]
+        maxBillable:
+          type: ["number", "null"]
+        conditions:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        relations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RateItemRelation"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RateItemInput:
+      type: object
+      required: [name, categoryId, pricingMethod]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        categoryId:
+          type: integer
+        subcategory:
+          type: ["string", "null"]
+          maxLength: 80
+        description:
+          type: ["string", "null"]
+          maxLength: 1000
+        aliases:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            maxLength: 60
+        rate:
+          type: ["number", "null"]
+          minimum: 0
+        pricingMethod:
+          $ref: "#/components/schemas/RatePricingMethod"
+        unitLabel:
+          type: ["string", "null"]
+          maxLength: 30
+        percentageBase:
+          oneOf:
+            - $ref: "#/components/schemas/RatePercentageBase"
+            - type: "null"
+        percentageBaseItemIds:
+          type: array
+          items:
+            type: integer
+        defaultLength:
+          type: ["number", "null"]
+        defaultWidth:
+          type: ["number", "null"]
+        defaultQuantity:
+          type: ["number", "null"]
+        defaultDimensionUnit:
+          oneOf:
+            - $ref: "#/components/schemas/RateDimensionUnit"
+            - type: "null"
+        minBillable:
+          type: ["number", "null"]
+        maxBillable:
+          type: ["number", "null"]
+        conditions:
+          type: ["string", "null"]
+          maxLength: 1000
+        notes:
+          type: ["string", "null"]
+          maxLength: 2000
+        isActive:
+          type: boolean
+        relations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/RateItemRelation"
+
+    RateItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        categoryId:
+          type: integer
+        subcategory:
+          type: ["string", "null"]
+          maxLength: 80
+        description:
+          type: ["string", "null"]
+          maxLength: 1000
+        aliases:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            maxLength: 60
+        rate:
+          type: ["number", "null"]
+          minimum: 0
+        pricingMethod:
+          $ref: "#/components/schemas/RatePricingMethod"
+        unitLabel:
+          type: ["string", "null"]
+          maxLength: 30
+        percentageBase:
+          oneOf:
+            - $ref: "#/components/schemas/RatePercentageBase"
+            - type: "null"
+        percentageBaseItemIds:
+          type: array
+          items:
+            type: integer
+        defaultLength:
+          type: ["number", "null"]
+        defaultWidth:
+          type: ["number", "null"]
+        defaultQuantity:
+          type: ["number", "null"]
+        defaultDimensionUnit:
+          oneOf:
+            - $ref: "#/components/schemas/RateDimensionUnit"
+            - type: "null"
+        minBillable:
+          type: ["number", "null"]
+        maxBillable:
+          type: ["number", "null"]
+        conditions:
+          type: ["string", "null"]
+          maxLength: 1000
+        notes:
+          type: ["string", "null"]
+          maxLength: 2000
+        isActive:
+          type: boolean
+        relations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/RateItemRelation"

@@ -21,6 +21,7 @@ import {
   Plus,
   LogOut,
   Gem,
+  Calculator,
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -52,6 +53,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
       { href: "/vendors", label: "Vendors", icon: Briefcase },
       { href: "/team", label: "Team", icon: Users2 },
       { href: "/notes", label: "Notes", icon: Text },
+      { href: "/rate-calculator", label: "Rate Calculator", icon: Calculator },
     ],
   },
   {
