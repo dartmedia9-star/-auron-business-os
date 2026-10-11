@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import { useReducedMotion } from "framer-motion";
 import { ArrowRight, Target } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { DashboardSummary, EventTypeStats } from "@workspace/api-client-react";
@@ -10,6 +9,7 @@ import { AnimatedNumber } from "@/components/ds/animated-number";
 import { Button } from "@/components/ui/button";
 import { formatAxisMoney, formatMoney } from "@/lib/money";
 import { formatPercentage } from "@/lib/utils";
+import { chartAxis, chartCursor, chartGrid, ChartTooltipCard, useChartAnimation } from "@/lib/chart-theme";
 
 /* Lead pipeline figures from /dashboard/summary (unchanged calculations). */
 export function PipelineCard({
@@ -24,7 +24,7 @@ export function PipelineCard({
   onRetry: () => void;
 }) {
   return (
-    <section className="flex min-w-0 flex-col rounded-xl border bg-card p-4 shadow-card sm:p-5">
+    <section className="flex min-w-0 flex-col rounded-2xl border bg-card p-4 shadow-[var(--glass-highlight),var(--elev-1)] sm:p-5">
       <SectionHeader
         title="Pipeline"
         description="Open leads, weighted by probability"
@@ -89,7 +89,7 @@ export function EventTypeChart({
   error: unknown;
   onRetry: () => void;
 }) {
-  const reduce = useReducedMotion();
+  const barAnimation = useChartAnimation();
   const rows = data ?? [];
   return (
     <ChartCard
@@ -104,26 +104,26 @@ export function EventTypeChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="30%">
-          <CartesianGrid horizontal={false} stroke="var(--color-border)" strokeOpacity={0.7} />
-          <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} stroke="var(--color-muted-foreground)" tickFormatter={(v: number) => formatAxisMoney(v)} />
-          <YAxis dataKey="eventType" type="category" tickLine={false} axisLine={false} fontSize={11} width={116} stroke="var(--color-muted-foreground)" />
+          <CartesianGrid horizontal={false} {...chartGrid} />
+          <XAxis type="number" {...chartAxis} tickFormatter={(v: number) => formatAxisMoney(v)} />
+          <YAxis dataKey="eventType" type="category" {...chartAxis} width={116} />
           <Tooltip
-            cursor={{ fill: "var(--color-muted)", opacity: 0.6 }}
+            cursor={chartCursor}
             content={({ active, payload }) => {
               const row = payload?.[0]?.payload as EventTypeStats | undefined;
               if (!active || !row) return null;
               return (
-                <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-lift">
+                <ChartTooltipCard>
                   <p className="font-medium">{row.eventType}</p>
                   <p className="mt-1 tabular-nums">{formatMoney(row.totalRevenue)}</p>
                   <p className="text-muted-foreground">
                     {row.eventCount} event{row.eventCount === 1 ? "" : "s"} · {formatPercentage(row.grossMarginPct)} margin
                   </p>
-                </div>
+                </ChartTooltipCard>
               );
             }}
           />
-          <Bar dataKey="totalRevenue" fill="var(--color-chart-1)" radius={[0, 4, 4, 0]} maxBarSize={18} isAnimationActive={!reduce} animationDuration={700} />
+          <Bar dataKey="totalRevenue" fill="var(--color-chart-1)" radius={[0, 4, 4, 0]} maxBarSize={18} {...barAnimation} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

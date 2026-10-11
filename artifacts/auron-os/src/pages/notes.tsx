@@ -22,6 +22,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { AnimatedItem, AnimatedList } from "@/components/ds/animated-list";
 
 type PinFilter = "all" | "pinned" | "unpinned";
 
@@ -280,8 +281,9 @@ export default function NotesList() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    <AnimatedList>
                     {filteredNotes.map((note) => (
-                      <TableRow key={note.id}>
+                      <AnimatedItem as="tr" key={note.id} className="border-b border-border/70 transition-colors duration-150 hover:bg-[hsl(var(--state-hover))]">
                         <TableCell className="whitespace-nowrap">{formatDate(note.created_at)}</TableCell>
                         <TableCell className="max-w-md">
                           <span className="whitespace-pre-wrap break-words">{note.content}</span>
@@ -296,16 +298,18 @@ export default function NotesList() {
                           )}
                         </TableCell>
                         <TableCell><NoteActions note={note} /></TableCell>
-                      </TableRow>
+                      </AnimatedItem>
                     ))}
+                    </AnimatedList>
                   </TableBody>
                 </Table>
               </div>
 
               {/* Mobile cards */}
               <div className="md:hidden divide-y">
+                <AnimatedList>
                 {filteredNotes.map((note) => (
-                  <div key={note.id} className="p-4 space-y-2">
+                  <AnimatedItem key={note.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs text-muted-foreground">{formatDate(note.created_at)}</span>
                       {note.is_pinned && (
@@ -316,8 +320,9 @@ export default function NotesList() {
                     </div>
                     <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
                     <NoteActions note={note} />
-                  </div>
+                  </AnimatedItem>
                 ))}
+                </AnimatedList>
               </div>
             </>
           )}

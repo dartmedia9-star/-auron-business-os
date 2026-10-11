@@ -3,6 +3,7 @@ import { useFlash } from "@/hooks/use-flash";
 import { PageSkeleton } from "@/components/ds/states";
 import { PageHeader } from "@/components/ds/page-header";
 import { MoneyInput } from "@/components/ds/money-input";
+import { AppearanceControls } from "@/components/experience/appearance-controls";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,16 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <PageHeader title="System Settings" description="Configure Auron Business OS parameters and thresholds." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance &amp; Experience</CardTitle>
+          <CardDescription>How Auron looks and moves. Saved on this device only.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppearanceControls />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

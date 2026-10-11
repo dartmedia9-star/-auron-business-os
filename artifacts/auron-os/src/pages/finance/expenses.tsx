@@ -597,10 +597,10 @@ export default function ExpensesList() {
                       <TableCell className="text-right font-medium">{formatCurrency(exp.amount)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(exp)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit expense" onClick={() => openEdit(exp)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => { setSelectedExpense(exp); setDeleteOpen(true); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" aria-label="Delete expense" onClick={() => { setSelectedExpense(exp); setDeleteOpen(true); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

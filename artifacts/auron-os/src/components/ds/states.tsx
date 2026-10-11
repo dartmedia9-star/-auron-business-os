@@ -30,11 +30,11 @@ export function EmptyState({
     <div
       className={cn(
         "flex animate-fade-up flex-col items-center justify-center gap-3 text-center",
-        compact ? "px-4 py-8" : "rounded-xl border border-dashed bg-card/50 px-6 py-12",
+        compact ? "px-4 py-8" : "rounded-2xl border border-dashed bg-card/50 px-6 py-12",
         className,
       )}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-xs">
+      <span className="flex h-11 w-11 animate-pop-in items-center justify-center rounded-2xl border bg-card text-muted-foreground shadow-[var(--glass-highlight),var(--elev-1)]">
         <Icon className="h-5 w-5" />
       </span>
       <div className="max-w-sm space-y-1">
@@ -65,11 +65,11 @@ export function ErrorState({
       role="alert"
       className={cn(
         "flex animate-fade-up flex-col items-center justify-center gap-3 text-center",
-        compact ? "px-4 py-8" : "rounded-xl border border-destructive/25 bg-destructive/[0.03] px-6 py-10",
+        compact ? "px-4 py-8" : "rounded-2xl border border-destructive/25 bg-destructive/[0.04] px-6 py-10",
         className,
       )}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+      <span className="flex h-11 w-11 animate-pop-in items-center justify-center rounded-xl bg-destructive/10 text-destructive">
         <AlertTriangle className="h-5 w-5" />
       </span>
       <div className="max-w-md space-y-1">
@@ -103,7 +103,7 @@ export function CardsSkeleton({ count = 4, className }: { count?: number; classN
   return (
     <div className={cn("grid grid-cols-2 gap-3 lg:grid-cols-4", className)} aria-busy="true" aria-label="Loading">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="rounded-xl border bg-card p-5 shadow-card">
+        <div key={i} className="glass rounded-2xl p-5">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="mt-4 h-7 w-32" />
         </div>
@@ -151,7 +151,7 @@ export function PageSkeleton({ kpis = 4 }: { kpis?: number }) {
         <Skeleton className="h-4 w-80 max-w-full" />
       </div>
       {kpis > 0 && <CardsSkeleton count={kpis} />}
-      <div className="rounded-xl border bg-card shadow-card">
+      <div className="rounded-2xl border bg-card shadow-card">
         <TableSkeleton />
       </div>
     </div>

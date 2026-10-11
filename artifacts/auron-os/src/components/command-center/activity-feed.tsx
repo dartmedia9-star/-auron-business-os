@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, History } from "lucide-react";
 import type { AuditLog } from "@workspace/api-client-react";
@@ -30,6 +30,22 @@ export function ActivityFeed({
   onRetry: () => void;
   activityHref: string;
 }) {
+  // Entries that arrive after the first load (a live update or a refresh)
+  // are highlighted once; the initial list never flashes.
+  const seen = useRef<Set<number> | null>(null);
+  const [fresh, setFresh] = useState<ReadonlySet<number>>(() => new Set());
+  useEffect(() => {
+    if (loading) return;
+    const ids = logs.map((l) => l.id);
+    if (!seen.current) {
+      seen.current = new Set(ids);
+      return;
+    }
+    const added = ids.filter((id) => !seen.current!.has(id));
+    for (const id of added) seen.current.add(id);
+    if (added.length > 0) setFresh(new Set(added));
+  }, [logs, loading]);
+
   const lines = useMemo(
     () =>
       logs.map((log) => ({
@@ -40,7 +56,7 @@ export function ActivityFeed({
   );
 
   return (
-    <section className="flex min-w-0 flex-col rounded-xl border bg-card shadow-card">
+    <section className="flex min-w-0 flex-col rounded-2xl border bg-card shadow-[var(--glass-highlight),var(--elev-1)]">
       <SectionHeader
         className="px-4 pt-4 sm:px-5 sm:pt-5"
         title="Recent financial activity"
@@ -71,6 +87,7 @@ export function ActivityFeed({
                 amount={activityAmountText(line)}
                 at={log.createdAt}
                 href={line.href}
+                fresh={fresh.has(log.id)}
               />
             ))}
           </Timeline>

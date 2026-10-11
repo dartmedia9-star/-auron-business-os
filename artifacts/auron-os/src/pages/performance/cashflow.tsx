@@ -55,7 +55,7 @@ export default function PerformanceCashflow() {
       <div className="mx-auto max-w-6xl space-y-6">
         {header}
         <CardsSkeleton count={4} />
-        <div className="rounded-xl border bg-card"><TableSkeleton rows={6} cols={6} /></div>
+        <div className="rounded-2xl border bg-card"><TableSkeleton rows={6} cols={6} /></div>
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function PerformanceCashflow() {
         <KpiCard label="Internal transfers" value={data.totalTransfers} icon={ArrowLeftRight} tone="info" hint={`${data.transferCount} transfer${data.transferCount !== 1 ? "s" : ""} · not cash in/out`} />
       </div>
 
-      <section className="rounded-xl border bg-card shadow-card">
+      <section className="rounded-2xl border bg-card shadow-card">
         <div className="flex flex-col gap-1 border-b p-4 sm:flex-row sm:items-baseline sm:justify-between sm:p-5">
           <h3 className="text-base font-semibold">Cash movements</h3>
           <p className="text-xs text-muted-foreground">{cashRows.length} entr{cashRows.length === 1 ? "y" : "ies"} counted in cash in/out</p>
@@ -126,7 +126,7 @@ export default function PerformanceCashflow() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border bg-card shadow-card">
+        <section className="rounded-2xl border bg-card shadow-card">
           <div className="flex items-center gap-2 border-b p-4 sm:p-5">
             <Users className="h-4 w-4 text-success" />
             <h3 className="text-base font-semibold">Money received from clients</h3>
@@ -154,7 +154,7 @@ export default function PerformanceCashflow() {
           )}
         </section>
 
-        <section className="rounded-xl border bg-card shadow-card">
+        <section className="rounded-2xl border bg-card shadow-card">
           <div className="flex items-center gap-2 border-b p-4 sm:p-5">
             <ArrowLeftRight className="h-4 w-4 text-info" />
             <h3 className="text-base font-semibold">Internal transfers</h3>

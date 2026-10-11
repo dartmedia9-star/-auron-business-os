@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const PIPELINE_STAGES = [
-  { id: "new", label: "New", color: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
+  { id: "new", label: "New", color: "bg-muted text-muted-foreground border-border" },
   { id: "contacted", label: "Contacted", color: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
   { id: "qualified", label: "Qualified", color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" },
   { id: "requirement_received", label: "Req Received", color: "bg-violet-500/10 text-violet-500 border-violet-500/20" },

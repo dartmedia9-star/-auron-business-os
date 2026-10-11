@@ -1,10 +1,10 @@
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "wouter";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CircleDot, RotateCcw } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { cn } from "@/lib/utils";
-import { fadeUp, staggerContainer } from "@/lib/motion";
+import { fadeUp, staggerContainer, useReduceMotion } from "@/lib/motion";
 import type { ActivityKind } from "@/lib/activity";
 
 const KIND: Record<ActivityKind, { icon: ComponentType<{ className?: string }>; className: string; amount: string }> = {
@@ -36,6 +36,7 @@ export function ActivityItem({
   amount,
   at,
   href,
+  fresh = false,
 }: {
   kind: ActivityKind;
   title: string;
@@ -43,13 +44,16 @@ export function ActivityItem({
   amount?: string | null;
   at: string;
   href?: string | null;
+  /** Arrived after the list first loaded: briefly highlighted once. */
+  fresh?: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const meta = KIND[kind];
   const Icon = meta.icon;
   const when = new Date(at);
   const body = (
-    <div className="flex items-start gap-3 rounded-lg px-0 py-2 transition-colors duration-150">
+    <div className="relative flex items-start gap-3 rounded-lg px-0 py-2 transition-colors duration-150" data-fresh={fresh || undefined}>
+      {fresh && <span aria-hidden className="pointer-events-none absolute -inset-x-2 inset-y-0 rounded-lg animate-pulse-highlight" />}
       <span className={cn("relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-card", meta.className)}>
         <Icon className="h-3.5 w-3.5" />
       </span>
@@ -70,7 +74,7 @@ export function ActivityItem({
   return (
     <motion.li variants={fadeUp(reduce, 6)} className="group">
       {href ? (
-        <Link href={href} className="-mx-2 block rounded-lg px-2 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href={href} className="-mx-2 block rounded-lg px-2 hover:bg-[hsl(var(--state-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {body}
         </Link>
       ) : (

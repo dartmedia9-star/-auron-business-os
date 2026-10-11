@@ -39,6 +39,7 @@ export function KpiCard({
   href,
   delay = 0,
   loading = false,
+  size = "md",
   className,
 }: {
   label: string;
@@ -54,6 +55,8 @@ export function KpiCard({
   /** Seconds to delay the count-up, to stagger a row of cards. */
   delay?: number;
   loading?: boolean;
+  /** "lg" gives a headline figure more weight; "md" is the standard card. */
+  size?: "md" | "lg";
   className?: string;
 }) {
   const t = TONES[tone];
@@ -63,8 +66,9 @@ export function KpiCard({
   const body = (
     <div
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-xl border bg-card p-3.5 shadow-card transition-[box-shadow,transform,border-color] duration-200 ease-out sm:p-5",
-        href && "hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-lift",
+        "glass group relative flex h-full flex-col overflow-hidden rounded-2xl p-3.5 transition-[box-shadow,transform,border-color] duration-300 ease-[var(--ease-spring)] sm:p-5",
+        "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-foreground/15 before:to-transparent",
+        href && "hover:-translate-y-1 hover:border-foreground/15 hover:shadow-[var(--glass-highlight),var(--elev-2)] active:translate-y-0 active:scale-[0.99]",
         className,
       )}
     >
@@ -93,7 +97,11 @@ export function KpiCard({
             value={value}
             format={format}
             delay={delay}
-            className={cn("mt-2 block text-[clamp(15px,4.4vw,22px)] font-semibold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-2xl", t.value)}
+            className={cn(
+              "mt-2 block font-semibold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere]",
+              "text-[clamp(15px,4.4vw,22px)] sm:text-2xl", size === "lg" && "xl:text-[30px]",
+              t.value,
+            )}
           />
           {(trend || hint) && (
             <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -124,7 +132,7 @@ export function KpiCard({
     </div>
   );
   return href ? (
-    <Link href={href} className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={href} className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {body}
     </Link>
   ) : (

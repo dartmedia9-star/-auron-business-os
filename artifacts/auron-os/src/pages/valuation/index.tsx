@@ -6,8 +6,10 @@ import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Target, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { chartAxis, chartGrid, chartTooltipStyle, useChartAnimation } from "@/lib/chart-theme";
 
 export default function ValuationCommand() {
+  const lineAnimation = useChartAnimation();
   const { data, isLoading, error, refetch } = useGetValuationCommandCenter({
     query: { queryKey: getGetValuationCommandCenterQueryKey() }
   });
@@ -35,13 +37,13 @@ export default function ValuationCommand() {
         description="Strategic scenarios and gap analysis to reach target exit valuation."
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-card border-primary/50 col-span-4 md:col-span-1">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="bg-card border-primary/50 min-w-0 md:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-primary">Target Valuation</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold text-primary">{formatCurrency(data.targetValuation)}</div>
+            <div className="text-3xl font-bold tabular-nums text-primary [overflow-wrap:anywhere] sm:text-4xl md:text-2xl 2xl:text-3xl">{formatCurrency(data.targetValuation)}</div>
             <div className="mt-4 pt-4 border-t border-primary/20 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Current Revenue</span>
@@ -55,7 +57,7 @@ export default function ValuationCommand() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-4 md:col-span-3">
+        <Card className="min-w-0 md:col-span-3">
           <CardHeader>
             <CardTitle>Growth Trajectory to Target</CardTitle>
           </CardHeader>
@@ -63,16 +65,16 @@ export default function ValuationCommand() {
             <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                  <XAxis dataKey="year" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val: number) => formatAxisMoney(val)} />
+                  <CartesianGrid {...chartGrid} vertical={false} />
+                  <XAxis dataKey="year" {...chartAxis} />
+                  <YAxis {...chartAxis} tickFormatter={(val: number) => formatAxisMoney(val)} />
                   <RechartsTooltip 
-                    contentStyle={{ backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
+                    {...chartTooltipStyle}
                     formatter={(value: number) => [formatCurrency(value), undefined]}
                   />
-                  <Line type="monotone" dataKey="Base" stroke="var(--color-chart-3)" strokeWidth={2} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="Aggressive" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 4 }} />
-                  <Line type="step" dataKey="Target" stroke="var(--color-chart-2)" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Base" stroke="var(--color-chart-3)" strokeWidth={2} dot={{ r: 4 }} {...lineAnimation} />
+                  <Line type="monotone" dataKey="Aggressive" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 4 }} {...lineAnimation} />
+                  <Line type="step" dataKey="Target" stroke="var(--color-chart-2)" strokeDasharray="5 5" strokeWidth={2} dot={false} {...lineAnimation} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -80,9 +82,9 @@ export default function ValuationCommand() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {data.scenarios.map((scenario) => (
-          <Card key={scenario.id} className={scenario.scenarioType === 'base' ? 'ring-1 ring-primary/50' : ''}>
+          <Card key={scenario.id} className={scenario.scenarioType === 'base' ? 'min-w-0 ring-1 ring-primary/50' : 'min-w-0'}>
             <CardHeader>
               <CardTitle className="flex justify-between items-center capitalize">
                 {scenario.scenarioType} Scenario

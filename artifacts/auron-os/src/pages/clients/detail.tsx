@@ -210,7 +210,7 @@ export default function ClientDetail() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Contact Information</CardTitle>

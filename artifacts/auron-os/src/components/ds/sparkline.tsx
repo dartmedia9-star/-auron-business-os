@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { DURATION, EASE_OUT } from "@/lib/motion";
+import { motion } from "framer-motion";
+import { DURATION, EASE_OUT, useReduceMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /*
@@ -16,7 +16,7 @@ export function Sparkline({
   className?: string;
   delay?: number;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const gradientId = useId().replace(/:/g, "");
   const clipId = useId().replace(/:/g, "");
   if (values.length < 2 || values.every((v) => v === 0)) return null;

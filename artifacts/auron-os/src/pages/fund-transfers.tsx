@@ -311,7 +311,7 @@ export default function FundTransfers() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-card">
+          <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-card">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total available</p>
             <AnimatedNumber value={totalBalance} format={(n) => formatINR(n)} className="mt-2 block text-2xl font-semibold tabular-nums tracking-tight" />
             <p className="mt-1 text-xs text-muted-foreground">Across {accountList.length} fund account{accountList.length === 1 ? "" : "s"}</p>
@@ -319,7 +319,7 @@ export default function FundTransfers() {
           {accountList.map((acct) => {
             const balance = balanceOf(acct.id);
             return (
-              <div key={acct.id} className="group rounded-xl border bg-card p-5 shadow-card transition-shadow duration-200 hover:shadow-lift">
+              <div key={acct.id} className="group rounded-2xl border bg-card p-5 shadow-card transition-shadow duration-200 hover:shadow-lift">
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate text-sm font-medium">{acct.name}</p>
                   <DropdownMenu>

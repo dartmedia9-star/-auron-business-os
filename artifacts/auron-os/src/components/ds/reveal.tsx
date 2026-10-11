@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { fadeUp, staggerContainer, STAGGER } from "@/lib/motion";
+import { motion } from "framer-motion";
+import { fadeUp, staggerContainer, STAGGER, useMotionProfile } from "@/lib/motion";
 
 /*
  * Section entrance: fades and rises once when it first scrolls into view.
@@ -18,7 +18,7 @@ export function Reveal({
   delay?: number;
   as?: "div" | "section" | "li";
 }) {
-  const reduce = useReducedMotion();
+  const { intensity, distance } = useMotionProfile();
   const Comp = motion[as];
   return (
     <Comp
@@ -26,7 +26,7 @@ export function Reveal({
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: "0px 0px -40px 0px" }}
-      variants={fadeUp(reduce, 8, delay)}
+      variants={fadeUp(intensity === "reduced", 8 * distance, delay)}
     >
       {children}
     </Comp>
@@ -72,10 +72,10 @@ export function StaggerItem({
   as?: "div" | "li" | "tr";
   onClick?: () => void;
 }) {
-  const reduce = useReducedMotion();
+  const { intensity, distance } = useMotionProfile();
   const Comp = motion[as];
   return (
-    <Comp className={className} variants={fadeUp(reduce)} onClick={onClick}>
+    <Comp className={className} variants={fadeUp(intensity === "reduced", 8 * distance)} onClick={onClick}>
       {children}
     </Comp>
   );

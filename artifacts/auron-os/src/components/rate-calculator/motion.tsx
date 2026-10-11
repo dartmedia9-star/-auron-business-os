@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, animate, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, animate, motion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
 import { formatMoney } from "@/lib/money";
-import { DURATION, EASE_OUT } from "@/lib/motion";
+import { DURATION, EASE_OUT, useReduceMotion } from "@/lib/motion";
 import { formatPaise } from "@/lib/rate-calculator";
 import { useCopy } from "./shared";
 
 /*
  * Small motion pieces used only by the Rate Calculator. Short, transform and
- * opacity only, and still with reduced motion (the page is also wrapped in
- * <MotionConfig reducedMotion="user">).
+ * opacity only, and still with reduced motion (the OS setting or the
+ * "Reduced" preference, through the root MotionConfig).
  */
 
 /**
@@ -19,7 +19,7 @@ import { useCopy } from "./shared";
  */
 export function RollingMoney({ paise, className, testId }: { paise: bigint; className?: string; testId?: string }) {
   const value = Number(paise) / 100;
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const [display, setDisplay] = useState(value);
   const shown = useRef(value);
 
@@ -66,7 +66,7 @@ export function CopyGlyph({ copied, className = "h-3.5 w-3.5" }: { copied: boole
           transition={{ duration: DURATION.fast, ease: EASE_OUT }}
           className="inline-flex"
         >
-          {copied ? <Check className={`${className} text-emerald-600 dark:text-emerald-400`} /> : <Copy className={className} />}
+          {copied ? <Check className={`${className} text-success`} /> : <Copy className={className} />}
         </motion.span>
       </AnimatePresence>
     </span>
