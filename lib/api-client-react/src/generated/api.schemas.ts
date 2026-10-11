@@ -2111,6 +2111,250 @@ export interface PerformanceMonthlyActivity {
 }
 
 /**
+ * per_sqft / per_sqm = length × width × rate; per_rft / per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.
+ */
+export type RatePricingMethod = typeof RatePricingMethod[keyof typeof RatePricingMethod];
+
+
+export const RatePricingMethod = {
+  per_sqft: 'per_sqft',
+  per_sqm: 'per_sqm',
+  per_rft: 'per_rft',
+  per_rmt: 'per_rmt',
+  per_unit: 'per_unit',
+  fixed: 'fixed',
+  percentage: 'percentage',
+} as const;
+
+export type RatePercentageBase = typeof RatePercentageBase[keyof typeof RatePercentageBase];
+
+
+export const RatePercentageBase = {
+  manual: 'manual',
+  selected_items: 'selected_items',
+  all_other_items: 'all_other_items',
+} as const;
+
+export type RateDimensionUnit = typeof RateDimensionUnit[keyof typeof RateDimensionUnit];
+
+
+export const RateDimensionUnit = {
+  ft: 'ft',
+  m: 'm',
+} as const;
+
+export type RateRelationType = typeof RateRelationType[keyof typeof RateRelationType];
+
+
+export const RateRelationType = {
+  includes: 'includes',
+  conflicts: 'conflicts',
+  requires: 'requires',
+  addon: 'addon',
+} as const;
+
+export interface RateCategory {
+  id: number;
+  name: string;
+  sortOrder: number;
+  itemCount: number;
+  activeItemCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface RateCategoryInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  sortOrder?: number;
+}
+
+export interface RateCategoryUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name?: string;
+  sortOrder?: number;
+}
+
+export interface RateItemRelation {
+  relatedItemId: number;
+  relationType: RateRelationType;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  note?: string | null;
+}
+
+export interface RateItem {
+  id: number;
+  name: string;
+  categoryId: number;
+  categoryName: string;
+  /** @nullable */
+  subcategory?: string | null;
+  /** @nullable */
+  description?: string | null;
+  aliases: string[];
+  /**
+     * Unit rate in ₹ (or the percentage for percentage items). Null when not configured.
+     * @nullable
+     */
+  rate: number | null;
+  pricingMethod: RatePricingMethod;
+  /** @nullable */
+  unitLabel?: string | null;
+  percentageBase?: RatePercentageBase | null;
+  percentageBaseItemIds: number[];
+  /** @nullable */
+  defaultLength?: number | null;
+  /** @nullable */
+  defaultWidth?: number | null;
+  /** @nullable */
+  defaultQuantity?: number | null;
+  defaultDimensionUnit?: RateDimensionUnit | null;
+  /** @nullable */
+  minBillable?: number | null;
+  /** @nullable */
+  maxBillable?: number | null;
+  /** @nullable */
+  conditions?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  isActive: boolean;
+  relations: RateItemRelation[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface RateItemInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  categoryId: number;
+  /**
+     * @maxLength 80
+     * @nullable
+     */
+  subcategory?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  description?: string | null;
+  /**
+     * @maxItems 30
+     * @items.maxLength 60
+     */
+  aliases?: string[];
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  rate?: number | null;
+  pricingMethod: RatePricingMethod;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  unitLabel?: string | null;
+  percentageBase?: RatePercentageBase | null;
+  percentageBaseItemIds?: number[];
+  /** @nullable */
+  defaultLength?: number | null;
+  /** @nullable */
+  defaultWidth?: number | null;
+  /** @nullable */
+  defaultQuantity?: number | null;
+  defaultDimensionUnit?: RateDimensionUnit | null;
+  /** @nullable */
+  minBillable?: number | null;
+  /** @nullable */
+  maxBillable?: number | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  conditions?: string | null;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  notes?: string | null;
+  isActive?: boolean;
+  /** @maxItems 50 */
+  relations?: RateItemRelation[];
+}
+
+export interface RateItemUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name?: string;
+  categoryId?: number;
+  /**
+     * @maxLength 80
+     * @nullable
+     */
+  subcategory?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  description?: string | null;
+  /**
+     * @maxItems 30
+     * @items.maxLength 60
+     */
+  aliases?: string[];
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  rate?: number | null;
+  pricingMethod?: RatePricingMethod;
+  /**
+     * @maxLength 30
+     * @nullable
+     */
+  unitLabel?: string | null;
+  percentageBase?: RatePercentageBase | null;
+  percentageBaseItemIds?: number[];
+  /** @nullable */
+  defaultLength?: number | null;
+  /** @nullable */
+  defaultWidth?: number | null;
+  /** @nullable */
+  defaultQuantity?: number | null;
+  defaultDimensionUnit?: RateDimensionUnit | null;
+  /** @nullable */
+  minBillable?: number | null;
+  /** @nullable */
+  maxBillable?: number | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  conditions?: string | null;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  notes?: string | null;
+  isActive?: boolean;
+  /** @maxItems 50 */
+  relations?: RateItemRelation[];
+}
+
+/**
  * Opaque session token — `Bearer <sid>`.
  */
 export type AuthorizationSessionHeaderParameter = string;

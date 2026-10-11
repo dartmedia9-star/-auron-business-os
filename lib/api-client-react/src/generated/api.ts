@@ -133,6 +133,12 @@ import type {
   PerformanceMonthlyRevenue,
   PerformanceYears,
   PipelineSummary,
+  RateCategory,
+  RateCategoryInput,
+  RateCategoryUpdate,
+  RateItem,
+  RateItemInput,
+  RateItemUpdate,
   ReceivablesSummary,
   RevenueTrendPoint,
   SearchResults,
@@ -8523,4 +8529,517 @@ export function useGetPerformanceMonthlyActivity<TData = Awaited<ReturnType<type
 
 
 
+
+export const getListRateCategoriesUrl = () => {
+
+
+
+
+  return `/api/rate-catalog/categories`
+}
+
+/**
+ * @summary List rate catalog categories
+ */
+export const listRateCategories = async ( options?: Parameters<typeof customFetch>[1]): Promise<RateCategory[]> => {
+
+  return customFetch<RateCategory[]>(getListRateCategoriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRateCategoriesQueryKey = () => {
+    return [
+    `/api/rate-catalog/categories`
+    ] as const;
+    }
+
+
+export const getListRateCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listRateCategories>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRateCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRateCategoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRateCategories>>> = ({ signal }) => listRateCategories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRateCategories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRateCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listRateCategories>>>
+export type ListRateCategoriesQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List rate catalog categories
+ */
+
+export function useListRateCategories<TData = Awaited<ReturnType<typeof listRateCategories>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRateCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRateCategoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRateCategoryUrl = () => {
+
+
+
+
+  return `/api/rate-catalog/categories`
+}
+
+/**
+ * @summary Create a rate catalog category
+ */
+export const createRateCategory = async (rateCategoryInput: RateCategoryInput, options?: Parameters<typeof customFetch>[1]): Promise<RateCategory> => {
+
+  return customFetch<RateCategory>(getCreateRateCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rateCategoryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRateCategoryMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRateCategory>>, TError,{data: BodyType<RateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRateCategory>>, TError,{data: BodyType<RateCategoryInput>}, TContext> => {
+
+const mutationKey = ['createRateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRateCategory>>, {data: BodyType<RateCategoryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRateCategory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createRateCategory>>>
+    export type CreateRateCategoryMutationBody = BodyType<RateCategoryInput>
+    export type CreateRateCategoryMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a rate catalog category
+ */
+export const useCreateRateCategory = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRateCategory>>, TError,{data: BodyType<RateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRateCategory>>,
+        TError,
+        {data: BodyType<RateCategoryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRateCategoryMutationOptions(options));
+    }
+
+export const getUpdateRateCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/rate-catalog/categories/${id}`
+}
+
+/**
+ * @summary Rename or reorder a rate catalog category
+ */
+export const updateRateCategory = async (id: number,
+    rateCategoryUpdate: RateCategoryUpdate, options?: Parameters<typeof customFetch>[1]): Promise<RateCategory> => {
+
+  return customFetch<RateCategory>(getUpdateRateCategoryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rateCategoryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRateCategoryMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRateCategory>>, TError,{id: number;data: BodyType<RateCategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRateCategory>>, TError,{id: number;data: BodyType<RateCategoryUpdate>}, TContext> => {
+
+const mutationKey = ['updateRateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRateCategory>>, {id: number;data: BodyType<RateCategoryUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRateCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof updateRateCategory>>>
+    export type UpdateRateCategoryMutationBody = BodyType<RateCategoryUpdate>
+    export type UpdateRateCategoryMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Rename or reorder a rate catalog category
+ */
+export const useUpdateRateCategory = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRateCategory>>, TError,{id: number;data: BodyType<RateCategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRateCategory>>,
+        TError,
+        {id: number;data: BodyType<RateCategoryUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRateCategoryMutationOptions(options));
+    }
+
+export const getDeleteRateCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/rate-catalog/categories/${id}`
+}
+
+/**
+ * Only a category with no items (active or inactive) can be deleted; otherwise 409 Conflict. Items are never deleted, only deactivated.
+ * @summary Delete an empty rate catalog category
+ */
+export const deleteRateCategory = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteRateCategoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRateCategoryMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRateCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRateCategory>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteRateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRateCategory>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRateCategory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRateCategory>>>
+
+    export type DeleteRateCategoryMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Delete an empty rate catalog category
+ */
+export const useDeleteRateCategory = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRateCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRateCategory>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRateCategoryMutationOptions(options));
+    }
+
+export const getListRateItemsUrl = () => {
+
+
+
+
+  return `/api/rate-catalog/items`
+}
+
+/**
+ * @summary List rate catalog items, active and inactive, with their relations
+ */
+export const listRateItems = async ( options?: Parameters<typeof customFetch>[1]): Promise<RateItem[]> => {
+
+  return customFetch<RateItem[]>(getListRateItemsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRateItemsQueryKey = () => {
+    return [
+    `/api/rate-catalog/items`
+    ] as const;
+    }
+
+
+export const getListRateItemsQueryOptions = <TData = Awaited<ReturnType<typeof listRateItems>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRateItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRateItemsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRateItems>>> = ({ signal }) => listRateItems({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRateItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRateItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listRateItems>>>
+export type ListRateItemsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List rate catalog items, active and inactive, with their relations
+ */
+
+export function useListRateItems<TData = Awaited<ReturnType<typeof listRateItems>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRateItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRateItemsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRateItemUrl = () => {
+
+
+
+
+  return `/api/rate-catalog/items`
+}
+
+/**
+ * @summary Create a rate catalog item
+ */
+export const createRateItem = async (rateItemInput: RateItemInput, options?: Parameters<typeof customFetch>[1]): Promise<RateItem> => {
+
+  return customFetch<RateItem>(getCreateRateItemUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rateItemInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRateItemMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRateItem>>, TError,{data: BodyType<RateItemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRateItem>>, TError,{data: BodyType<RateItemInput>}, TContext> => {
+
+const mutationKey = ['createRateItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRateItem>>, {data: BodyType<RateItemInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRateItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRateItemMutationResult = NonNullable<Awaited<ReturnType<typeof createRateItem>>>
+    export type CreateRateItemMutationBody = BodyType<RateItemInput>
+    export type CreateRateItemMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a rate catalog item
+ */
+export const useCreateRateItem = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRateItem>>, TError,{data: BodyType<RateItemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRateItem>>,
+        TError,
+        {data: BodyType<RateItemInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRateItemMutationOptions(options));
+    }
+
+export const getUpdateRateItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/rate-catalog/items/${id}`
+}
+
+/**
+ * Changing a rate affects only future selections; calculations keep the rate they captured. Items are never deleted: set isActive to false. When `relations` is sent it replaces the item's relations.
+ * @summary Update a rate catalog item (including deactivate / reactivate)
+ */
+export const updateRateItem = async (id: number,
+    rateItemUpdate: RateItemUpdate, options?: Parameters<typeof customFetch>[1]): Promise<RateItem> => {
+
+  return customFetch<RateItem>(getUpdateRateItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rateItemUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRateItemMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRateItem>>, TError,{id: number;data: BodyType<RateItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRateItem>>, TError,{id: number;data: BodyType<RateItemUpdate>}, TContext> => {
+
+const mutationKey = ['updateRateItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRateItem>>, {id: number;data: BodyType<RateItemUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRateItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRateItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateRateItem>>>
+    export type UpdateRateItemMutationBody = BodyType<RateItemUpdate>
+    export type UpdateRateItemMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update a rate catalog item (including deactivate / reactivate)
+ */
+export const useUpdateRateItem = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRateItem>>, TError,{id: number;data: BodyType<RateItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRateItem>>,
+        TError,
+        {id: number;data: BodyType<RateItemUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRateItemMutationOptions(options));
+    }
 

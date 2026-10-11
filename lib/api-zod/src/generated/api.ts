@@ -3226,3 +3226,304 @@ export const GetPerformanceMonthlyActivityResponse = zod.object({
 })
 
 
+/**
+ * @summary List rate catalog categories
+ */
+export const ListRateCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "itemCount": zod.number(),
+  "activeItemCount": zod.number(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListRateCategoriesResponse = zod.array(ListRateCategoriesResponseItem)
+
+
+/**
+ * @summary Create a rate catalog category
+ */
+export const createRateCategoryBodyNameMax = 80;
+
+
+
+export const CreateRateCategoryBody = zod.object({
+  "name": zod.string().min(1).max(createRateCategoryBodyNameMax),
+  "sortOrder": zod.number().optional()
+})
+
+export const CreateRateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "itemCount": zod.number(),
+  "activeItemCount": zod.number(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Rename or reorder a rate catalog category
+ */
+export const UpdateRateCategoryParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateRateCategoryBodyNameMax = 80;
+
+
+
+export const UpdateRateCategoryBody = zod.object({
+  "name": zod.string().min(1).max(updateRateCategoryBodyNameMax).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateRateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "itemCount": zod.number(),
+  "activeItemCount": zod.number(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * Only a category with no items (active or inactive) can be deleted; otherwise 409 Conflict. Items are never deleted, only deactivated.
+ * @summary Delete an empty rate catalog category
+ */
+export const DeleteRateCategoryParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteRateCategoryResponse = zod.void()
+
+
+/**
+ * @summary List rate catalog items, active and inactive, with their relations
+ */
+export const listRateItemsResponseRelationsItemNoteMax = 300;
+
+
+
+export const ListRateItemsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subcategory": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "aliases": zod.array(zod.string()),
+  "rate": zod.number().nullable().describe('Unit rate in ₹ (or the percentage for percentage items). Null when not configured.'),
+  "pricingMethod": zod.enum(['per_sqft', 'per_sqm', 'per_rft', 'per_rmt', 'per_unit', 'fixed', 'percentage']).describe('per_sqft \/ per_sqm = length × width × rate; per_rft \/ per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.\n'),
+  "unitLabel": zod.string().nullish(),
+  "percentageBase": zod.union([zod.enum(['manual', 'selected_items', 'all_other_items']),zod.null()]).optional(),
+  "percentageBaseItemIds": zod.array(zod.number()),
+  "defaultLength": zod.number().nullish(),
+  "defaultWidth": zod.number().nullish(),
+  "defaultQuantity": zod.number().nullish(),
+  "defaultDimensionUnit": zod.union([zod.enum(['ft', 'm']),zod.null()]).optional(),
+  "minBillable": zod.number().nullish(),
+  "maxBillable": zod.number().nullish(),
+  "conditions": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "relations": zod.array(zod.object({
+  "relatedItemId": zod.number(),
+  "relationType": zod.enum(['includes', 'conflicts', 'requires', 'addon']),
+  "note": zod.string().max(listRateItemsResponseRelationsItemNoteMax).nullish()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListRateItemsResponse = zod.array(ListRateItemsResponseItem)
+
+
+/**
+ * @summary Create a rate catalog item
+ */
+export const createRateItemBodyNameMax = 120;
+
+export const createRateItemBodySubcategoryMax = 80;
+
+export const createRateItemBodyDescriptionMax = 1000;
+
+export const createRateItemBodyAliasesItemMax = 60;
+
+export const createRateItemBodyAliasesMax = 30;
+
+export const createRateItemBodyRateMin = 0;
+
+export const createRateItemBodyUnitLabelMax = 30;
+
+export const createRateItemBodyConditionsMax = 1000;
+
+export const createRateItemBodyNotesMax = 2000;
+
+export const createRateItemBodyRelationsItemNoteMax = 300;
+
+export const createRateItemBodyRelationsMax = 50;
+
+
+
+export const CreateRateItemBody = zod.object({
+  "name": zod.string().min(1).max(createRateItemBodyNameMax),
+  "categoryId": zod.number(),
+  "subcategory": zod.string().max(createRateItemBodySubcategoryMax).nullish(),
+  "description": zod.string().max(createRateItemBodyDescriptionMax).nullish(),
+  "aliases": zod.array(zod.string().max(createRateItemBodyAliasesItemMax)).max(createRateItemBodyAliasesMax).optional(),
+  "rate": zod.number().min(createRateItemBodyRateMin).nullish(),
+  "pricingMethod": zod.enum(['per_sqft', 'per_sqm', 'per_rft', 'per_rmt', 'per_unit', 'fixed', 'percentage']).describe('per_sqft \/ per_sqm = length × width × rate; per_rft \/ per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.\n'),
+  "unitLabel": zod.string().max(createRateItemBodyUnitLabelMax).nullish(),
+  "percentageBase": zod.union([zod.enum(['manual', 'selected_items', 'all_other_items']),zod.null()]).optional(),
+  "percentageBaseItemIds": zod.array(zod.number()).optional(),
+  "defaultLength": zod.number().nullish(),
+  "defaultWidth": zod.number().nullish(),
+  "defaultQuantity": zod.number().nullish(),
+  "defaultDimensionUnit": zod.union([zod.enum(['ft', 'm']),zod.null()]).optional(),
+  "minBillable": zod.number().nullish(),
+  "maxBillable": zod.number().nullish(),
+  "conditions": zod.string().max(createRateItemBodyConditionsMax).nullish(),
+  "notes": zod.string().max(createRateItemBodyNotesMax).nullish(),
+  "isActive": zod.boolean().optional(),
+  "relations": zod.array(zod.object({
+  "relatedItemId": zod.number(),
+  "relationType": zod.enum(['includes', 'conflicts', 'requires', 'addon']),
+  "note": zod.string().max(createRateItemBodyRelationsItemNoteMax).nullish()
+})).max(createRateItemBodyRelationsMax).optional()
+})
+
+export const createRateItemResponseRelationsItemNoteMax = 300;
+
+
+
+export const CreateRateItemResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subcategory": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "aliases": zod.array(zod.string()),
+  "rate": zod.number().nullable().describe('Unit rate in ₹ (or the percentage for percentage items). Null when not configured.'),
+  "pricingMethod": zod.enum(['per_sqft', 'per_sqm', 'per_rft', 'per_rmt', 'per_unit', 'fixed', 'percentage']).describe('per_sqft \/ per_sqm = length × width × rate; per_rft \/ per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.\n'),
+  "unitLabel": zod.string().nullish(),
+  "percentageBase": zod.union([zod.enum(['manual', 'selected_items', 'all_other_items']),zod.null()]).optional(),
+  "percentageBaseItemIds": zod.array(zod.number()),
+  "defaultLength": zod.number().nullish(),
+  "defaultWidth": zod.number().nullish(),
+  "defaultQuantity": zod.number().nullish(),
+  "defaultDimensionUnit": zod.union([zod.enum(['ft', 'm']),zod.null()]).optional(),
+  "minBillable": zod.number().nullish(),
+  "maxBillable": zod.number().nullish(),
+  "conditions": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "relations": zod.array(zod.object({
+  "relatedItemId": zod.number(),
+  "relationType": zod.enum(['includes', 'conflicts', 'requires', 'addon']),
+  "note": zod.string().max(createRateItemResponseRelationsItemNoteMax).nullish()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * Changing a rate affects only future selections; calculations keep the rate they captured. Items are never deleted: set isActive to false. When `relations` is sent it replaces the item's relations.
+ * @summary Update a rate catalog item (including deactivate / reactivate)
+ */
+export const UpdateRateItemParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateRateItemBodyNameMax = 120;
+
+export const updateRateItemBodySubcategoryMax = 80;
+
+export const updateRateItemBodyDescriptionMax = 1000;
+
+export const updateRateItemBodyAliasesItemMax = 60;
+
+export const updateRateItemBodyAliasesMax = 30;
+
+export const updateRateItemBodyRateMin = 0;
+
+export const updateRateItemBodyUnitLabelMax = 30;
+
+export const updateRateItemBodyConditionsMax = 1000;
+
+export const updateRateItemBodyNotesMax = 2000;
+
+export const updateRateItemBodyRelationsItemNoteMax = 300;
+
+export const updateRateItemBodyRelationsMax = 50;
+
+
+
+export const UpdateRateItemBody = zod.object({
+  "name": zod.string().min(1).max(updateRateItemBodyNameMax).optional(),
+  "categoryId": zod.number().optional(),
+  "subcategory": zod.string().max(updateRateItemBodySubcategoryMax).nullish(),
+  "description": zod.string().max(updateRateItemBodyDescriptionMax).nullish(),
+  "aliases": zod.array(zod.string().max(updateRateItemBodyAliasesItemMax)).max(updateRateItemBodyAliasesMax).optional(),
+  "rate": zod.number().min(updateRateItemBodyRateMin).nullish(),
+  "pricingMethod": zod.enum(['per_sqft', 'per_sqm', 'per_rft', 'per_rmt', 'per_unit', 'fixed', 'percentage']).optional().describe('per_sqft \/ per_sqm = length × width × rate; per_rft \/ per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.\n'),
+  "unitLabel": zod.string().max(updateRateItemBodyUnitLabelMax).nullish(),
+  "percentageBase": zod.union([zod.enum(['manual', 'selected_items', 'all_other_items']),zod.null()]).optional(),
+  "percentageBaseItemIds": zod.array(zod.number()).optional(),
+  "defaultLength": zod.number().nullish(),
+  "defaultWidth": zod.number().nullish(),
+  "defaultQuantity": zod.number().nullish(),
+  "defaultDimensionUnit": zod.union([zod.enum(['ft', 'm']),zod.null()]).optional(),
+  "minBillable": zod.number().nullish(),
+  "maxBillable": zod.number().nullish(),
+  "conditions": zod.string().max(updateRateItemBodyConditionsMax).nullish(),
+  "notes": zod.string().max(updateRateItemBodyNotesMax).nullish(),
+  "isActive": zod.boolean().optional(),
+  "relations": zod.array(zod.object({
+  "relatedItemId": zod.number(),
+  "relationType": zod.enum(['includes', 'conflicts', 'requires', 'addon']),
+  "note": zod.string().max(updateRateItemBodyRelationsItemNoteMax).nullish()
+})).max(updateRateItemBodyRelationsMax).optional()
+})
+
+export const updateRateItemResponseRelationsItemNoteMax = 300;
+
+
+
+export const UpdateRateItemResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subcategory": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "aliases": zod.array(zod.string()),
+  "rate": zod.number().nullable().describe('Unit rate in ₹ (or the percentage for percentage items). Null when not configured.'),
+  "pricingMethod": zod.enum(['per_sqft', 'per_sqm', 'per_rft', 'per_rmt', 'per_unit', 'fixed', 'percentage']).describe('per_sqft \/ per_sqm = length × width × rate; per_rft \/ per_rmt = length × rate; per_unit = quantity × rate; fixed = the rate; percentage = base amount × rate %.\n'),
+  "unitLabel": zod.string().nullish(),
+  "percentageBase": zod.union([zod.enum(['manual', 'selected_items', 'all_other_items']),zod.null()]).optional(),
+  "percentageBaseItemIds": zod.array(zod.number()),
+  "defaultLength": zod.number().nullish(),
+  "defaultWidth": zod.number().nullish(),
+  "defaultQuantity": zod.number().nullish(),
+  "defaultDimensionUnit": zod.union([zod.enum(['ft', 'm']),zod.null()]).optional(),
+  "minBillable": zod.number().nullish(),
+  "maxBillable": zod.number().nullish(),
+  "conditions": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "relations": zod.array(zod.object({
+  "relatedItemId": zod.number(),
+  "relationType": zod.enum(['includes', 'conflicts', 'requires', 'addon']),
+  "note": zod.string().max(updateRateItemResponseRelationsItemNoteMax).nullish()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+

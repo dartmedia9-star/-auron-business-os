@@ -38,6 +38,7 @@ import PerformanceCashflow from '@/pages/performance/cashflow';
 import PerformanceActivity from '@/pages/performance/activity';
 import PerformanceEbitda from '@/pages/performance/ebitda';
 import PerformanceNetProfit from '@/pages/performance/net-profit';
+import RateCalculatorPage from '@/pages/rate-calculator/index';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ function AuthenticatedApp() {
           <Route path="/finance/expenses" component={ExpensesList} />
           <Route path="/fund-transfers" component={FundTransfers} />
           <Route path="/notes" component={NotesList} />
+          <Route path="/rate-calculator" component={RateCalculatorPage} />
           <Route path="/vendors" component={VendorsList} />
           <Route path="/assets" component={AssetsList} />
           <Route path="/team" component={TeamList} />
