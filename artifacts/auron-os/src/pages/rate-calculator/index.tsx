@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MotionConfig, motion } from "framer-motion";
 import { Calculator } from "lucide-react";
 import {
   getListRateCategoriesQueryKey,
@@ -11,13 +12,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Workspace } from "@/components/rate-calculator/workspace";
 import { CatalogManager } from "@/components/rate-calculator/catalog-manager";
 import { ItemFormDialog, type ItemFormMode } from "@/components/rate-calculator/item-form";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 
 /*
  * Rate Calculator: an internal reference tool for base production rates.
- * It reads the user-built master catalog and calculates in the browser; it
- * never creates quotations, invoices, revenue, expenses, receivables or fund
- * transactions.
+ * It reads the user-built master catalog and calculates in the browser,
+ * with an optional per-line margin; it never creates quotations, invoices,
+ * revenue, expenses, receivables or fund transactions.
+ *
+ * Motion here follows the OS reduced-motion setting (MotionConfig
+ * reducedMotion="user"), scoped to this page only.
  */
+const tabEnter = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: DURATION.base, ease: EASE_OUT } } as const;
+
 export default function RateCalculatorPage() {
   const [tab, setTab] = useState<"calculator" | "catalog">("calculator");
   const [form, setForm] = useState<ItemFormMode | null>(null);
@@ -34,25 +41,31 @@ export default function RateCalculatorPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Rate Calculator"
-        icon={Calculator}
-        description="Internal base rates from your own catalog. Add your margin and prepare the quotation elsewhere."
-      />
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="calculator">Calculator</TabsTrigger>
-          <TabsTrigger value="catalog">Catalog{items.length > 0 ? ` (${items.filter((i) => i.isActive).length})` : ""}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="calculator" className="mt-4">
-          <Workspace items={items} categories={categories} isLoading={isLoading} error={error} onRetry={retry} openForm={setForm} />
-        </TabsContent>
-        <TabsContent value="catalog" className="mt-4">
-          <CatalogManager items={items} categories={categories} isLoading={isLoading} error={error} onRetry={retry} openForm={setForm} />
-        </TabsContent>
-      </Tabs>
-      <ItemFormDialog mode={form} onClose={() => setForm(null)} categories={categories} items={items} />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="min-w-0 space-y-5">
+        <PageHeader
+          title="Rate Calculator"
+          icon={Calculator}
+          description="Internal rates from your own catalog, with an optional margin per line. Prepare the quotation elsewhere."
+        />
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList>
+            <TabsTrigger value="calculator">Calculator</TabsTrigger>
+            <TabsTrigger value="catalog">Catalog{items.length > 0 ? ` (${items.filter((i) => i.isActive).length})` : ""}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="calculator" className="mt-4 min-w-0">
+            <motion.div {...tabEnter}>
+              <Workspace items={items} categories={categories} isLoading={isLoading} error={error} onRetry={retry} openForm={setForm} />
+            </motion.div>
+          </TabsContent>
+          <TabsContent value="catalog" className="mt-4 min-w-0">
+            <motion.div {...tabEnter}>
+              <CatalogManager items={items} categories={categories} isLoading={isLoading} error={error} onRetry={retry} openForm={setForm} />
+            </motion.div>
+          </TabsContent>
+        </Tabs>
+        <ItemFormDialog mode={form} onClose={() => setForm(null)} categories={categories} items={items} />
+      </div>
+    </MotionConfig>
   );
 }

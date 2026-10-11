@@ -94,7 +94,7 @@ function CategoriesCard({ categories }: { categories: RateCategory[] }) {
   };
 
   return (
-    <Card className="shadow-card">
+    <Card className="min-w-0 shadow-card">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Tags className="h-4 w-4 text-gold-ink" /> Categories
@@ -255,16 +255,17 @@ export function CatalogManager({
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <Card className="shadow-card">
-        <CardHeader className="gap-3 pb-3">
+    // minmax(0, 1fr): long item names wrap instead of widening the page on phones.
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <Card className="min-w-0 overflow-hidden shadow-card">
+        <CardHeader className="gap-3 p-4 pb-3 sm:p-6 sm:pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base">Master rate items</CardTitle>
             <Button size="sm" onClick={() => openForm({ kind: "create", categoryId: category !== "all" ? Number(category) : undefined })}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Add item
             </Button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_180px_140px]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1fr)_180px_140px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, alias, category" aria-label="Search catalog" />
@@ -315,7 +316,7 @@ export function CatalogManager({
             <EmptyState compact icon={Search} title="No items match" description="Change the search or filters." />
           ) : (
             <>
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -330,7 +331,7 @@ export function CatalogManager({
                     {filtered.map((i) => (
                       <TableRow key={i.id} className={cn(!i.isActive && "opacity-60")}>
                         <TableCell>
-                          <div className="font-medium">
+                          <div className="break-words font-medium">
                             {i.name} {!i.isActive && <Badge variant="outline" className="ml-1 text-[10px]">Inactive</Badge>}
                           </div>
                           {i.aliases.length > 0 && <div className="truncate text-xs text-muted-foreground">{i.aliases.join(", ")}</div>}
@@ -352,17 +353,17 @@ export function CatalogManager({
                   </TableBody>
                 </Table>
               </div>
-              <ul className="divide-y md:hidden">
+              <ul className="divide-y lg:hidden">
                 {filtered.map((i) => (
-                  <li key={i.id} className={cn("flex items-start gap-3 px-4 py-3", !i.isActive && "opacity-60")}>
+                  <li key={i.id} className={cn("flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/30", !i.isActive && "opacity-60")}>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
+                      <p className="break-words font-medium leading-snug">
                         {i.name} {!i.isActive && <Badge variant="outline" className="ml-1 text-[10px]">Inactive</Badge>}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="mt-0.5 break-words text-xs text-muted-foreground">
                         {i.categoryName} · {PRICING_METHOD_INFO[i.pricingMethod].label}
                       </p>
-                      <p className="mt-0.5 text-sm font-medium tabular-nums">{formatRate(snapshotOf(i)) ?? "No rate set"}</p>
+                      <p className="mt-1 inline-block break-all rounded-md bg-muted px-1.5 py-0.5 text-sm font-medium tabular-nums">{formatRate(snapshotOf(i)) ?? "No rate set"}</p>
                     </div>
                     {actions(i)}
                   </li>
@@ -372,7 +373,7 @@ export function CatalogManager({
           )}
         </CardContent>
       </Card>
-      <div>
+      <div className="min-w-0">
         <CategoriesCard categories={categories} />
       </div>
 
