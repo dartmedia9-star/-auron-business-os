@@ -259,7 +259,7 @@ export function ClientPayments({ clientId }: { clientId: number }) {
 function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warning" | "success" }) {
   const color = tone === "warning" ? "text-warning" : tone === "success" ? "text-money-in" : "";
   return (
-    <div className="rounded-xl border bg-card p-3 shadow-xs">
+    <div className="rounded-2xl border bg-card p-3 shadow-xs">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={`mt-1 text-lg font-semibold tabular-nums sm:text-xl ${color}`}>{value}</div>
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}

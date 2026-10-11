@@ -1,8 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
-import { fadeUp } from "@/lib/motion";
+import { motion } from "framer-motion";
+import { fadeUp, useMotionProfile } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /*
@@ -32,12 +32,12 @@ export function PageHeader({
   sticky?: boolean;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
+  const { intensity, distance } = useMotionProfile();
   return (
     <motion.div
       initial="hidden"
       animate="show"
-      variants={fadeUp(reduce, 6)}
+      variants={fadeUp(intensity === "reduced", 6 * distance)}
       className={cn(
         "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between",
         sticky &&

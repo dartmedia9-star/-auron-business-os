@@ -52,7 +52,7 @@ export function EventsPanel({
 }) {
   const [, navigate] = useLocation();
   return (
-    <section className="flex min-w-0 flex-col rounded-xl border bg-card shadow-card">
+    <section className="flex min-w-0 flex-col rounded-2xl border bg-card shadow-[var(--glass-highlight),var(--elev-1)]">
       <SectionHeader
         className="px-4 pt-4 sm:px-5 sm:pt-5"
         title="Active & upcoming events"
@@ -88,7 +88,7 @@ export function EventsPanel({
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-y bg-surface-2/70 text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+                  <tr className="border-y bg-[hsl(var(--state-hover))] text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
                     <th className="px-5 py-2 font-medium">Event</th>
                     <th className="px-3 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 text-right font-medium">Revenue</th>
@@ -103,7 +103,7 @@ export function EventsPanel({
                     const received = e.totalCollected ?? 0;
                     const outstanding = e.totalOutstanding ?? 0;
                     return (
-                      <StaggerItem as="tr" key={e.id} onClick={() => navigate(`/events/${e.id}`)} className="group cursor-pointer transition-colors duration-150 hover:bg-surface-2">
+                      <StaggerItem as="tr" key={e.id} onClick={() => navigate(`/events/${e.id}`)} className="group cursor-pointer transition-colors duration-150 hover:bg-[hsl(var(--state-hover))]">
                         <td className="max-w-[240px] px-5 py-3">
                           <Link href={`/events/${e.id}`} className="block truncate font-medium group-hover:text-gold-ink">
                             {e.name}
@@ -144,7 +144,7 @@ export function EventsPanel({
                   <StaggerItem as="li" key={e.id}>
                     <Link
                       href={`/events/${e.id}`}
-                      className="block rounded-lg border bg-card p-3.5 transition-[background-color,transform] duration-150 active:scale-[0.99] active:bg-surface-2"
+                      className="block rounded-2xl border bg-card p-3.5 transition-[background-color,transform] duration-150 ease-[var(--ease-spring)] active:scale-[0.98] active:bg-[hsl(var(--state-pressed))]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">

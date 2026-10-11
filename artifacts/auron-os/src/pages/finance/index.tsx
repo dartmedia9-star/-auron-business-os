@@ -59,8 +59,8 @@ export default function FinanceSummary() {
         {header}
         <CardsSkeleton count={4} />
         <div className="grid gap-4 lg:grid-cols-5">
-          <div className="h-80 animate-pulse rounded-xl border bg-card lg:col-span-3" />
-          <div className="h-80 animate-pulse rounded-xl border bg-card lg:col-span-2" />
+          <div className="h-80 animate-pulse rounded-2xl border bg-card lg:col-span-3" />
+          <div className="h-80 animate-pulse rounded-2xl border bg-card lg:col-span-2" />
         </div>
       </div>
     );
@@ -106,9 +106,9 @@ export default function FinanceSummary() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <section className="rounded-xl border bg-card p-5 shadow-card lg:col-span-3">
-          <div className="flex items-baseline justify-between gap-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <section className="rounded-2xl border bg-card p-5 shadow-card lg:col-span-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h3 className="text-base font-semibold">Profit &amp; loss</h3>
             <span className="text-xs text-muted-foreground">{year} · accrual, no cash</span>
           </div>
@@ -146,8 +146,8 @@ export default function FinanceSummary() {
           </ol>
         </section>
 
-        <section className="flex flex-col rounded-xl border bg-card p-5 shadow-card lg:col-span-2">
-          <div className="flex items-baseline justify-between gap-3">
+        <section className="flex flex-col rounded-2xl border bg-card p-5 shadow-card lg:col-span-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h3 className="text-base font-semibold">Cash position</h3>
             <Link href="/fund-transfers" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
               Funds <ArrowRight className="h-3 w-3" />

@@ -1,12 +1,12 @@
 import type { ComponentType } from "react";
 import { Link } from "wouter";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { AlertTriangle, CalendarClock, ChevronRight, CircleCheck, HandCoins, PhoneCall, TrendingDown, Wallet } from "lucide-react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { Event, Insight, ReceivablesSummary } from "@workspace/api-client-react";
 import { SectionHeader } from "@/components/ds/section-header";
 import { ErrorState, ListSkeleton } from "@/components/ds/states";
-import { fadeUp, staggerContainer } from "@/lib/motion";
+import { fadeUp, staggerContainer, useReduceMotion } from "@/lib/motion";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -144,12 +144,12 @@ export function AttentionPanel({
   onRetry: () => void;
   limit?: number;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const shown = items.slice(0, limit);
   const high = items.filter((i) => i.severity === "high").length;
 
   return (
-    <section className="flex min-w-0 flex-col rounded-xl border bg-card shadow-card">
+    <section className="flex min-w-0 flex-col rounded-2xl border bg-card shadow-[var(--glass-highlight),var(--elev-1)]">
       <SectionHeader
         className="px-4 pt-4 sm:px-5 sm:pt-5"
         title={
@@ -191,7 +191,7 @@ export function AttentionPanel({
                 <motion.li key={item.id} variants={fadeUp(reduce, 6)}>
                   <Link
                     href={item.href}
-                    className="group flex min-h-[52px] items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group flex min-h-[52px] items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-150 hover:bg-[hsl(var(--state-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className={cn("relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sev.icon)}>
                       <Icon className="h-4 w-4" />

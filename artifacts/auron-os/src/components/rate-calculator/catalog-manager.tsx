@@ -345,7 +345,7 @@ export function CatalogManager({
                           {i.relations.length > 0 && <span className="ml-1 text-xs">· {i.relations.length} rule{i.relations.length === 1 ? "" : "s"}</span>}
                         </TableCell>
                         <TableCell className="text-right font-medium tabular-nums">
-                          {formatRate(snapshotOf(i)) ?? <span className="text-sm font-normal text-amber-700 dark:text-amber-400">No rate set</span>}
+                          {formatRate(snapshotOf(i)) ?? <span className="text-sm font-normal text-warning">No rate set</span>}
                         </TableCell>
                         <TableCell>{actions(i)}</TableCell>
                       </TableRow>

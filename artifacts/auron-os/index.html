@@ -16,6 +16,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      /* First-paint theme and Appearance & Experience attributes (see src/lib/experience.ts).
+         Midnight unless this browser saved another choice. */
+      (function () {
+        var d = document.documentElement;
+        try {
+          var t = localStorage.getItem('auron-theme') || 'dark';
+          if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          d.classList.add(t === 'light' ? 'light' : 'dark');
+          var e = JSON.parse(localStorage.getItem('auron-experience') || '{}') || {};
+          d.dataset.motion = ['expressive', 'balanced', 'reduced'].indexOf(e.motion) >= 0 ? e.motion : 'balanced';
+          d.dataset.glass = e.glass === false ? 'off' : 'on';
+          d.dataset.contrast = e.enhancedContrast === true ? 'more' : 'normal';
+        } catch (err) {
+          d.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

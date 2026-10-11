@@ -4,6 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Auron "Midnight Glass" design system.
+ *
+ * Every colour, surface, shadow and motion value lives here as a CSS
+ * variable and is exposed to Tailwind through @theme. Pages never pick raw
+ * colours; they use these tokens, so the two appearances (Midnight = .dark,
+ * Daylight = :root) and the Appearance & Experience preferences (glass,
+ * contrast, motion, set as data attributes on <html>) restyle the whole app.
+ */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -33,6 +42,8 @@
 
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  /* Filled destructive buttons and badges (white text stays AA on it). */
+  --color-destructive-solid: hsl(var(--destructive-solid));
 
   /* Financial semantics: money in / money out / attention / internal */
   --color-success: hsl(var(--success));
@@ -44,14 +55,19 @@
   --color-money-in: hsl(var(--money-in));
   --color-money-out: hsl(var(--money-out));
 
-  /* Auron palette: gold for emphasis, ink for data, teal and slate as the
-     only secondary accents. Charts use these, nothing else. */
+  /* Brand and accents. Gold is the Auron mark and meaningful emphasis;
+     blue and violet are the cool ambient accents; ink, teal and slate are
+     the data colours. Charts use the chart-* series, nothing else. */
   --color-gold: hsl(var(--gold));
   --color-gold-ink: hsl(var(--gold-ink));
   --color-ink: hsl(var(--ink));
   --color-teal: hsl(var(--teal));
   --color-slate: hsl(var(--slate));
+  --color-blue: hsl(var(--blue));
+  --color-violet: hsl(var(--violet));
+  --color-surface-1: hsl(var(--surface-1));
   --color-surface-2: hsl(var(--surface-2));
+  --color-surface-3: hsl(var(--surface-3));
   --color-chart-1: hsl(var(--chart-1));
   --color-chart-2: hsl(var(--chart-2));
   --color-chart-3: hsl(var(--chart-3));
@@ -67,27 +83,51 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Type scale (size / line-height). Body text stays on Tailwind's scale. */
+  --text-display: 2.125rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.025em;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.02em;
+  --text-kpi: 1.625rem;
+  --text-kpi--line-height: 1.15;
+  --text-kpi--letter-spacing: -0.02em;
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1rem;
+  --text-eyebrow--letter-spacing: 0.12em;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 14px);
 
-  --shadow-xs: 0 1px 2px 0 rgb(28 22 12 / 0.04);
-  --shadow-card: 0 1px 2px 0 rgb(28 22 12 / 0.04), 0 0 0 1px rgb(28 22 12 / 0.015);
-  --shadow-lift: 0 10px 24px -12px rgb(28 22 12 / 0.16), 0 2px 6px -2px rgb(28 22 12 / 0.06);
-  --shadow-overlay: 0 24px 56px -16px rgb(28 22 12 / 0.28), 0 4px 12px -4px rgb(28 22 12 / 0.08);
+  /* Elevation: each appearance supplies its own shadow strengths. */
+  --shadow-xs: var(--elev-0);
+  --shadow-card: var(--glass-highlight), var(--elev-1);
+  --shadow-lift: var(--elev-2);
+  --shadow-overlay: var(--elev-3);
+  --shadow-glass: var(--glass-highlight), var(--elev-1);
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* A gentle overshoot used for CSS-only springs (press, pop-in). */
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
 
-  --animate-fade-up: fade-up 0.32s var(--ease-out-quint) both;
-  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-fade-up: fade-up calc(0.32s * var(--motion-scale)) var(--ease-out-quint) both;
+  --animate-fade-in: fade-in calc(0.2s * var(--motion-scale)) ease-out both;
   --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-pulse-highlight: pulse-highlight 1.4s var(--ease-out-quint) 1;
+  --animate-shake: shake 0.32s var(--ease-in-out) 1;
+  --animate-pop-in: pop-in 0.32s var(--ease-spring) both;
 
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(calc(6px * var(--motion-distance))); }
     to { opacity: 1; transform: translateY(0); }
   }
   @keyframes fade-in {
@@ -98,137 +138,287 @@
     from { transform: translateX(-100%); }
     to { transform: translateX(100%); }
   }
+  /* One-shot wash behind a value that genuinely changed. */
+  @keyframes pulse-highlight {
+    from { background-color: hsl(var(--blue) / 0.2); box-shadow: 0 0 0 4px hsl(var(--blue) / 0.2); }
+    to { background-color: transparent; box-shadow: 0 0 0 4px transparent; }
+  }
+  /* A field that just became invalid nudges sideways once. */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(calc(-4px * var(--motion-distance))); }
+    50% { transform: translateX(calc(3px * var(--motion-distance))); }
+    75% { transform: translateX(calc(-2px * var(--motion-distance))); }
+  }
+  /* Confirmation marks (saved, copied) pop into place. */
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.4); }
+    to { opacity: 1; transform: scale(1); }
+  }
 }
 
+/* ---------------------------------------------------------------------------
+ * Daylight (light). Cool porcelain canvas, white surfaces, ink text.
+ * ------------------------------------------------------------------------ */
 :root {
-  /* Warm-neutral canvas with white surfaces so cards read as layers. */
-  --background: 40 14% 98%;
-  --foreground: 24 10% 10%;
-  --border: 30 8% 89%;
-  --input: 30 8% 86%;
-  --ring: 44 53% 54%;
-  --radius: 0.5rem;
+  color-scheme: light;
+
+  --background: 222 30% 96.5%;
+  --foreground: 226 32% 11%;
+  --border: 222 20% 88%;
+  --input: 222 18% 83%;
+  --ring: 214 88% 52%;
+  --radius: 0.625rem;
+
+  --surface-1: 0 0% 100%;
+  --surface-2: 222 30% 97.5%;
+  --surface-3: 222 26% 94%;
 
   --card: 0 0% 100%;
-  --card-foreground: 24 10% 10%;
-  --card-border: 30 8% 89%;
+  --card-foreground: 226 32% 11%;
+  --card-border: 222 20% 89%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 24 10% 10%;
-  --popover-border: 30 8% 89%;
+  --popover-foreground: 226 32% 11%;
+  --popover-border: 222 20% 87%;
 
-  --primary: 44 53% 54%;
-  --primary-foreground: 0 0% 9%;
+  /* Primary action = Auron gold, with dark ink on it. */
+  --primary: 42 62% 52%;
+  --primary-foreground: 226 40% 9%;
 
-  --secondary: 36 12% 95%;
-  --secondary-foreground: 24 10% 10%;
+  --secondary: 222 26% 94%;
+  --secondary-foreground: 226 32% 11%;
 
-  --muted: 36 12% 95%;
-  --muted-foreground: 25 6% 42%;
+  --muted: 222 26% 94.5%;
+  --muted-foreground: 222 12% 38%;
 
-  --accent: 44 53% 54%;
-  --accent-foreground: 0 0% 9%;
+  /* Hover / highlighted rows in menus and lists (neutral, never gold). */
+  --accent: 222 30% 93%;
+  --accent-foreground: 226 32% 11%;
 
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-solid: 0 72% 50%;
 
-  --success: 152 62% 34%;
+  --success: 152 62% 32%;
   --success-foreground: 0 0% 100%;
-  --warning: 32 92% 44%;
+  --warning: 30 92% 36%;
   --warning-foreground: 0 0% 100%;
-  --info: 214 72% 48%;
+  --info: 214 82% 46%;
   --info-foreground: 0 0% 100%;
-  --money-in: 152 62% 32%;
-  --money-out: 0 66% 46%;
+  --money-in: 152 62% 30%;
+  --money-out: 0 66% 45%;
 
-  --gold: 44 53% 54%;
-  --gold-ink: 40 58% 34%;
-  --ink: 28 10% 13%;
-  --teal: 176 52% 33%;
-  --slate: 215 14% 52%;
-  --surface-2: 38 18% 96%;
+  --gold: 42 62% 52%;
+  --gold-ink: 38 72% 31%;
+  --ink: 226 32% 13%;
+  --teal: 176 56% 31%;
+  --slate: 220 14% 50%;
+  --blue: 214 88% 52%;
+  --violet: 258 64% 58%;
 
-  --sidebar: 40 16% 97%;
-  --sidebar-foreground: 0 0% 30%;
-  --sidebar-border: 0 0% 90%;
-  --sidebar-primary: 44 53% 54%;
-  --sidebar-primary-foreground: 0 0% 9%;
-  --sidebar-accent: 0 0% 94%;
-  --sidebar-accent-foreground: 0 0% 9%;
-  --sidebar-ring: 44 53% 54%;
-  
-  --chart-1: 44 53% 54%;  /* gold: revenue */
-  --chart-2: 28 10% 18%;  /* ink: net profit */
-  --chart-3: 176 52% 33%; /* teal: cash */
-  --chart-4: 215 14% 60%; /* slate: supporting */
-  --chart-5: 36 10% 86%;  /* neutral: grid/bars at rest */
+  --sidebar: 222 30% 97%;
+  --sidebar-foreground: 222 14% 32%;
+  --sidebar-border: 222 20% 89%;
+  --sidebar-primary: 42 62% 52%;
+  --sidebar-primary-foreground: 226 40% 9%;
+  --sidebar-accent: 222 26% 93%;
+  --sidebar-accent-foreground: 226 32% 11%;
+  --sidebar-ring: 214 88% 52%;
+
+  --chart-1: 42 62% 52%;  /* gold: revenue */
+  --chart-2: 226 32% 18%; /* ink: net profit */
+  --chart-3: 176 56% 33%; /* teal: cash */
+  --chart-4: 220 14% 60%; /* slate: supporting */
+  --chart-5: 222 20% 88%; /* neutral: grid / bars at rest */
+
+  /* Glass: translucent white over a cool canvas. */
+  --glass: 0 0% 100%;
+  --glass-alpha: 0.66;
+  --glass-strong-alpha: 0.9;
+  --glass-blur: 20px;
+  --glass-saturate: 1.6;
+  --glass-border: 224 40% 20% / 0.08;
+  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.75);
+
+  /* Ambient light behind the app (static, never animated). */
+  --ambient-1: 214 90% 62% / 0.12;
+  --ambient-2: 258 80% 66% / 0.10;
+  --ambient-3: 42 70% 60% / 0.07;
+
+  /* Interaction states, laid over any surface. */
+  --state-hover: 226 32% 11% / 0.045;
+  --state-pressed: 226 32% 11% / 0.08;
+  --state-selected: 214 88% 52% / 0.10;
+
+  --elev-0: 0 1px 2px 0 rgb(16 24 48 / 0.05);
+  --elev-1: 0 1px 2px 0 rgb(16 24 48 / 0.05), 0 0 0 1px rgb(16 24 48 / 0.02);
+  --elev-2: 0 12px 28px -14px rgb(16 24 48 / 0.18), 0 2px 6px -2px rgb(16 24 48 / 0.06);
+  --elev-3: 0 28px 64px -20px rgb(16 24 48 / 0.30), 0 6px 16px -6px rgb(16 24 48 / 0.10);
 }
 
+/* ---------------------------------------------------------------------------
+ * Midnight (dark, the default). Deep navy and charcoal layers.
+ * ------------------------------------------------------------------------ */
 .dark {
-  --background: 0 0% 5%;
-  --foreground: 0 0% 95%;
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 44 53% 54%;
-  
-  --card: 0 0% 8%;
-  --card-foreground: 0 0% 95%;
-  --card-border: 0 0% 15%;
+  color-scheme: dark;
 
-  --popover: 0 0% 8%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border: 0 0% 15%;
+  --background: 226 42% 5%;
+  --foreground: 220 33% 96%;
+  --border: 223 24% 17%;
+  --input: 223 22% 22%;
+  --ring: 214 94% 68%;
 
-  --primary: 44 53% 54%; /* Auron Gold */
-  --primary-foreground: 0 0% 5%;
+  --surface-1: 225 32% 9%;
+  --surface-2: 225 30% 11.5%;
+  --surface-3: 224 26% 15%;
 
-  --secondary: 0 0% 15%;
-  --secondary-foreground: 0 0% 95%;
+  --card: 225 32% 9%;
+  --card-foreground: 220 33% 96%;
+  --card-border: 223 24% 16%;
 
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 65%;
+  --popover: 225 30% 11%;
+  --popover-foreground: 220 33% 96%;
+  --popover-border: 223 24% 20%;
 
-  --accent: 44 53% 54%;
-  --accent-foreground: 0 0% 5%;
+  /* Champagne gold on midnight. */
+  --primary: 42 66% 62%;
+  --primary-foreground: 226 42% 7%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
+  --secondary: 224 26% 15%;
+  --secondary-foreground: 220 33% 96%;
 
-  --success: 152 55% 45%;
-  --success-foreground: 0 0% 5%;
-  --warning: 36 90% 55%;
-  --warning-foreground: 0 0% 5%;
-  --info: 214 80% 62%;
-  --info-foreground: 0 0% 5%;
-  --money-in: 152 55% 52%;
-  --money-out: 0 75% 64%;
+  --muted: 224 28% 13%;
+  --muted-foreground: 220 16% 68%;
 
-  --sidebar: 0 0% 6%;
-  --sidebar-foreground: 0 0% 70%;
-  --sidebar-border: 0 0% 12%;
-  --sidebar-primary: 44 53% 54%;
-  --sidebar-primary-foreground: 0 0% 5%;
-  --sidebar-accent: 0 0% 12%;
-  --sidebar-accent-foreground: 0 0% 95%;
-  --sidebar-ring: 44 53% 54%;
-  
-  --chart-1: 44 53% 54%; /* Gold */
-  --chart-2: 0 0% 85%;
-  --chart-3: 176 44% 50%;
-  --chart-4: 215 14% 60%;
-  --chart-5: 0 0% 20%;
+  --accent: 224 26% 17%;
+  --accent-foreground: 220 33% 96%;
 
-  --gold: 44 53% 54%;
-  --gold-ink: 44 60% 62%;
-  --ink: 0 0% 92%;
-  --teal: 176 44% 50%;
-  --slate: 215 14% 60%;
-  --surface-2: 0 0% 10%;
+  /* Bright enough for error text on navy; fills use destructive-solid. */
+  --destructive: 0 74% 62%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-solid: 0 68% 50%;
+
+  --success: 152 54% 50%;
+  --success-foreground: 226 42% 6%;
+  --warning: 38 92% 58%;
+  --warning-foreground: 226 42% 6%;
+  --info: 214 92% 70%;
+  --info-foreground: 226 42% 6%;
+  --money-in: 152 56% 56%;
+  --money-out: 0 82% 69%;
+
+  --gold: 42 66% 62%;
+  --gold-ink: 43 76% 70%;
+  --ink: 220 30% 92%;
+  --teal: 172 52% 54%;
+  --slate: 220 16% 62%;
+  --blue: 214 94% 68%;
+  --violet: 258 84% 76%;
+
+  --sidebar: 226 40% 6.5%;
+  --sidebar-foreground: 220 16% 72%;
+  --sidebar-border: 223 24% 14%;
+  --sidebar-primary: 42 66% 62%;
+  --sidebar-primary-foreground: 226 42% 7%;
+  --sidebar-accent: 224 26% 14%;
+  --sidebar-accent-foreground: 220 33% 96%;
+  --sidebar-ring: 214 94% 68%;
+
+  --chart-1: 42 66% 62%;   /* gold: revenue */
+  --chart-2: 220 30% 88%;  /* ink: net profit */
+  --chart-3: 172 52% 54%;  /* teal: cash */
+  --chart-4: 220 16% 58%;  /* slate: supporting */
+  --chart-5: 224 24% 20%;  /* neutral: grid / bars at rest */
+
+  --glass: 225 34% 12%;
+  --glass-alpha: 0.58;
+  --glass-strong-alpha: 0.88;
+  --glass-blur: 22px;
+  --glass-saturate: 1.5;
+  --glass-border: 220 60% 92% / 0.08;
+  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+
+  --ambient-1: 214 90% 60% / 0.16;
+  --ambient-2: 258 80% 64% / 0.13;
+  --ambient-3: 42 70% 58% / 0.06;
+
+  --state-hover: 220 60% 96% / 0.05;
+  --state-pressed: 220 60% 96% / 0.09;
+  --state-selected: 214 94% 68% / 0.14;
+
+  --elev-0: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --elev-1: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 0 0 1px rgb(0 0 0 / 0.1);
+  --elev-2: 0 16px 36px -16px rgb(0 0 0 / 0.65), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+  --elev-3: 0 32px 72px -20px rgb(0 0 0 / 0.75), 0 8px 20px -6px rgb(0 0 0 / 0.4);
+}
+
+/* ---------------------------------------------------------------------------
+ * Appearance & Experience preferences (data attributes on <html>).
+ * ------------------------------------------------------------------------ */
+
+/* Motion intensity. Components read the same values from lib/motion. */
+:root {
+  --motion-scale: 1;     /* duration multiplier */
+  --motion-distance: 1;  /* travel multiplier */
+}
+:root[data-motion="expressive"] {
+  --motion-scale: 1.15;
+  --motion-distance: 1.6;
+}
+
+/* Glass off: same layout, solid surfaces, no blur. */
+:root[data-glass="off"] {
+  --glass-alpha: 1;
+  --glass-strong-alpha: 1;
+  --glass-blur: 0px;
+  --glass-saturate: 1;
+}
+/* The OS asked for less transparency, or the browser can't blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-alpha: 1;
+    --glass-strong-alpha: 1;
+    --glass-blur: 0px;
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-alpha: 0.97;
+    --glass-strong-alpha: 1;
+  }
+}
+
+/* Enhanced contrast: brighter secondary text, firmer borders, near-solid
+   glass. Applied by the preference or by the OS "increase contrast". */
+:root[data-contrast="more"] {
+  --muted-foreground: 222 18% 26%;
+  --border: 222 18% 74%;
+  --card-border: 222 18% 74%;
+  --input: 222 18% 62%;
+  --glass-alpha: 0.94;
+  --glass-strong-alpha: 0.98;
+  --glass-border: 224 40% 20% / 0.22;
+  --gold-ink: 36 80% 25%;
+}
+:root.dark[data-contrast="more"] {
+  --foreground: 0 0% 100%;
+  --muted-foreground: 220 22% 84%;
+  --border: 222 22% 34%;
+  --card-border: 222 22% 34%;
+  --input: 222 22% 42%;
+  --glass-alpha: 0.95;
+  --glass-strong-alpha: 0.98;
+  --glass-border: 220 60% 92% / 0.24;
+  --gold-ink: 44 85% 76%;
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  html {
+    background-color: hsl(var(--background));
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
@@ -245,10 +435,58 @@
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
+  ::selection {
+    background: hsl(var(--blue) / 0.28);
+  }
 }
 
-/* Motion is decoration: honour the OS setting everywhere, including the
-   Radix/tw-animate enter-exit animations and framer-motion transitions. */
+/* ---------------------------------------------------------------------------
+ * Surface utilities. Glass is for chrome and hero panels (shell, overlays,
+ * KPI and summary cards). Dense tables and forms use solid surfaces.
+ * ------------------------------------------------------------------------ */
+@utility glass {
+  background-color: hsl(var(--glass) / var(--glass-alpha));
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: var(--glass-highlight), var(--elev-1);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+@utility glass-strong {
+  background-color: hsl(var(--glass) / var(--glass-strong-alpha));
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: var(--glass-highlight), var(--elev-2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+/* Translucent fill and blur without a border, for bars that draw their own edge. */
+@utility glass-fill {
+  background-color: hsl(var(--glass) / var(--glass-strong-alpha));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+@utility surface-solid {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--card-border));
+  box-shadow: var(--elev-1);
+}
+/* Static ambient light for the app canvas: cool blue, soft violet, a trace of gold. */
+@utility ambient-canvas {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(60rem 40rem at 8% -10%, hsl(var(--ambient-1)), transparent 60%),
+    radial-gradient(50rem 36rem at 105% 0%, hsl(var(--ambient-2)), transparent 60%),
+    radial-gradient(40rem 30rem at 60% 110%, hsl(var(--ambient-3)), transparent 60%);
+  background-attachment: fixed;
+}
+@utility state-layer {
+  transition: background-color calc(150ms * var(--motion-scale)) var(--ease-out-quint);
+  &:hover { background-color: hsl(var(--state-hover)); }
+  &:active { background-color: hsl(var(--state-pressed)); }
+}
+
+/* Motion is decoration: honour the OS setting and the "Reduced" preference
+   everywhere, including Radix/tw-animate enter-exit animations and CSS
+   transitions. framer-motion reads the same choice through MotionConfig. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -256,4 +494,25 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/*
+ * Midnight's --destructive is bright so error text reads on navy. Confirm
+ * buttons across modules fill with it and white text (bg-destructive +
+ * text-destructive-foreground), which drops to 3.6:1 there; give that pair
+ * the deeper solid red, as the destructive button variant already uses.
+ */
+.dark .bg-destructive.text-destructive-foreground {
+  background-color: hsl(var(--destructive-solid));
+}
+.dark .bg-destructive.text-destructive-foreground:hover {
+  background-color: hsl(var(--destructive-solid) / 0.9);
 }

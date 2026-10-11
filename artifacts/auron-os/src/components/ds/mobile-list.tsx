@@ -51,7 +51,7 @@ export function MobileListItem({
   return (
     <li>
       {href ? (
-        <Link href={href} className="block px-4 py-3.5 transition-colors duration-150 active:bg-surface-2">
+        <Link href={href} className="block px-4 py-3.5 transition-colors duration-150 active:bg-[hsl(var(--state-pressed))]">
           {body}
         </Link>
       ) : (

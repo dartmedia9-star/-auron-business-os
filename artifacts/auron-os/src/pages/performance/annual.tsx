@@ -10,6 +10,7 @@ import { BarChart3, ChevronRight } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
+import { chartAxis, chartCursor, chartGrid, chartTooltipStyle, useChartAnimation } from "@/lib/chart-theme";
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
@@ -19,6 +20,7 @@ const MONTH_NAMES = [
 const MONTH_SHORT = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function PerformanceAnnual() {
+  const barAnimation = useChartAnimation();
   const params = useParams<{ year: string }>();
   const year = parseInt(params.year ?? String(new Date().getFullYear()), 10);
 
@@ -58,14 +60,14 @@ export default function PerformanceAnnual() {
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid vertical={false} stroke="var(--color-border)" />
-                  <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="var(--color-muted-foreground)" />
-                  <YAxis tickLine={false} axisLine={false} fontSize={11} width={52} stroke="var(--color-muted-foreground)" tickFormatter={(v: number) => formatAxisMoney(v)} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={{ fill: "var(--color-muted)", opacity: 0.6 }} contentStyle={{ borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-popover)", fontSize: 12 }} />
+                  <CartesianGrid vertical={false} {...chartGrid} />
+                  <XAxis dataKey="name" {...chartAxis} />
+                  <YAxis {...chartAxis} width={52} tickFormatter={(v: number) => formatAxisMoney(v)} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={chartCursor} {...chartTooltipStyle} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Revenue" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
-                  <Bar dataKey="Expenses" fill="var(--color-chart-4)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
-                  <Bar dataKey="Profit" fill="var(--color-chart-2)" radius={[4, 4, 0, 0]} maxBarSize={18} animationDuration={700} />
+                  <Bar dataKey="Revenue" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} maxBarSize={18} {...barAnimation} />
+                  <Bar dataKey="Expenses" fill="var(--color-chart-4)" radius={[4, 4, 0, 0]} maxBarSize={18} {...barAnimation} />
+                  <Bar dataKey="Profit" fill="var(--color-chart-2)" radius={[4, 4, 0, 0]} maxBarSize={18} {...barAnimation} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

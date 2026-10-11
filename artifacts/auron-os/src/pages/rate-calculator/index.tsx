@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MotionConfig, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Calculator } from "lucide-react";
 import {
   getListRateCategoriesQueryKey,
@@ -20,8 +20,8 @@ import { DURATION, EASE_OUT } from "@/lib/motion";
  * with an optional per-line margin; it never creates quotations, invoices,
  * revenue, expenses, receivables or fund transactions.
  *
- * Motion here follows the OS reduced-motion setting (MotionConfig
- * reducedMotion="user"), scoped to this page only.
+ * Motion here follows the app-wide reduced-motion choice (the OS setting
+ * or the "Reduced" preference), inherited from the root MotionConfig.
  */
 const tabEnter = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: DURATION.base, ease: EASE_OUT } } as const;
 
@@ -41,7 +41,7 @@ export default function RateCalculatorPage() {
   };
 
   return (
-    <MotionConfig reducedMotion="user">
+    <>
       <div className="min-w-0 space-y-5">
         <PageHeader
           title="Rate Calculator"
@@ -66,6 +66,6 @@ export default function RateCalculatorPage() {
         </Tabs>
         <ItemFormDialog mode={form} onClose={() => setForm(null)} categories={categories} items={items} />
       </div>
-    </MotionConfig>
+    </>
   );
 }

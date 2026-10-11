@@ -275,7 +275,7 @@ function MoneyReceivedForm({ initialClientId, initialEventId, onClose }: { initi
               from {client?.name} into {result.fundAccountName}, dated {formatDate(result.paymentDate)}
             </p>
           </div>
-          <div className="mt-6 divide-y rounded-xl border bg-card px-4">
+          <div className="mt-6 divide-y rounded-2xl border bg-card px-4">
             {(result.allocations ?? []).map((a) => (
               <ReviewRow key={a.eventId} label={`Applied to ${a.eventName ?? "event"}`}><Money value={a.amount} /></ReviewRow>
             ))}
@@ -301,7 +301,7 @@ function MoneyReceivedForm({ initialClientId, initialEventId, onClose }: { initi
         <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
           <p className="text-sm font-medium">Review before recording</p>
           <p className="text-sm text-muted-foreground">This adds cash to {fund.name} and settles {client.name}'s balance. It does not change revenue.</p>
-          <div className="mt-4 divide-y rounded-xl border bg-card px-4">
+          <div className="mt-4 divide-y rounded-2xl border bg-card px-4">
             <ReviewRow label="Amount"><Money value={amountNum} signed /></ReviewRow>
             <ReviewRow label="Client">{client.name}</ReviewRow>
             <ReviewRow label="Event">{selectedEvent ? selectedEvent.eventName : "None (client-level)"}</ReviewRow>
@@ -525,7 +525,7 @@ function FundTransferForm({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
           <p className="text-sm font-medium">Review before recording</p>
           <p className="text-sm text-muted-foreground">Moves money between your own funds. It is not revenue, an expense, or cash in/out.</p>
-          <div className="mt-4 divide-y rounded-xl border bg-card px-4">
+          <div className="mt-4 divide-y rounded-2xl border bg-card px-4">
             <ReviewRow label="Amount"><Money value={amountNum} tone="neutral" /></ReviewRow>
             <ReviewRow label="From">{from.name}</ReviewRow>
             <ReviewRow label="To">{to.name}</ReviewRow>
@@ -593,7 +593,7 @@ function ExpenseHandoff({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-6">
-        <div className="rounded-xl border bg-card p-5">
+        <div className="rounded-2xl border bg-card p-5">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive"><Receipt className="h-5 w-5" /></span>
           <p className="mt-3 font-medium">Expenses use the Log Expense form</p>
           <p className="mt-1 text-sm text-muted-foreground">

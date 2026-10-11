@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion, useAnimate, useReducedMotion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion, useAnimate } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -31,7 +31,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { MoneyInput } from "@/components/ds/money-input";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ds/states";
 import { formatMoney } from "@/lib/money";
-import { DURATION, EASE_OUT } from "@/lib/motion";
+import { DURATION, EASE_OUT, useReduceMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import {
   PRICING_METHOD_INFO,
@@ -117,7 +117,7 @@ function CatalogPanel({
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [justAdded, setJustAdded] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
 
   useEffect(() => {
     if (justAdded == null) return;
@@ -283,7 +283,7 @@ function CatalogPanel({
                                 {i.subcategory ? ` · ${i.subcategory}` : ""}
                               </span>
                               {i.conditions && (
-                                <span className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
+                                <span className="mt-1 flex items-start gap-1 text-xs text-warning">
                                   <Info className="mt-0.5 h-3 w-3 shrink-0" />
                                   <span className="line-clamp-2 break-words">{i.conditions}</span>
                                 </span>
@@ -293,7 +293,7 @@ function CatalogPanel({
                               <span
                                 className={cn(
                                   "rounded-md px-1.5 py-0.5 text-xs tabular-nums",
-                                  rate ? "bg-muted font-medium text-foreground" : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+                                  rate ? "bg-muted font-medium text-foreground" : "bg-warning/10 text-warning",
                                 )}
                               >
                                 {rate ? breakable(rate) : "No rate"}
@@ -588,8 +588,8 @@ function LineCard({
       data-testid="rate-line"
       className={cn(
         "overflow-hidden shadow-card transition-[box-shadow,border-color,opacity] duration-200",
-        warnings.length > 0 && "border-amber-500/40",
-        highlighted && "ring-2 ring-amber-500/60",
+        warnings.length > 0 && "border-warning/40",
+        highlighted && "ring-2 ring-warning/60",
         !line.included && "opacity-60",
       )}
     >
@@ -764,7 +764,7 @@ function LineCard({
           {otherErrors && (
             <motion.p
               {...reveal}
-              className={cn("flex items-start gap-1.5 overflow-hidden text-xs", result.status === "invalid" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}
+              className={cn("flex items-start gap-1.5 overflow-hidden text-xs", result.status === "invalid" ? "text-destructive" : "text-warning")}
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span className="min-w-0 break-words">{result.errors.join(" ")}</span>
             </motion.p>
@@ -781,7 +781,7 @@ function LineCard({
           </p>
         )}
         {s.conditions && (
-          <p className="flex items-start gap-1.5 rounded-md bg-amber-500/[0.07] px-2.5 py-2 text-xs text-amber-800 dark:text-amber-300">
+          <p className="flex items-start gap-1.5 rounded-md bg-warning/[0.07] px-2.5 py-2 text-xs text-warning">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span className="min-w-0 break-words">{s.conditions}</span>
           </p>
         )}
@@ -790,7 +790,7 @@ function LineCard({
             <motion.p
               key={w.key}
               {...reveal}
-              className="flex items-start gap-1.5 overflow-hidden rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-2.5 py-2 text-xs text-amber-800 dark:text-amber-300"
+              className="flex items-start gap-1.5 overflow-hidden rounded-md border border-warning/30 bg-warning/[0.07] px-2.5 py-2 text-xs text-warning"
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span className="min-w-0 break-words">{w.message}</span>
             </motion.p>
@@ -849,7 +849,7 @@ function breakableText(text: string): string {
 /** Fades and lifts a panel in when it becomes the visible one on phones. */
 function usePanelEntrance(visible: boolean) {
   const [scope, animateEl] = useAnimate<HTMLDivElement>();
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -884,7 +884,7 @@ export function Workspace({
   const [highlight, setHighlight] = useState<string[]>([]);
   const [confirmClear, setConfirmClear] = useState(false);
   const [refreshing, setRefreshing] = useState<CalcLine | null>(null);
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
 
   const calc = useMemo(() => calculate(lines), [lines]);
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -999,7 +999,7 @@ export function Workspace({
           {(unpricedCount > 0 || excludedCount > 0) && (
             <motion.div {...reveal} className="space-y-1 overflow-hidden text-xs">
               {unpricedCount > 0 && (
-                <button type="button" onClick={() => showLines(calc.unpricedLineIds)} className={cn("flex w-full items-start gap-1.5 rounded text-left text-amber-700 hover:underline dark:text-amber-400", focusRing)}>
+                <button type="button" onClick={() => showLines(calc.unpricedLineIds)} className={cn("flex w-full items-start gap-1.5 rounded text-left text-warning hover:underline", focusRing)}>
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   {unpricedCount} item{unpricedCount === 1 ? " has" : "s have"} no amount yet and {unpricedCount === 1 ? "is" : "are"} not in the total
                 </button>
@@ -1011,7 +1011,7 @@ export function Workspace({
         <AnimatePresence initial={false}>
           {warnings.length > 0 && (
             <motion.div {...reveal} className="space-y-1.5 overflow-hidden">
-              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+              <p className="text-xs font-medium text-warning">
                 {warnings.length} combination warning{warnings.length === 1 ? "" : "s"}
               </p>
               {warnings.map((w) => (
@@ -1019,7 +1019,7 @@ export function Workspace({
                   key={w.key}
                   type="button"
                   onClick={() => showLines(w.lineIds)}
-                  className={cn("block w-full break-words rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-2.5 py-2 text-left text-xs text-amber-800 hover:bg-amber-500/[0.12] dark:text-amber-300", focusRing)}
+                  className={cn("block w-full break-words rounded-md border border-warning/30 bg-warning/[0.07] px-2.5 py-2 text-left text-xs text-warning hover:bg-warning/[0.12]", focusRing)}
                 >
                   {w.message} <span className="font-medium underline">Show items</span>
                 </button>
@@ -1047,7 +1047,7 @@ export function Workspace({
               }
               disabled={calc.pricedCount === 0}
             >
-              {copied === "full" ? <Check className="mr-1.5 h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <ClipboardCopy className="mr-1.5 h-4 w-4" />}
+              {copied === "full" ? <Check className="mr-1.5 h-4 w-4 text-success" /> : <ClipboardCopy className="mr-1.5 h-4 w-4" />}
               {copied === "full" ? "Copied" : "Copy full calculation"}
             </Button>
           </motion.div>
@@ -1174,7 +1174,7 @@ export function Workspace({
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: DURATION.base, ease: EASE_OUT }}
-            className="sticky bottom-0 z-10 -mx-4 -mb-4 flex items-center gap-2 border-t bg-card/95 px-4 py-2.5 shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.12)] backdrop-blur md:-mx-6 md:-mb-6 md:px-6 lg:hidden"
+            className="sticky bottom-0 z-10 -mx-4 -mb-4 flex items-center gap-2 border-t glass-fill px-4 py-2.5 shadow-[var(--elev-2)] md:-mx-6 md:-mb-6 md:px-6 lg:hidden"
             data-testid="mobile-total-bar"
           >
             <button type="button" onClick={() => setPanel("total")} className={cn("min-w-0 flex-1 rounded text-left", focusRing)}>
@@ -1182,7 +1182,7 @@ export function Workspace({
               <RollingMoney paise={calc.totalPaise} className="block truncate text-lg font-semibold tabular-nums" />
             </button>
             {warnings.length > 0 && (
-              <Badge variant="outline" className="shrink-0 border-amber-500/40 text-amber-700 dark:text-amber-400">
+              <Badge variant="outline" className="shrink-0 border-warning/40 text-warning">
                 <AlertTriangle className="mr-1 h-3 w-3" /> {warnings.length}
               </Badge>
             )}

@@ -1,11 +1,12 @@
-import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Route, Switch, useLocation, Router as WouterRouter, Redirect } from 'wouter';
+import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
 import { AppShell } from '@/components/layout';
+import { RouteTransition } from '@/components/ds/page-transition';
+import { ExperienceProvider } from '@/components/experience/experience-provider';
 
 import NotFound from '@/pages/not-found';
 import LoginScreen from '@/pages/login';
@@ -54,8 +55,8 @@ function AuthenticatedApp() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0a0a0a]">
-        <div className="h-8 w-8 rounded-full border-2 border-[#C9A84C] border-t-transparent animate-spin" />
+      <div className="min-h-[100dvh] flex items-center justify-center ambient-canvas">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -66,60 +67,64 @@ function AuthenticatedApp() {
 
   return (
     <AppShell>
-      <RoutedErrorBoundary>
-        <Switch>
-          <Route path="/" component={() => <Redirect to="/dashboard" />} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/events" component={EventsList} />
-          <Route path="/events/:id" component={EventDetail} />
-          <Route path="/clients" component={ClientsList} />
-          <Route path="/clients/:id" component={ClientDetail} />
-          <Route path="/leads" component={LeadsPipeline} />
-          <Route path="/marketing" component={MarketingList} />
-          <Route path="/valuation" component={ValuationCommand} />
-          <Route path="/finance" component={FinanceSummary} />
-          <Route path="/finance/receivables" component={ReceivablesList} />
-          <Route path="/finance/expenses" component={ExpensesList} />
-          <Route path="/fund-transfers" component={FundTransfers} />
-          <Route path="/notes" component={NotesList} />
-          <Route path="/rate-calculator" component={RateCalculatorPage} />
-          <Route path="/vendors" component={VendorsList} />
-          <Route path="/assets" component={AssetsList} />
-          <Route path="/team" component={TeamList} />
-          <Route path="/reports" component={ReportsList} />
-          <Route path="/performance" component={PerformanceIndex} />
-          <Route path="/performance/:year" component={PerformanceAnnual} />
-          <Route path="/performance/:year/:month" component={PerformanceMonthly} />
-          <Route path="/performance/:year/:month/revenue" component={PerformanceRevenue} />
-          <Route path="/performance/:year/:month/expenses" component={PerformanceExpenses} />
-          <Route path="/performance/:year/:month/profitability" component={PerformanceProfitability} />
-          <Route path="/performance/:year/:month/events" component={PerformanceEvents} />
-          <Route path="/performance/:year/:month/cashflow" component={PerformanceCashflow} />
-          <Route path="/performance/:year/:month/activity" component={PerformanceActivity} />
-          <Route path="/performance/:year/:month/ebitda" component={PerformanceEbitda} />
-          <Route path="/performance/:year/:month/net-profit" component={PerformanceNetProfit} />
-          <Route path="/settings" component={SettingsPage} />
-          <Route component={NotFound} />
-        </Switch>
-      </RoutedErrorBoundary>
+      <RouteTransition render={(location) => <AppRoutes location={location} />} />
     </AppShell>
   );
 }
 
-function RoutedErrorBoundary({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
-  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
+/* Routes for one location; RouteTransition keeps an outgoing page on its own location. */
+function AppRoutes({ location }: { location: string }) {
+  return (
+    <ErrorBoundary resetKey={location}>
+      <Switch location={location}>
+        <Route path="/" component={() => <Redirect to="/dashboard" />} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/events" component={EventsList} />
+        <Route path="/events/:id" component={EventDetail} />
+        <Route path="/clients" component={ClientsList} />
+        <Route path="/clients/:id" component={ClientDetail} />
+        <Route path="/leads" component={LeadsPipeline} />
+        <Route path="/marketing" component={MarketingList} />
+        <Route path="/valuation" component={ValuationCommand} />
+        <Route path="/finance" component={FinanceSummary} />
+        <Route path="/finance/receivables" component={ReceivablesList} />
+        <Route path="/finance/expenses" component={ExpensesList} />
+        <Route path="/fund-transfers" component={FundTransfers} />
+        <Route path="/notes" component={NotesList} />
+        <Route path="/rate-calculator" component={RateCalculatorPage} />
+        <Route path="/vendors" component={VendorsList} />
+        <Route path="/assets" component={AssetsList} />
+        <Route path="/team" component={TeamList} />
+        <Route path="/reports" component={ReportsList} />
+        <Route path="/performance" component={PerformanceIndex} />
+        <Route path="/performance/:year" component={PerformanceAnnual} />
+        <Route path="/performance/:year/:month" component={PerformanceMonthly} />
+        <Route path="/performance/:year/:month/revenue" component={PerformanceRevenue} />
+        <Route path="/performance/:year/:month/expenses" component={PerformanceExpenses} />
+        <Route path="/performance/:year/:month/profitability" component={PerformanceProfitability} />
+        <Route path="/performance/:year/:month/events" component={PerformanceEvents} />
+        <Route path="/performance/:year/:month/cashflow" component={PerformanceCashflow} />
+        <Route path="/performance/:year/:month/activity" component={PerformanceActivity} />
+        <Route path="/performance/:year/:month/ebitda" component={PerformanceEbitda} />
+        <Route path="/performance/:year/:month/net-profit" component={PerformanceNetProfit} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </ErrorBoundary>
+  );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <AuthenticatedApp />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <ExperienceProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <AuthenticatedApp />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </ExperienceProvider>
     </QueryClientProvider>
   );
 }

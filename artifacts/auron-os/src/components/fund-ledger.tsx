@@ -100,7 +100,7 @@ export function FundLedger({ clientId, fundAccountId, title = "Transaction histo
   };
 
   return (
-    <section className="rounded-xl border bg-card shadow-card">
+    <section className="rounded-2xl border bg-card shadow-card">
       <div className="space-y-3 border-b p-4 sm:p-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <h3 className="text-base font-semibold">{title}</h3>
@@ -302,7 +302,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="space-y-2">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
-      <div className="rounded-xl border bg-card px-4">{children}</div>
+      <div className="rounded-2xl border bg-card px-4">{children}</div>
     </section>
   );
 }

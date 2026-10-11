@@ -35,7 +35,7 @@ export default function ReceivablesList() {
       <div className="space-y-6">
         {header}
         <CardsSkeleton count={4} />
-        <div className="rounded-xl border bg-card"><TableSkeleton rows={5} cols={4} /></div>
+        <div className="rounded-2xl border bg-card"><TableSkeleton rows={5} cols={4} /></div>
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default function ReceivablesList() {
         </p>
       )}
 
-      <section className="rounded-xl border bg-card shadow-card">
+      <section className="rounded-2xl border bg-card shadow-card">
         <div className="border-b p-4 sm:p-5"><h3 className="text-base font-semibold">By client</h3></div>
         {data.byClient.length === 0 ? (
           <div className="p-4"><EmptyState title="Nothing outstanding" description="Every client is fully paid." /></div>
@@ -113,7 +113,7 @@ export default function ReceivablesList() {
         )}
       </section>
 
-      <section className="rounded-xl border bg-card shadow-card">
+      <section className="rounded-2xl border bg-card shadow-card">
         <div className="border-b p-4 sm:p-5"><h3 className="text-base font-semibold">By event invoice</h3></div>
         {data.byEvent.length === 0 ? (
           <div className="p-4"><EmptyState title="No outstanding invoices" /></div>

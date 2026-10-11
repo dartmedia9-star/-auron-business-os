@@ -40,28 +40,28 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#0a0a0a]">
-      <div className="w-full max-w-sm px-6 flex flex-col items-center">
+    <div className="ambient-canvas min-h-[100dvh] w-full flex items-center justify-center">
+      <div className="w-full max-w-sm px-6 flex flex-col items-center animate-fade-up">
         <div className="mb-10 text-center space-y-2">
-          <h1 className="text-3xl font-bold tracking-widest text-[#C9A84C] uppercase">
+          <h1 className="text-balance text-3xl font-bold tracking-widest text-gold-ink uppercase">
             Auron Business OS
           </h1>
-          <p className="text-sm text-gray-400 tracking-wide">
+          <p className="text-sm text-muted-foreground tracking-wide">
             COMMAND CENTER &bull; EXECUTIVE ACCESS
           </p>
         </div>
 
-        <div className="w-full bg-[#121212] border border-[#222] p-8 rounded-lg shadow-2xl">
+        <div className="glass-strong w-full rounded-3xl p-8">
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div className="space-y-1 text-center mb-2">
-              <h2 className="text-xl font-medium text-white">Sign In</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-xl font-medium">Sign In</h2>
+              <p className="text-sm text-muted-foreground">
                 Enter your credentials to access the terminal.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-gray-300 text-sm">
+              <Label htmlFor="username" className="text-sm">
                 Username
               </Label>
               <Input
@@ -75,12 +75,12 @@ export default function LoginScreen() {
                 placeholder="e.g. ceo"
                 disabled={loading}
                 required
-                className="bg-[#1a1a1a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#C9A84C] focus:ring-[#C9A84C]"
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300 text-sm">
+              <Label htmlFor="password" className="text-sm">
                 Password
               </Label>
               <Input
@@ -91,12 +91,12 @@ export default function LoginScreen() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 required
-                className="bg-[#1a1a1a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#C9A84C] focus:ring-[#C9A84C]"
+                className="h-11"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-400 text-center bg-red-500/10 border border-red-500/20 rounded px-3 py-2">
+              <p role="alert" className="animate-shake text-sm text-destructive text-center bg-destructive/10 border border-destructive/25 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -104,14 +104,14 @@ export default function LoginScreen() {
             <Button
               type="submit"
               disabled={loading || !username || !password}
-              className="w-full h-11 bg-[#C9A84C] hover:bg-[#b0923f] text-black font-medium tracking-wide mt-1"
+              className="w-full h-11 font-medium tracking-wide mt-1"
             >
               {loading ? "Signing in…" : "Authorize Access"}
             </Button>
           </form>
         </div>
 
-        <div className="mt-10 text-xs text-gray-600 tracking-widest uppercase">
+        <div className="mt-10 text-xs text-muted-foreground tracking-widest uppercase">
           &copy; {new Date().getFullYear()} AURON EVENT PRODUCTIONS
         </div>
       </div>

@@ -98,7 +98,7 @@ export default function MarketingList() {
       />
 
       {isLoading ? (
-        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-xl border bg-card shadow-card"><TableSkeleton /></div></div>
+        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-2xl border bg-card shadow-card"><TableSkeleton /></div></div>
       ) : data ? (
         <>
           {/* Summary cards */}

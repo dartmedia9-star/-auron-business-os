@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from "recharts";
 import type { PerformanceAnnual } from "@workspace/api-client-react";
 import { ChartCard } from "@/components/ds/chart-card";
 import { formatAxisMoney, formatMoney } from "@/lib/money";
 import { cn, formatPercentage } from "@/lib/utils";
+import { chartAxis, chartCursor, chartGrid, ChartTooltipCard, useChartAnimation } from "@/lib/chart-theme";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -27,7 +27,7 @@ function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) 
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as Row | undefined;
   return (
-    <div className="min-w-[200px] rounded-lg border bg-popover px-3 py-2.5 text-xs shadow-lift">
+    <ChartTooltipCard className="min-w-[200px]">
       <p className="mb-1.5 font-medium text-foreground">
         {label}
         {row && <span className="ml-1.5 font-normal text-muted-foreground">· {row.events} event{row.events === 1 ? "" : "s"}</span>}
@@ -46,7 +46,7 @@ function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) 
           );
         })}
       </div>
-    </div>
+    </ChartTooltipCard>
   );
 }
 
@@ -68,7 +68,7 @@ export function PerformanceChart({
   error: unknown;
   onRetry: () => void;
 }) {
-  const reduce = useReducedMotion();
+  const barAnimation = useChartAnimation();
   const [hidden, setHidden] = useState<Set<SeriesKey>>(() => new Set(["grossProfit"]));
 
   const rows = useMemo<Row[]>(
@@ -95,7 +95,7 @@ export function PerformanceChart({
       return next;
     });
 
-  const animate = !reduce;
+  const lineAnimation = useChartAnimation(2);
 
   return (
     <ChartCard
@@ -109,7 +109,7 @@ export function PerformanceChart({
       emptyDescription="Revenue appears here once events dated this year have revenue recorded."
       height="h-[240px] sm:h-[320px]"
       actions={
-        <div role="group" aria-label="Series" className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1 pb-0.5">
+        <div role="group" aria-label="Series" className="flex max-w-full flex-wrap gap-1">
           {SERIES.map((s) => {
             const on = !hidden.has(s.key);
             return (
@@ -160,27 +160,22 @@ export function PerformanceChart({
       <div className={cn("h-full w-full transition-opacity duration-200", loading && "opacity-60")}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="28%">
-            <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="0" strokeOpacity={0.7} />
-            <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="var(--color-muted-foreground)" interval="preserveStartEnd" />
+            <CartesianGrid vertical={false} {...chartGrid} />
+            <XAxis dataKey="name" {...chartAxis} tickMargin={8} interval="preserveStartEnd" />
             <YAxis
-              tickLine={false}
-              axisLine={false}
-              fontSize={11}
+              {...chartAxis}
               width={52}
-              stroke="var(--color-muted-foreground)"
               tickFormatter={(v: number) => formatAxisMoney(v)}
               className="max-sm:hidden"
             />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--color-muted)", opacity: 0.6 }} animationDuration={150} />
+            <Tooltip content={<ChartTooltip />} cursor={chartCursor} animationDuration={150} />
             {!hidden.has("revenue") && (
               <Bar
                 dataKey="revenue"
                 fill="var(--color-chart-1)"
                 radius={[4, 4, 0, 0]}
                 maxBarSize={28}
-                isAnimationActive={animate}
-                animationDuration={700}
-                animationEasing="ease-out"
+                {...barAnimation}
               />
             )}
             {SERIES.filter((s) => s.mark === "line" && !hidden.has(s.key)).map((s, i) => (
@@ -193,10 +188,8 @@ export function PerformanceChart({
                 strokeDasharray={s.dashed ? "4 4" : undefined}
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--color-card)" }}
-                isAnimationActive={animate}
-                animationBegin={200 + i * 80}
-                animationDuration={900}
-                animationEasing="ease-out"
+                {...lineAnimation}
+                animationBegin={lineAnimation.animationBegin + i * 80}
               />
             ))}
           </ComposedChart>

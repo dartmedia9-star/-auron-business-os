@@ -15,7 +15,7 @@ export default function ReportsList() {
       <PageHeader title="Analytics & Reports" description="Deep dive into event type profitability and overall performance." />
 
       {isLoading ? (
-        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-xl border bg-card shadow-card"><TableSkeleton /></div></div>
+        <div className="space-y-6"><CardsSkeleton count={4} /><div className="rounded-2xl border bg-card shadow-card"><TableSkeleton /></div></div>
       ) : data ? (
         <>
           <div className="grid gap-4 md:grid-cols-4">
