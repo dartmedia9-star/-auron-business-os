@@ -128,8 +128,11 @@ export function useCopy() {
 
 const STORAGE_KEY = "auron.rate-calculator.workspace.v1";
 
-function isLine(v: unknown): v is CalcLine {
-  const l = v as CalcLine;
+/** A saved line. Lines saved before per-line margin existed have no `margin`; they load with ₹0. */
+type StoredLine = Omit<CalcLine, "margin"> & { margin?: unknown };
+
+function isLine(v: unknown): v is StoredLine {
+  const l = v as StoredLine;
   return (
     !!l &&
     typeof l.id === "string" &&
@@ -143,8 +146,14 @@ function isLine(v: unknown): v is CalcLine {
     typeof l.quantity === "string" &&
     typeof l.baseAmount === "string" &&
     (l.dimensionUnit === "ft" || l.dimensionUnit === "m") &&
-    typeof l.included === "boolean"
+    typeof l.included === "boolean" &&
+    (l.margin === undefined || typeof l.margin === "string")
   );
+}
+
+/** Fills in fields added after a line was saved (margin defaults to "" = ₹0). */
+function normalizeLine(l: StoredLine): CalcLine {
+  return { ...l, margin: typeof l.margin === "string" ? l.margin : "" };
 }
 
 function loadLines(): CalcLine[] {
@@ -152,7 +161,7 @@ function loadLines(): CalcLine[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isLine) : [];
+    return Array.isArray(parsed) ? parsed.filter(isLine).map(normalizeLine) : [];
   } catch {
     return [];
   }

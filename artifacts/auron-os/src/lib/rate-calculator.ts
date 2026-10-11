@@ -2,8 +2,10 @@
  * Rate Calculator engine: pure, framework-free and unit-tested
  * (scripts/test-rate-calculator.ts). No React, no network, no storage.
  *
- * It is an internal reference tool only: it never adds margin, GST, labour,
- * transport or any other charge, and nothing here creates a financial record.
+ * It is an internal reference tool only: it never adds GST, labour, transport
+ * or any other charge by itself, and nothing here creates a financial record.
+ * The only addition is a per-line margin the person types in (see "Margin"
+ * below); it defaults to ₹0 and never changes the catalog rate.
  *
  * Arithmetic is exact. Every measurement and rate is parsed from its decimal
  * text into a BigInt fraction, so 16.5 × 12.25 × ₹30 never picks up binary
@@ -13,6 +15,21 @@
  *   2. the amount (billable quantity × unit rate) to 2 decimals (paise).
  * So the amount on screen always equals the quantity on screen × the rate on
  * screen, and the combined total is the exact sum of the line amounts.
+ *
+ * Margin: each line can carry a margin in ₹ (2 decimals, ≥ 0, blank = ₹0).
+ *   - measured methods (sq ft, sq m, running ft/m, per unit): the margin is
+ *     per billable unit. effective rate = base rate + margin;
+ *     margin amount = billable × margin; final = base amount + margin amount.
+ *     Base amount and margin amount are each rounded to paise, so the final
+ *     amount is always exactly their sum (and may differ from
+ *     billable × effective rate by at most one paisa).
+ *   - fixed: the margin is a flat ₹ addition to the fixed charge.
+ *   - percentage: the margin is a flat ₹ addition to the percentage amount;
+ *     it is never read as a percent. The percentage itself is calculated on
+ *     the BASE amounts (before margin) of the lines it is based on, so margin
+ *     is never compounded by a percentage.
+ * The combined total is the sum of final amounts of included priced lines;
+ * excluded lines contribute nothing to the total, base cost or margin.
  *
  * Pricing methods are a closed list mirrored from the API (OpenAPI enum
  * RateItemPricingMethod). Adding one means: add it to PRICING_METHODS, give
@@ -69,6 +86,7 @@ export const LIMITS = {
   maxQuantity: 1_000_000,
   maxBaseAmount: 10_000_000_000, // ₹1,000 crore
   maxDecimals: 4,
+  maxMargin: 10_000_000_000, // ₹1,000 crore, per unit or flat
 } as const;
 
 /**
@@ -104,6 +122,11 @@ export interface CalcLine {
   baseAmount: string;
   /** Lines can be left out of the total without removing them. */
   included: boolean;
+  /**
+   * Margin in ₹ as typed ("" = ₹0). Per billable unit for measured methods,
+   * a flat amount for fixed and percentage lines. Never changes the snapshot.
+   */
+  margin: string;
 }
 
 export type LineStatus = "ok" | "incomplete" | "invalid";
@@ -114,7 +137,7 @@ export interface LineResult {
   /** Why the line has no amount (blank field, bad value, missing rate, ...). */
   errors: string[];
   /** Field-level messages for the form, keyed by field. */
-  fieldErrors: Partial<Record<"length" | "width" | "quantity" | "baseAmount", string>>;
+  fieldErrors: Partial<Record<"length" | "width" | "quantity" | "baseAmount" | "margin", string>>;
   /** Informational notes, e.g. a configured minimum being applied. */
   notes: string[];
   /** What was measured, before any configured minimum, in the item's unit. */
@@ -126,9 +149,26 @@ export interface LineResult {
   /** Percentage lines: the base amount and what it is made of. */
   baseAmount: number | null;
   baseDescription: string | null;
-  /** Amount in paise (exact) and rupees; null when the line cannot be priced. */
+  /** Final amount (base + margin) in paise (exact) and rupees; null when the line cannot be priced. */
   amountPaise: bigint | null;
   amount: number | null;
+  /** Amount before margin (billable × catalog rate, or the percentage amount). */
+  basePaise: bigint | null;
+  /** Margin amount added to the base amount. */
+  marginAmountPaise: bigint | null;
+  /** Margin as entered, in paise (per unit, or flat for fixed/percentage). 0 when blank or invalid. */
+  marginPaise: bigint;
+  /** How the margin applies to this line. */
+  marginKind: MarginKind;
+  /** Percentage lines: whether the lines in their base carry margin that was left out of the base. */
+  baseExcludesMargin: boolean;
+}
+
+/** "per_unit" margins multiply with the billable quantity; "flat" margins are added once. */
+export type MarginKind = "per_unit" | "flat";
+
+export function marginKind(method: PricingMethod): MarginKind {
+  return method === "fixed" || method === "percentage" ? "flat" : "per_unit";
 }
 
 export interface CalcRelation {
@@ -294,7 +334,7 @@ type Measure =
 /** Reads one positive measurement within `max`. */
 function readPositive(
   raw: string,
-  field: "length" | "width" | "quantity" | "baseAmount",
+  field: "length" | "width" | "quantity" | "baseAmount" | "margin",
   label: string,
   max: number,
   maxDecimals: number = LIMITS.maxDecimals,
@@ -364,7 +404,42 @@ function emptyResult(line: CalcLine): LineResult {
     baseDescription: null,
     amountPaise: null,
     amount: null,
+    basePaise: null,
+    marginAmountPaise: null,
+    marginPaise: 0n,
+    marginKind: marginKind(line.snapshot.pricingMethod),
+    baseExcludesMargin: false,
   };
+}
+
+export type MarginParse = { ok: true; paise: bigint } | { ok: false; message: string };
+
+/** Reads a line's margin: blank = ₹0; otherwise a non-negative ₹ amount with at most 2 decimals. */
+export function parseMargin(raw: string | null | undefined): MarginParse {
+  const p = parseDecimal(raw ?? "", 2);
+  if (!p.ok) {
+    if (p.reason === "blank") return { ok: true, paise: 0n };
+    if (p.reason === "negative") return { ok: false, message: "Margin can't be negative" };
+    if (p.reason === "precision") return { ok: false, message: "Margin can have at most 2 decimals" };
+    return { ok: false, message: "Margin must be a number" };
+  }
+  if (cmp(p.value, frac(BigInt(LIMITS.maxMargin))) > 0) {
+    return { ok: false, message: `Margin is too large (max ${LIMITS.maxMargin.toLocaleString("en-US")})` };
+  }
+  return { ok: true, paise: roundScaled(p.value, 2) };
+}
+
+/** Reads the line's margin into `result`; marks the result invalid and returns false when it is bad. */
+function readLineMargin(line: CalcLine, result: LineResult): boolean {
+  const m = parseMargin(line.margin);
+  if (!m.ok) {
+    result.status = "invalid";
+    result.fieldErrors.margin = m.message;
+    result.errors.push(m.message);
+    return false;
+  }
+  result.marginPaise = m.paise;
+  return true;
 }
 
 function priceMeasuredLine(line: CalcLine): LineResult {
@@ -377,6 +452,7 @@ function priceMeasuredLine(line: CalcLine): LineResult {
     return result;
   }
   const ratePaise = rateToPaise(s.rate)!;
+  if (!readLineMargin(line, result)) return result;
 
   const m = measureLine(line);
   if (!m.ok) {
@@ -388,9 +464,7 @@ function priceMeasuredLine(line: CalcLine): LineResult {
 
   if (s.pricingMethod === "fixed") {
     result.billable = "1";
-    result.amountPaise = ratePaise;
-    result.amount = paiseToRupees(ratePaise);
-    return result;
+    return withAmount(result, ratePaise, result.marginPaise);
   }
 
   const unit = billableUnitLabel(s);
@@ -417,17 +491,22 @@ function priceMeasuredLine(line: CalcLine): LineResult {
   }
 
   result.billable = formatScaled(billable4, 4);
-  // amount (paise) = billable × rate = (billable4 / 10^4) × ratePaise
-  const amountPaise = roundScaled(frac(billable4 * ratePaise, pow10(4)), 0);
-  return withAmount(result, amountPaise);
+  // base amount (paise) = billable × rate = (billable4 / 10^4) × ratePaise
+  const basePaise = roundScaled(frac(billable4 * ratePaise, pow10(4)), 0);
+  // margin amount (paise) = billable × margin per unit
+  const marginAmountPaise = roundScaled(frac(billable4 * result.marginPaise, pow10(4)), 0);
+  return withAmount(result, basePaise, marginAmountPaise);
 }
 
-function withAmount(result: LineResult, amountPaise: bigint): LineResult {
+function withAmount(result: LineResult, basePaise: bigint, marginAmountPaise: bigint): LineResult {
+  const amountPaise = basePaise + marginAmountPaise;
   if (amountPaise > BigInt(Number.MAX_SAFE_INTEGER)) {
     result.status = "invalid";
     result.errors.push("The amount is too large to calculate");
     return result;
   }
+  result.basePaise = basePaise;
+  result.marginAmountPaise = marginAmountPaise;
   result.amountPaise = amountPaise;
   result.amount = paiseToRupees(amountPaise);
   return result;
@@ -448,6 +527,7 @@ function pricePercentageLine(line: CalcLine, lines: CalcLine[], priced: Map<stri
     return result;
   }
   const pct100 = roundScaled(pct.value, 2); // percent × 100
+  if (!readLineMargin(line, result)) return result;
 
   let basePaise: bigint;
   if (s.percentageBase === "manual") {
@@ -477,27 +557,33 @@ function pricePercentageLine(line: CalcLine, lines: CalcLine[], priced: Map<stri
       );
       return result;
     }
-    const pending = candidates.filter((l) => priced.get(l.id)?.amountPaise == null);
+    const pending = candidates.filter((l) => priced.get(l.id)?.basePaise == null);
     if (pending.length > 0) {
       result.status = "incomplete";
       result.errors.push(`Complete ${pending.map((l) => l.snapshot.name).join(", ")} first: this percentage is calculated on it`);
       return result;
     }
-    basePaise = candidates.reduce((sum, l) => sum + priced.get(l.id)!.amountPaise!, 0n);
+    // The base is the lines' amounts BEFORE margin, so a percentage never
+    // multiplies margin (which is added separately, per line).
+    basePaise = candidates.reduce((sum, l) => sum + priced.get(l.id)!.basePaise!, 0n);
+    result.baseExcludesMargin = candidates.some((l) => (priced.get(l.id)!.marginAmountPaise ?? 0n) > 0n);
     result.baseDescription = candidates.map((l) => l.snapshot.name).join(", ");
   }
 
   result.baseAmount = paiseToRupees(basePaise);
   result.billable = formatScaled(pct100, 2);
-  // amount (paise) = basePaise × pct / 100 = basePaise × pct100 / 10^4
-  return withAmount(result, roundScaled(frac(basePaise * pct100, pow10(4)), 0));
+  // amount (paise) = basePaise × pct / 100 = basePaise × pct100 / 10^4; margin is a flat ₹ addition
+  return withAmount(result, roundScaled(frac(basePaise * pct100, pow10(4)), 0), result.marginPaise);
 }
 
 export interface CalculationResult {
   lines: Map<string, LineResult>;
-  /** Exact sum of included lines that have an amount. */
+  /** Exact sum of the final amounts of included lines that have an amount. */
   totalPaise: bigint;
   total: number;
+  /** Of the total: base amounts (before margin) and margin amounts. totalBase + totalMargin = total. */
+  totalBasePaise: bigint;
+  totalMarginPaise: bigint;
   includedCount: number;
   pricedCount: number;
   /** Included lines that have no amount yet (left out of the total). */
@@ -516,6 +602,8 @@ export function calculate(lines: CalcLine[]): CalculationResult {
   for (const l of lines) if (l.snapshot.pricingMethod === "percentage") results.set(l.id, pricePercentageLine(l, lines, results));
 
   let totalPaise = 0n;
+  let totalBasePaise = 0n;
+  let totalMarginPaise = 0n;
   let pricedCount = 0;
   const unpriced: string[] = [];
   const areas = new Map<string, bigint>();
@@ -527,6 +615,8 @@ export function calculate(lines: CalcLine[]): CalculationResult {
       continue;
     }
     totalPaise += r.amountPaise;
+    totalBasePaise += r.basePaise ?? 0n;
+    totalMarginPaise += r.marginAmountPaise ?? 0n;
     pricedCount++;
     if (PRICING_METHOD_INFO[l.snapshot.pricingMethod].inputs === "area" && r.billable) {
       const unit = r.billableUnit;
@@ -538,6 +628,8 @@ export function calculate(lines: CalcLine[]): CalculationResult {
     lines: results,
     totalPaise,
     total: paiseToRupees(totalPaise),
+    totalBasePaise,
+    totalMarginPaise,
     includedCount: included.length,
     pricedCount,
     unpricedLineIds: unpriced,
@@ -575,6 +667,7 @@ export function createLine(snapshot: RateSnapshot, defaults?: Partial<CatalogDef
     quantity: defaults?.defaultQuantity ?? (method === "per_unit" ? "1" : ""),
     baseAmount: "",
     included: true,
+    margin: "",
   };
 }
 
@@ -703,12 +796,39 @@ export function bundleWarnings(lines: CalcLine[], relations: CalcRelation[], ite
 
 export const FULL_CALCULATION_HEADING = "AURON EVENTS — INTERNAL RATE CALCULATION";
 
-/** Copy unit rate: "₹30.00/sq ft". */
+/** Margin as shown: "₹1.00/sq ft", or "₹500.00 (flat)" for fixed and percentage lines. */
+export function formatMargin(s: Pick<RateSnapshot, "pricingMethod" | "unitLabel">, marginPaise: bigint): string {
+  return marginKind(s.pricingMethod) === "flat" ? `${formatPaise(marginPaise)} (flat)` : `${formatPaise(marginPaise)}/${billableUnitLabel(s)}`;
+}
+
+/**
+ * The rate after margin: "₹43.00/sq ft", "₹5,500.00 (fixed)", or for a
+ * percentage "10% + ₹500.00". Same as formatRate when the margin is 0 or
+ * invalid. Null when no rate is configured.
+ */
+export function formatEffectiveRate(line: CalcLine): string | null {
+  const s = line.snapshot;
+  const base = formatRate(s);
+  if (base == null) return null;
+  const m = parseMargin(line.margin);
+  if (!m.ok || m.paise === 0n) return base;
+  if (s.pricingMethod === "percentage") return `${base} + ${formatPaise(m.paise)}`;
+  const ratePaise = rateToPaise(s.rate!)! + m.paise;
+  if (s.pricingMethod === "fixed") return `${formatPaise(ratePaise)} (fixed)`;
+  return `${formatPaise(ratePaise)}/${billableUnitLabel(s)}`;
+}
+
+/** Copy unit rate: the final rate including margin, "₹43.00/sq ft" (= catalog rate when margin is 0). */
 export function copyRateText(line: CalcLine): string | null {
+  return formatEffectiveRate(line);
+}
+
+/** Copy base rate: the catalog rate captured on the line, before margin. */
+export function copyBaseRateText(line: CalcLine): string | null {
   return formatRate(line.snapshot);
 }
 
-/** Copy individual amount: "₹5,760.00". */
+/** Copy individual amount: the final amount including margin, "₹5,760.00". */
 export function copyAmountText(result: LineResult): string | null {
   return result.amountPaise == null ? null : formatPaise(result.amountPaise);
 }
@@ -731,6 +851,8 @@ function detailLines(line: CalcLine, r: LineResult): string[] | null {
   const out: string[] = [];
   const inputs = PRICING_METHOD_INFO[s.pricingMethod].inputs;
   const minApplied = r.measured != null && r.billable != null && r.measured !== r.billable;
+  // Lines without margin copy exactly as they did before margin existed.
+  const hasMargin = r.marginPaise > 0n;
 
   if (inputs === "area") {
     out.push(`Dimensions: ${measurementText(line.length, line.dimensionUnit)} × ${measurementText(line.width, line.dimensionUnit)}`);
@@ -749,9 +871,24 @@ function detailLines(line: CalcLine, r: LineResult): string[] | null {
     if (minApplied) out.push(`Billable quantity (minimum): ${r.billable}`);
   } else if (inputs === "base") {
     out.push(`Percentage: ${rate}`);
-    out.push(`Calculation base: ${r.baseDescription}`);
+    out.push(`Calculation base: ${r.baseDescription}${r.baseExcludesMargin ? " (before margin)" : ""}`);
     out.push(`Base amount: ${formatMoney(r.baseAmount)}`);
-    out.push(`Individual amount: ${formatPaise(r.amountPaise)}`);
+    if (hasMargin) {
+      out.push(`Percentage amount: ${formatPaise(r.basePaise!)}`);
+      out.push(`Margin (flat): ${formatPaise(r.marginAmountPaise!)}`);
+      out.push(`Final amount: ${formatPaise(r.amountPaise)}`);
+    } else {
+      out.push(`Individual amount: ${formatPaise(r.amountPaise)}`);
+    }
+    return out;
+  }
+  if (hasMargin) {
+    out.push(`Base rate: ${rate}`);
+    out.push(`Margin: ${formatMargin(s, r.marginPaise)}`);
+    out.push(`Final rate: ${formatEffectiveRate(line)}`);
+    out.push(`Base amount: ${formatPaise(r.basePaise!)}`);
+    out.push(`Margin amount: ${formatPaise(r.marginAmountPaise!)}`);
+    out.push(`Final amount: ${formatPaise(r.amountPaise)}`);
     return out;
   }
   out.push(`Unit rate: ${rate}`);
@@ -768,7 +905,8 @@ export function copyItemDetailsText(line: CalcLine, result: LineResult): string 
 /**
  * Copy full calculation: every included line that has an amount, numbered,
  * with its own breakdown, then the combined total (which is the sum of
- * exactly those lines).
+ * exactly those lines). When any line carries margin, the total base cost
+ * and total margin are listed above the combined total.
  */
 export function copyFullCalculationText(lines: CalcLine[], calc: CalculationResult): string {
   const blocks: string[] = [];
@@ -781,5 +919,9 @@ export function copyFullCalculationText(lines: CalcLine[], calc: CalculationResu
     n++;
     blocks.push([`${n}. ${l.snapshot.name}`, ...details.map((d) => `    ${d}`)].join("\n"));
   }
-  return [FULL_CALCULATION_HEADING, "", ...blocks, "", `COMBINED TOTAL: ${formatPaise(calc.totalPaise)}`].join("\n");
+  const footer =
+    calc.totalMarginPaise > 0n
+      ? [`TOTAL BASE COST: ${formatPaise(calc.totalBasePaise)}`, `TOTAL MARGIN: ${formatPaise(calc.totalMarginPaise)}`]
+      : [];
+  return [FULL_CALCULATION_HEADING, "", ...blocks, "", ...footer, `COMBINED TOTAL: ${formatPaise(calc.totalPaise)}`].join("\n");
 }

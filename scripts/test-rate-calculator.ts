@@ -1,8 +1,8 @@
 /**
  * Unit checks for the Rate Calculator engine
  * (artifacts/auron-os/src/lib/rate-calculator.ts): pricing methods, unit
- * conversion, validation, rounding, totals, snapshots, bundle warnings and
- * copy-ready text. No server or database needed.
+ * conversion, validation, rounding, totals, snapshots, bundle warnings,
+ * per-line margin and copy-ready text. No server or database needed.
  *
  *   npx tsx ./test-rate-calculator.ts      (from scripts/)
  *
@@ -13,6 +13,7 @@ import {
   bundleWarnings,
   calculate,
   copyAmountText,
+  copyBaseRateText,
   copyDimensions,
   copyFullCalculationText,
   copyItemDetailsText,
@@ -20,8 +21,10 @@ import {
   copyTotalText,
   createLine,
   duplicateLine,
+  formatEffectiveRate,
   formatRate,
   parseDecimal,
+  parseMargin,
   refreshLineSnapshot,
   snapshotChanges,
   type CalcLine,
@@ -281,6 +284,202 @@ check(
 const withBad = [s1, line(stage, { length: "", width: "" }, "blank"), c1];
 check("29. Full calculation lists exactly the lines in the total", copyFullCalculationText(withBad, calculate(withBad)).includes("2. Fresh Carpet"), true);
 check("29. No ids or JSON in output", /l[0-9a-z]{6,}|[{}]/.test(copyFullCalculationText([s1, c1], exact)), false);
+
+// ---------------------------------------------------------------------------
+// Margin per line
+// ---------------------------------------------------------------------------
+const m42 = item({ name: "Backdrop", pricingMethod: "per_sqft", rate: "42.00" });
+const mA = line(m42, { length: "24", width: "25", margin: "1" }, "mA");
+const rA = one(mA);
+check("M1. 24 × 25 ft = 600 sq ft", rA.billable, "600");
+check("M1. Effective rate ₹42 + ₹1 = ₹43.00/sq ft", formatEffectiveRate(mA), "₹43.00/sq ft");
+check("M1. Base amount ₹25,200.00", rA.basePaise, 2520000n);
+check("M1. Margin amount ₹600.00", rA.marginAmountPaise, 60000n);
+check("M1. Final amount ₹25,800.00", copyAmountText(rA), "₹25,800.00");
+check("M1. Catalog snapshot rate unchanged", mA.snapshot.rate, "42.00");
+check("M1. Base rate copy is the catalog rate", copyBaseRateText(mA), "₹42.00/sq ft");
+check("M1. Rate copy is the final rate", copyRateText(mA), "₹43.00/sq ft");
+
+// M2. Zero margin reproduces the original calculation exactly
+check("M2. New lines default to blank margin (₹0)", createLine(m42).margin, "");
+const z0 = line(stage, { length: "16", width: "12", margin: "" }, "z0");
+const z1 = line(stage, { length: "16", width: "12", margin: "0" }, "z1");
+const z2 = line(stage, { length: "16", width: "12", margin: "0.00" }, "z2");
+for (const z of [z0, z1, z2]) {
+  const r = one(z);
+  check(`M2. margin "${z.margin}" amount = ₹5,760.00`, copyAmountText(r), "₹5,760.00");
+  check(`M2. margin "${z.margin}" margin amount 0`, r.marginAmountPaise, 0n);
+  check(`M2. margin "${z.margin}" details unchanged`, copyItemDetailsText(z, r), copyItemDetailsText(s1, one(s1)));
+}
+check("M2. Zero-margin rate copy unchanged", copyRateText(z1), "₹30.00/sq ft");
+const zc = calculate([z1, line(carpet, { length: "16", width: "12", margin: "0" }, "zc")]);
+check("M2. Zero-margin full calculation has no margin lines", copyFullCalculationText([z1], zc).includes("MARGIN"), false);
+check("M2. Zero-margin totals: base = total", [zc.totalBasePaise, zc.totalMarginPaise, zc.totalPaise], [748800n, 0n, 748800n]);
+
+// M3. Per-line independence
+const ia = line(m42, { length: "10", width: "10", margin: "2" }, "ia");
+const ib = line(m42, { length: "10", width: "10", margin: "" }, "ib");
+const ic = calculate([ia, ib]);
+check("M3. Line A has its own margin", copyAmountText(ic.lines.get("ia")!), "₹4,400.00");
+check("M3. Line B (same item) keeps zero margin", copyAmountText(ic.lines.get("ib")!), "₹4,200.00");
+check("M3. Duplicate copies the margin", duplicateLine(ia).margin, "2");
+check("M3. Copy dimensions keeps target's margin", copyDimensions(ia, ib).margin, "");
+check("M3. Refreshing the snapshot keeps the margin", refreshLineSnapshot(ia, { ...m42, rate: "50.00" }).margin, "2");
+check("M3. Refresh: new base rate + same margin", copyRateText(refreshLineSnapshot(ia, { ...m42, rate: "50.00" })), "₹52.00/sq ft");
+
+// M4. Dimension changes recalculate base and margin
+const d2 = one({ ...mA, length: "30" });
+check("M4. 30 × 25 = 750 sq ft: base ₹31,500", d2.basePaise, 3150000n);
+check("M4. 750 × ₹1 margin = ₹750", d2.marginAmountPaise, 75000n);
+check("M4. Final ₹32,250.00", copyAmountText(d2), "₹32,250.00");
+
+// M5. Unit switching: margin is per the item's billing unit
+const um = one(line(m42, { length: "10", width: "10", dimensionUnit: "m", margin: "1" }));
+check("M5. 10 m × 10 m = 1,076.391 sq ft", um.billable, "1,076.391");
+check("M5. Margin follows billable sq ft (₹1,076.39)", um.marginAmountPaise, 107639n);
+check("M5. Final = base + margin", um.amountPaise, um.basePaise! + um.marginAmountPaise!);
+const sqmM = item({ name: "Floor sqm", pricingMethod: "per_sqm", rate: "100" });
+const um2 = one(line(sqmM, { length: "10", width: "10", dimensionUnit: "ft", margin: "5" }));
+check("M5. Per sq m margin on 9.2903 sq m = ₹46.45", um2.marginAmountPaise, 4645n);
+check("M5. Per sq m margin label", formatEffectiveRate(line(sqmM, { margin: "5" })), "₹105.00/sq m");
+
+// M6. Per-method semantics
+const rftM = one(line(rft, { length: "40", margin: "4.50" }));
+check("M6. Running ft: 40 × (₹45.50 + ₹4.50) = ₹2,000.00", copyAmountText(rftM), "₹2,000.00");
+check("M6. Running ft margin ₹180", rftM.marginAmountPaise, 18000n);
+const rmtM = one(line(item({ name: "Rail", pricingMethod: "per_rmt", rate: "200" }), { length: "3", dimensionUnit: "m", margin: "10" }));
+check("M6. Running m: 3 × ₹10 margin = ₹30", rmtM.marginAmountPaise, 3000n);
+const unitM = line(piece, { quantity: "4", margin: "50" });
+check("M6. Per piece: 4 × (₹550 + ₹50) = ₹2,400.00", copyAmountText(one(unitM)), "₹2,400.00");
+check("M6. Per piece effective rate", formatEffectiveRate(unitM), "₹600.00/piece");
+const fixM = line(fixed, { margin: "500" }, "fixM");
+const fixR = one(fixM);
+check("M6. Fixed: flat margin kind", fixR.marginKind, "flat");
+check("M6. Fixed: ₹5,000 + ₹500 flat = ₹5,500.00", copyAmountText(fixR), "₹5,500.00");
+check("M6. Fixed effective rate", formatEffectiveRate(fixM), "₹5,500.00 (fixed)");
+const pctIns = item({ name: "Insurance", pricingMethod: "percentage", rate: "10", percentageBase: "manual" });
+const pmM = line(pctIns, { baseAmount: "1000", margin: "5" }, "pmM");
+const pmR = one(pmM);
+check("M6. Percentage: ₹5 margin is ₹5, not 5% (₹100 + ₹5)", copyAmountText(pmR), "₹105.00");
+check("M6. Percentage: percentage amount ₹100", pmR.basePaise, 10000n);
+check("M6. Percentage: flat margin kind", pmR.marginKind, "flat");
+check("M6. Percentage effective rate text", formatEffectiveRate(pmM), "10% + ₹5.00");
+check("M6. Minimum billable: margin uses billable quantity", one(line(limited, { length: "5", width: "5", margin: "1" })).marginAmountPaise, 10000n);
+
+// M7. Invalid margin
+for (const [raw, msg] of [
+  ["-1", "Margin can't be negative"],
+  ["abc", "Margin must be a number"],
+  ["1.005", "Margin can have at most 2 decimals"],
+  ["Infinity", "Margin must be a number"],
+  ["NaN", "Margin must be a number"],
+  ["1e3", "Margin must be a number"],
+  ["99999999999", "Margin is too large (max 10,000,000,000)"],
+] as const) {
+  const r = one(line(m42, { length: "10", width: "10", margin: raw }));
+  check(`M7. margin "${raw}" invalid`, [r.status, r.fieldErrors.margin, r.amountPaise], ["invalid", msg, null]);
+}
+check("M7. parseMargin(Infinity number)", parseMargin(Infinity as unknown as string).ok, false);
+check("M7. Margin with ₹ and commas accepted", parseMargin("₹1,000.50"), { ok: true, paise: 100050n });
+const badM = line(m42, { length: "10", width: "10", margin: "-5" }, "badM");
+const badCalc = calculate([badM, line(m42, { length: "10", width: "10" }, "okM")]);
+check("M7. Invalid-margin line left out of total", [badCalc.totalPaise, badCalc.unpricedLineIds], [420000n, ["badM"]]);
+check("M7. Effective rate ignores an invalid margin", formatEffectiveRate(badM), "₹42.00/sq ft");
+
+// M8. Inclusion / exclusion and totals
+const t1 = line(m42, { length: "24", width: "25", margin: "1" }, "t1");
+const t2 = line(piece, { quantity: "2", margin: "50" }, "t2");
+const t3 = line(fixed, { margin: "1000", included: false }, "t3");
+const tc = calculate([t1, t2, t3]);
+check("M8. Total = sum of included final amounts", tc.totalPaise, 2580000n + 120000n);
+check("M8. Total base cost", tc.totalBasePaise, 2520000n + 110000n);
+check("M8. Total margin", tc.totalMarginPaise, 60000n + 10000n);
+check("M8. Base + margin = total", tc.totalBasePaise + tc.totalMarginPaise, tc.totalPaise);
+check("M8. Excluded line still priced on its own", copyAmountText(tc.lines.get("t3")!), "₹6,000.00");
+
+// M9. Percentage bases and bundle warnings with margin
+const pAll = item({ name: "Service", pricingMethod: "percentage", rate: "10", percentageBase: "all_other_items" });
+const pc = calculate([t1, t2, line(pAll, {}, "pAllL")]);
+const pr = pc.lines.get("pAllL")!;
+check("M9. % base uses amounts before margin (25,200 + 1,100)", pr.baseAmount, 26300);
+check("M9. 10% of ₹26,300 = ₹2,630.00 (margin not compounded)", copyAmountText(pr), "₹2,630.00");
+check("M9. % base flags that margin was left out", pr.baseExcludesMargin, true);
+const pSel = item({ name: "Sel", pricingMethod: "percentage", rate: "10", percentageBase: "selected_items", percentageBaseItemIds: [m42.itemId] });
+const ps = calculate([t1, line(pSel, { margin: "70" }, "pSelL")]);
+check("M9. Selected-items %: 10% of ₹25,200 + ₹70 flat", copyAmountText(ps.lines.get("pSelL")!), "₹2,590.00");
+const pEx = calculate([{ ...t1, included: false }, t2, line(pAll, {}, "pAllL")]);
+check("M9. Excluded lines stay out of the % base", pEx.lines.get("pAllL")!.baseAmount, 1100);
+const bundleA = item({ name: "Stage pkg", pricingMethod: "per_sqft", rate: "40" });
+const bundleB = item({ name: "Carpet pkg", pricingMethod: "per_sqft", rate: "9" });
+const bw = bundleWarnings(
+  [line(bundleA, { margin: "5" }, "ba"), line(bundleB, { margin: "1" }, "bb")],
+  [{ itemId: bundleA.itemId, relatedItemId: bundleB.itemId, relationType: "includes", note: null }],
+  new Map(),
+);
+check("M9. Bundle warning unaffected by margin", bw.map((w) => w.relationType), ["includes"]);
+
+// M10. Copy outputs with margin
+check(
+  "M10. Item details with margin",
+  copyItemDetailsText(mA, rA),
+  [
+    "Backdrop",
+    "Dimensions: 24 ft × 25 ft",
+    "Area: 600 sq ft",
+    "Base rate: ₹42.00/sq ft",
+    "Margin: ₹1.00/sq ft",
+    "Final rate: ₹43.00/sq ft",
+    "Base amount: ₹25,200.00",
+    "Margin amount: ₹600.00",
+    "Final amount: ₹25,800.00",
+  ].join("\n"),
+);
+check(
+  "M10. Fixed item details with flat margin",
+  copyItemDetailsText(fixM, fixR),
+  "Site visit\nBase rate: ₹5,000.00 (fixed)\nMargin: ₹500.00 (flat)\nFinal rate: ₹5,500.00 (fixed)\nBase amount: ₹5,000.00\nMargin amount: ₹500.00\nFinal amount: ₹5,500.00",
+);
+check(
+  "M10. Percentage item details with flat margin",
+  copyItemDetailsText(pmM, pmR),
+  "Insurance\nPercentage: 10%\nCalculation base: Entered base amount\nBase amount: ₹1,000.00\nPercentage amount: ₹100.00\nMargin (flat): ₹5.00\nFinal amount: ₹105.00",
+);
+check("M10. % details mark a base before margin", copyItemDetailsText(line(pAll, {}, "pAllL"), pr)!.includes("Calculation base: Backdrop, Foam letter (before margin)"), true);
+check("M10. Copy amount = final amount", copyAmountText(tc.lines.get("t1")!), "₹25,800.00");
+check("M10. Copy total = final total", copyTotalText(tc), "₹27,000.00");
+check(
+  "M10. Full calculation with margin",
+  copyFullCalculationText([t1, t2, t3], tc),
+  [
+    "AURON EVENTS — INTERNAL RATE CALCULATION",
+    "",
+    "1. Backdrop",
+    "    Dimensions: 24 ft × 25 ft",
+    "    Area: 600 sq ft",
+    "    Base rate: ₹42.00/sq ft",
+    "    Margin: ₹1.00/sq ft",
+    "    Final rate: ₹43.00/sq ft",
+    "    Base amount: ₹25,200.00",
+    "    Margin amount: ₹600.00",
+    "    Final amount: ₹25,800.00",
+    "2. Foam letter",
+    "    Quantity: 2",
+    "    Base rate: ₹550.00/piece",
+    "    Margin: ₹50.00/piece",
+    "    Final rate: ₹600.00/piece",
+    "    Base amount: ₹1,100.00",
+    "    Margin amount: ₹100.00",
+    "    Final amount: ₹1,200.00",
+    "",
+    "TOTAL BASE COST: ₹26,300.00",
+    "TOTAL MARGIN: ₹700.00",
+    "COMBINED TOTAL: ₹27,000.00",
+  ].join("\n"),
+);
+
+// M11. Rounding: base and margin each to paise, final is their exact sum
+const rr = one(line(item({ name: "r", pricingMethod: "per_unit", rate: "1.00" }), { quantity: "1.005", margin: "0.01" }));
+check("M11. Base 1.005 × ₹1 = ₹1.01, margin 1.005 × ₹0.01 = ₹0.01", [rr.basePaise, rr.marginAmountPaise, rr.amountPaise], [101n, 1n, 102n]);
 
 console.log(failures === 0 ? "\nAll rate calculator checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
