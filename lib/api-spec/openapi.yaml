@@ -55,6 +55,8 @@ tags:
     description: Analytics and reports
   - name: rateCatalog
     description: Rate Calculator master catalog (internal reference rates, not financial records)
+  - name: designStudio
+    description: Event Design Studio (2D hall plans and 3D layouts)
 
 paths:
   /healthz:
@@ -2761,6 +2763,205 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "409":
           description: An item with this name already exists in the category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-projects:
+    get:
+      operationId: listDesignProjects
+      tags: [designStudio]
+      summary: List Event Design Studio projects, most recently edited first
+      responses:
+        "200":
+          description: Projects (without their design data)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DesignProjectSummary"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createDesignProject
+      tags: [designStudio]
+      summary: Create a design project
+      description: >
+        `model` is optional; without it the project starts from an empty
+        plan. When given it must be a valid Design Studio project model
+        (lib/design-model, schema version 1).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignProjectCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignProject"
+        "400":
+          description: Invalid project or design data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-projects/{id}:
+    get:
+      operationId: getDesignProject
+      tags: [designStudio]
+      summary: Get a design project with its full design data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignProject"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateDesignProject
+      tags: [designStudio]
+      summary: Rename a project, change its details, or save its design
+      description: >
+        Every write must carry `baseRevision`, the revision the client last
+        loaded or saved. If the stored revision is different (another tab or
+        device saved in between) nothing is written and 409 returns the
+        current revision. Send `force: true` to deliberately overwrite.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignProjectUpdate"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignProjectSaved"
+        "400":
+          description: Invalid project or design data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The project was saved elsewhere since baseRevision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignProjectConflict"
+    delete:
+      operationId: deleteDesignProject
+      tags: [designStudio]
+      summary: Permanently delete a design project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-projects/{id}/duplicate:
+    post:
+      operationId: duplicateDesignProject
+      tags: [designStudio]
+      summary: Copy a design project (its last saved design) under a new name
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignProjectDuplicate"
+      responses:
+        "201":
+          description: The new copy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignProject"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -6120,3 +6321,136 @@ components:
           maxItems: 50
           items:
             $ref: "#/components/schemas/RateItemRelation"
+
+    # Event Design Studio schemas
+    DesignProjectSummary:
+      type: object
+      required: [id, name, venueName, clientId, clientName, eventId, revision, schemaVersion, roomCount, objectCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        venueName:
+          type: [string, "null"]
+        clientId:
+          type: [integer, "null"]
+        clientName:
+          type: [string, "null"]
+          description: Linked client's name when clientId is set, otherwise the free-text client
+        eventId:
+          type: [integer, "null"]
+        eventName:
+          type: [string, "null"]
+        revision:
+          type: integer
+        schemaVersion:
+          type: integer
+        roomCount:
+          type: integer
+        objectCount:
+          type: integer
+        createdByName:
+          type: [string, "null"]
+        updatedByName:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DesignProject:
+      allOf:
+        - $ref: "#/components/schemas/DesignProjectSummary"
+        - type: object
+          required: [model]
+          properties:
+            model:
+              type: object
+              additionalProperties: true
+              description: Design Studio project model (lib/design-model)
+
+    DesignProjectCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        venueName:
+          type: [string, "null"]
+          maxLength: 200
+        clientId:
+          type: [integer, "null"]
+        clientName:
+          type: [string, "null"]
+          maxLength: 200
+        eventId:
+          type: [integer, "null"]
+        model:
+          type: object
+          additionalProperties: true
+
+    DesignProjectUpdate:
+      type: object
+      required: [baseRevision]
+      properties:
+        baseRevision:
+          type: integer
+          minimum: 1
+        force:
+          type: boolean
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        venueName:
+          type: [string, "null"]
+          maxLength: 200
+        clientId:
+          type: [integer, "null"]
+        clientName:
+          type: [string, "null"]
+          maxLength: 200
+        eventId:
+          type: [integer, "null"]
+        model:
+          type: object
+          additionalProperties: true
+
+    DesignProjectSaved:
+      type: object
+      required: [id, revision, updatedAt]
+      properties:
+        id:
+          type: integer
+        revision:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+
+    DesignProjectConflict:
+      type: object
+      required: [error, currentRevision, updatedAt]
+      properties:
+        error:
+          type: string
+        currentRevision:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        updatedByName:
+          type: [string, "null"]
+
+    DesignProjectDuplicate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200

@@ -18,6 +18,7 @@ import miscRouter from "./misc";
 import notesRouter from "./notes";
 import performanceRouter from "./performance";
 import rateCatalogRouter from "./rate-catalog";
+import designProjectsRouter from "./design-projects";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(miscRouter);
 router.use(notesRouter);
 router.use(performanceRouter);
 router.use(rateCatalogRouter);
+router.use(designProjectsRouter);
 
 export default router;

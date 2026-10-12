@@ -24,6 +24,7 @@ import {
   Calculator,
   SunMoon,
   ChevronRight,
+  DraftingCompass,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -58,6 +59,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
       { href: "/team", label: "Team", icon: Users2 },
       { href: "/notes", label: "Notes", icon: Text },
       { href: "/rate-calculator", label: "Rate Calculator", icon: Calculator },
+      { href: "/design-studio", label: "Design Studio", icon: DraftingCompass },
     ],
   },
   {

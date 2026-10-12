@@ -30,6 +30,9 @@ app.use(
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
+// Design Studio saves carry a whole floor plan; give that route a larger
+// body limit than the 100 kB default used everywhere else.
+app.use("/api/design-projects", express.json({ limit: "5mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
