@@ -3527,3 +3527,177 @@ export const UpdateRateItemResponse = zod.object({
 })
 
 
+/**
+ * @summary List Event Design Studio projects, most recently edited first
+ */
+export const ListDesignProjectsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "venueName": zod.string().nullable(),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable().describe('Linked client\'s name when clientId is set, otherwise the free-text client'),
+  "eventId": zod.number().nullable(),
+  "eventName": zod.string().nullish(),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "roomCount": zod.number(),
+  "objectCount": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListDesignProjectsResponse = zod.array(ListDesignProjectsResponseItem)
+
+
+/**
+ * `model` is optional; without it the project starts from an empty plan. When given it must be a valid Design Studio project model (lib/design-model, schema version 1).
+ * @summary Create a design project
+ */
+export const createDesignProjectBodyNameMax = 200;
+
+export const createDesignProjectBodyVenueNameMax = 200;
+
+export const createDesignProjectBodyClientNameMax = 200;
+
+
+
+export const CreateDesignProjectBody = zod.object({
+  "name": zod.string().min(1).max(createDesignProjectBodyNameMax),
+  "venueName": zod.string().max(createDesignProjectBodyVenueNameMax).nullish(),
+  "clientId": zod.number().nullish(),
+  "clientName": zod.string().max(createDesignProjectBodyClientNameMax).nullish(),
+  "eventId": zod.number().nullish(),
+  "model": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const CreateDesignProjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "venueName": zod.string().nullable(),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable().describe('Linked client\'s name when clientId is set, otherwise the free-text client'),
+  "eventId": zod.number().nullable(),
+  "eventName": zod.string().nullish(),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "roomCount": zod.number(),
+  "objectCount": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "model": zod.record(zod.string(), zod.unknown()).describe('Design Studio project model (lib\/design-model)')
+}))
+
+
+/**
+ * @summary Get a design project with its full design data
+ */
+export const GetDesignProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetDesignProjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "venueName": zod.string().nullable(),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable().describe('Linked client\'s name when clientId is set, otherwise the free-text client'),
+  "eventId": zod.number().nullable(),
+  "eventName": zod.string().nullish(),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "roomCount": zod.number(),
+  "objectCount": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "model": zod.record(zod.string(), zod.unknown()).describe('Design Studio project model (lib\/design-model)')
+}))
+
+
+/**
+ * Every write must carry `baseRevision`, the revision the client last loaded or saved. If the stored revision is different (another tab or device saved in between) nothing is written and 409 returns the current revision. Send `force: true` to deliberately overwrite.
+ * @summary Rename a project, change its details, or save its design
+ */
+export const UpdateDesignProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const updateDesignProjectBodyNameMax = 200;
+
+export const updateDesignProjectBodyVenueNameMax = 200;
+
+export const updateDesignProjectBodyClientNameMax = 200;
+
+
+
+export const UpdateDesignProjectBody = zod.object({
+  "baseRevision": zod.number().min(1),
+  "force": zod.boolean().optional(),
+  "name": zod.string().min(1).max(updateDesignProjectBodyNameMax).optional(),
+  "venueName": zod.string().max(updateDesignProjectBodyVenueNameMax).nullish(),
+  "clientId": zod.number().nullish(),
+  "clientName": zod.string().max(updateDesignProjectBodyClientNameMax).nullish(),
+  "eventId": zod.number().nullish(),
+  "model": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const UpdateDesignProjectResponse = zod.object({
+  "id": zod.number(),
+  "revision": zod.number(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Permanently delete a design project
+ */
+export const DeleteDesignProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteDesignProjectResponse = zod.void()
+
+
+/**
+ * @summary Copy a design project (its last saved design) under a new name
+ */
+export const DuplicateDesignProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const duplicateDesignProjectBodyNameMax = 200;
+
+
+
+export const DuplicateDesignProjectBody = zod.object({
+  "name": zod.string().min(1).max(duplicateDesignProjectBodyNameMax).optional()
+})
+
+export const DuplicateDesignProjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "venueName": zod.string().nullable(),
+  "clientId": zod.number().nullable(),
+  "clientName": zod.string().nullable().describe('Linked client\'s name when clientId is set, otherwise the free-text client'),
+  "eventId": zod.number().nullable(),
+  "eventName": zod.string().nullish(),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "roomCount": zod.number(),
+  "objectCount": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "model": zod.record(zod.string(), zod.unknown()).describe('Design Studio project model (lib\/design-model)')
+}))
+
+

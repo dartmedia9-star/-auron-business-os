@@ -42,6 +42,13 @@ import type {
   CompanySettings,
   CompanySettingsUpdate,
   DashboardSummary,
+  DesignProject,
+  DesignProjectConflict,
+  DesignProjectCreate,
+  DesignProjectDuplicate,
+  DesignProjectSaved,
+  DesignProjectSummary,
+  DesignProjectUpdate,
   Employee,
   EmployeeInput,
   EmployeeUpdate,
@@ -9041,5 +9048,447 @@ export const useUpdateRateItem = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getUpdateRateItemMutationOptions(options));
+    }
+
+export const getListDesignProjectsUrl = () => {
+
+
+
+
+  return `/api/design-projects`
+}
+
+/**
+ * @summary List Event Design Studio projects, most recently edited first
+ */
+export const listDesignProjects = async ( options?: Parameters<typeof customFetch>[1]): Promise<DesignProjectSummary[]> => {
+
+  return customFetch<DesignProjectSummary[]>(getListDesignProjectsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDesignProjectsQueryKey = () => {
+    return [
+    `/api/design-projects`
+    ] as const;
+    }
+
+
+export const getListDesignProjectsQueryOptions = <TData = Awaited<ReturnType<typeof listDesignProjects>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDesignProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDesignProjectsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDesignProjects>>> = ({ signal }) => listDesignProjects({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDesignProjects>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDesignProjectsQueryResult = NonNullable<Awaited<ReturnType<typeof listDesignProjects>>>
+export type ListDesignProjectsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List Event Design Studio projects, most recently edited first
+ */
+
+export function useListDesignProjects<TData = Awaited<ReturnType<typeof listDesignProjects>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDesignProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDesignProjectsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDesignProjectUrl = () => {
+
+
+
+
+  return `/api/design-projects`
+}
+
+/**
+ * `model` is optional; without it the project starts from an empty plan. When given it must be a valid Design Studio project model (lib/design-model, schema version 1).
+ * @summary Create a design project
+ */
+export const createDesignProject = async (designProjectCreate: DesignProjectCreate, options?: Parameters<typeof customFetch>[1]): Promise<DesignProject> => {
+
+  return customFetch<DesignProject>(getCreateDesignProjectUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designProjectCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateDesignProjectMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDesignProject>>, TError,{data: BodyType<DesignProjectCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDesignProject>>, TError,{data: BodyType<DesignProjectCreate>}, TContext> => {
+
+const mutationKey = ['createDesignProject'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDesignProject>>, {data: BodyType<DesignProjectCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDesignProject(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDesignProjectMutationResult = NonNullable<Awaited<ReturnType<typeof createDesignProject>>>
+    export type CreateDesignProjectMutationBody = BodyType<DesignProjectCreate>
+    export type CreateDesignProjectMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a design project
+ */
+export const useCreateDesignProject = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDesignProject>>, TError,{data: BodyType<DesignProjectCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDesignProject>>,
+        TError,
+        {data: BodyType<DesignProjectCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateDesignProjectMutationOptions(options));
+    }
+
+export const getGetDesignProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-projects/${id}`
+}
+
+/**
+ * @summary Get a design project with its full design data
+ */
+export const getDesignProject = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<DesignProject> => {
+
+  return customFetch<DesignProject>(getGetDesignProjectUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDesignProjectQueryKey = (id: number,) => {
+    return [
+    `/api/design-projects/${id}`
+    ] as const;
+    }
+
+
+export const getGetDesignProjectQueryOptions = <TData = Awaited<ReturnType<typeof getDesignProject>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDesignProjectQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDesignProject>>> = ({ signal }) => getDesignProject(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDesignProject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDesignProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getDesignProject>>>
+export type GetDesignProjectQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get a design project with its full design data
+ */
+
+export function useGetDesignProject<TData = Awaited<ReturnType<typeof getDesignProject>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDesignProjectQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateDesignProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-projects/${id}`
+}
+
+/**
+ * Every write must carry `baseRevision`, the revision the client last loaded or saved. If the stored revision is different (another tab or device saved in between) nothing is written and 409 returns the current revision. Send `force: true` to deliberately overwrite.
+ * @summary Rename a project, change its details, or save its design
+ */
+export const updateDesignProject = async (id: number,
+    designProjectUpdate: DesignProjectUpdate, options?: Parameters<typeof customFetch>[1]): Promise<DesignProjectSaved> => {
+
+  return customFetch<DesignProjectSaved>(getUpdateDesignProjectUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designProjectUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateDesignProjectMutationOptions = <TError = ErrorType<ErrorEnvelope | DesignProjectConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDesignProject>>, TError,{id: number;data: BodyType<DesignProjectUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDesignProject>>, TError,{id: number;data: BodyType<DesignProjectUpdate>}, TContext> => {
+
+const mutationKey = ['updateDesignProject'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDesignProject>>, {id: number;data: BodyType<DesignProjectUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateDesignProject(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDesignProjectMutationResult = NonNullable<Awaited<ReturnType<typeof updateDesignProject>>>
+    export type UpdateDesignProjectMutationBody = BodyType<DesignProjectUpdate>
+    export type UpdateDesignProjectMutationError = ErrorType<ErrorEnvelope | DesignProjectConflict>
+
+    /**
+ * @summary Rename a project, change its details, or save its design
+ */
+export const useUpdateDesignProject = <TError = ErrorType<ErrorEnvelope | DesignProjectConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDesignProject>>, TError,{id: number;data: BodyType<DesignProjectUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDesignProject>>,
+        TError,
+        {id: number;data: BodyType<DesignProjectUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateDesignProjectMutationOptions(options));
+    }
+
+export const getDeleteDesignProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-projects/${id}`
+}
+
+/**
+ * @summary Permanently delete a design project
+ */
+export const deleteDesignProject = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteDesignProjectUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDesignProjectMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDesignProject>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDesignProject>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDesignProject'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDesignProject>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDesignProject(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDesignProjectMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDesignProject>>>
+
+    export type DeleteDesignProjectMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Permanently delete a design project
+ */
+export const useDeleteDesignProject = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDesignProject>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDesignProject>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDesignProjectMutationOptions(options));
+    }
+
+export const getDuplicateDesignProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-projects/${id}/duplicate`
+}
+
+/**
+ * @summary Copy a design project (its last saved design) under a new name
+ */
+export const duplicateDesignProject = async (id: number,
+    designProjectDuplicate?: DesignProjectDuplicate, options?: Parameters<typeof customFetch>[1]): Promise<DesignProject> => {
+
+  return customFetch<DesignProject>(getDuplicateDesignProjectUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designProjectDuplicate)
+  }
+);}
+
+
+
+
+
+export const getDuplicateDesignProjectMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof duplicateDesignProject>>, TError,{id: number;data?: BodyType<DesignProjectDuplicate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof duplicateDesignProject>>, TError,{id: number;data?: BodyType<DesignProjectDuplicate>}, TContext> => {
+
+const mutationKey = ['duplicateDesignProject'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof duplicateDesignProject>>, {id: number;data?: BodyType<DesignProjectDuplicate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  duplicateDesignProject(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DuplicateDesignProjectMutationResult = NonNullable<Awaited<ReturnType<typeof duplicateDesignProject>>>
+    export type DuplicateDesignProjectMutationBody = BodyType<DesignProjectDuplicate> | undefined
+    export type DuplicateDesignProjectMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Copy a design project (its last saved design) under a new name
+ */
+export const useDuplicateDesignProject = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof duplicateDesignProject>>, TError,{id: number;data?: BodyType<DesignProjectDuplicate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof duplicateDesignProject>>,
+        TError,
+        {id: number;data?: BodyType<DesignProjectDuplicate>},
+        TContext
+      > => {
+      return useMutation(getDuplicateDesignProjectMutationOptions(options));
     }
 

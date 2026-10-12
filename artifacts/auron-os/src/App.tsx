@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
+import { lazy, Suspense } from 'react';
+import { Route, Switch, Router as WouterRouter, Redirect, useRoute } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
 import { AppShell } from '@/components/layout';
 import { RouteTransition } from '@/components/ds/page-transition';
@@ -41,6 +42,18 @@ import PerformanceEbitda from '@/pages/performance/ebitda';
 import PerformanceNetProfit from '@/pages/performance/net-profit';
 import RateCalculatorPage from '@/pages/rate-calculator/index';
 
+// Design Studio pulls in three.js and the PDF writer, so it loads on demand.
+const DesignStudioList = lazy(() => import('@/pages/design-studio/index'));
+const DesignStudioEditor = lazy(() => import('@/pages/design-studio/editor'));
+
+function PageSpinner() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label="Loading">
+      <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -52,6 +65,7 @@ const queryClient = new QueryClient({
 
 function AuthenticatedApp() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [inEditor] = useRoute('/design-studio/:id');
 
   if (isLoading) {
     return (
@@ -63,6 +77,17 @@ function AuthenticatedApp() {
 
   if (!isAuthenticated) {
     return <LoginScreen />;
+  }
+
+  // The design editor is full screen, outside the app shell.
+  if (inEditor) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PageSpinner />}>
+          <Route path="/design-studio/:id" component={DesignStudioEditor} />
+        </Suspense>
+      </ErrorBoundary>
+    );
   }
 
   return (
@@ -92,6 +117,11 @@ function AppRoutes({ location }: { location: string }) {
         <Route path="/fund-transfers" component={FundTransfers} />
         <Route path="/notes" component={NotesList} />
         <Route path="/rate-calculator" component={RateCalculatorPage} />
+        <Route path="/design-studio">
+          <Suspense fallback={<PageSpinner />}>
+            <DesignStudioList />
+          </Suspense>
+        </Route>
         <Route path="/vendors" component={VendorsList} />
         <Route path="/assets" component={AssetsList} />
         <Route path="/team" component={TeamList} />

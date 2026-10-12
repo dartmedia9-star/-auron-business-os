@@ -2354,6 +2354,119 @@ export interface RateItemUpdate {
   relations?: RateItemRelation[];
 }
 
+export interface DesignProjectSummary {
+  id: number;
+  name: string;
+  /** @nullable */
+  venueName: string | null;
+  /** @nullable */
+  clientId: number | null;
+  /**
+     * Linked client's name when clientId is set, otherwise the free-text client
+     * @nullable
+     */
+  clientName: string | null;
+  /** @nullable */
+  eventId: number | null;
+  /** @nullable */
+  eventName?: string | null;
+  revision: number;
+  schemaVersion: number;
+  roomCount: number;
+  objectCount: number;
+  /** @nullable */
+  createdByName?: string | null;
+  /** @nullable */
+  updatedByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Design Studio project model (lib/design-model)
+ */
+export type DesignProjectModel = { [key: string]: unknown };
+
+export type DesignProject = DesignProjectSummary & {
+  /** Design Studio project model (lib/design-model) */
+  model: DesignProjectModel;
+};
+
+export type DesignProjectCreateModel = { [key: string]: unknown };
+
+export interface DesignProjectCreate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  venueName?: string | null;
+  /** @nullable */
+  clientId?: number | null;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  clientName?: string | null;
+  /** @nullable */
+  eventId?: number | null;
+  model?: DesignProjectCreateModel;
+}
+
+export type DesignProjectUpdateModel = { [key: string]: unknown };
+
+export interface DesignProjectUpdate {
+  /** @minimum 1 */
+  baseRevision: number;
+  force?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  venueName?: string | null;
+  /** @nullable */
+  clientId?: number | null;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  clientName?: string | null;
+  /** @nullable */
+  eventId?: number | null;
+  model?: DesignProjectUpdateModel;
+}
+
+export interface DesignProjectSaved {
+  id: number;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface DesignProjectConflict {
+  error: string;
+  currentRevision: number;
+  updatedAt: string;
+  /** @nullable */
+  updatedByName?: string | null;
+}
+
+export interface DesignProjectDuplicate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

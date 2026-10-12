@@ -516,3 +516,56 @@
 .dark .bg-destructive.text-destructive-foreground:hover {
   background-color: hsl(var(--destructive-solid) / 0.9);
 }
+
+/* ---------------------------------------------------------------------------
+ * Design Studio plan colours. Daylight draws like a printed plan; Midnight
+ * keeps the same hierarchy (ink > walls > dimensions > grid) on navy.
+ * Exports never use these: they always print black on white.
+ * ------------------------------------------------------------------------ */
+:root {
+  --plan-paper: #eceef2;
+  --plan-floor: #ffffff;
+  --plan-wall: #2a2f3a;
+  --plan-ink: #1a1f2b;
+  --plan-partition: #59606e;
+  --plan-pillar: #3a404c;
+  --plan-object: #f3efe6;
+  --plan-muted: #8a91a0;
+  --plan-dim: #1f5fbf;
+  --plan-text: #1a1f2b;
+  --plan-text-muted: #5b6372;
+  --plan-grid: rgb(26 31 43 / 0.06);
+  --plan-grid-major: rgb(26 31 43 / 0.13);
+  --plan-select: #2563eb;
+  --plan-snap: #e0459b;
+}
+.dark {
+  --plan-paper: #080b12;
+  --plan-floor: #121722;
+  --plan-wall: #c9cfdb;
+  --plan-ink: #e6e9f0;
+  --plan-partition: #9aa3b4;
+  --plan-pillar: #aab2c2;
+  --plan-object: #1f2633;
+  --plan-muted: #6f7889;
+  --plan-dim: #7fb0ff;
+  --plan-text: #e6e9f0;
+  --plan-text-muted: #9aa3b4;
+  --plan-grid: rgb(230 233 240 / 0.05);
+  --plan-grid-major: rgb(230 233 240 / 0.11);
+  --plan-select: #60a5fa;
+  --plan-snap: #f472b6;
+}
+:root.dark[data-contrast="more"] {
+  --plan-grid: rgb(230 233 240 / 0.09);
+  --plan-grid-major: rgb(230 233 240 / 0.2);
+}
+:root[data-contrast="more"]:not(.dark) {
+  --plan-grid: rgb(26 31 43 / 0.1);
+  --plan-grid-major: rgb(26 31 43 / 0.22);
+}
+/* The editor is full screen: stop the page behind it scrolling or bouncing. */
+body.design-studio-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}

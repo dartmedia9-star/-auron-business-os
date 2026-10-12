@@ -20,3 +20,4 @@ export * from "./audit-logs";
 export * from "./client-payments";
 export * from "./payment-allocations";
 export * from "./rate-catalog";
+export * from "./design-projects";
