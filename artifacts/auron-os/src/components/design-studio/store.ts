@@ -5,6 +5,7 @@ import {
   pushHistory,
   redo as historyRedo,
   undo as historyUndo,
+  type CustomSpec,
   type History,
   type ObjectType,
   type OpeningKind,
@@ -40,10 +41,24 @@ export type Tool =
 
 export type Workspace = "2d" | "3d";
 
+/** A custom object chosen in the library, waiting to be placed. */
+export type CustomPlacement = {
+  spec: CustomSpec;
+  name: string;
+  color: string;
+  accentColor: string;
+  elevation: number;
+  /** Library entry it came from (kept on the instance for "update from library"). */
+  libraryId: number | null;
+  libraryRevision: number | null;
+};
+
 export type ToolOptions = {
   openingKind: OpeningKind;
   sectionKind: SectionKind;
   objectType: ObjectType;
+  /** Set when the object tool places a custom object instead of `objectType`. */
+  custom: CustomPlacement | null;
 };
 
 export type EditorState = {
@@ -88,7 +103,7 @@ export class EditorStore {
       selection: [],
       focusEdge: null,
       tool: "select",
-      toolOptions: { openingKind: "door", sectionKind: "section", objectType: "stage" },
+      toolOptions: { openingKind: "door", sectionKind: "section", objectType: "stage", custom: null },
       workspace: "2d",
       penMode: false,
       chain: [],

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DISPLAY_UNITS } from "./units";
+import { customSpecSchema } from "./custom-schema";
 
 // ---------------------------------------------------------------------------
 // The Design Studio project model: one editable document shared by the 2D
@@ -126,16 +127,54 @@ export const sectionSchema = z.object({
 });
 
 export const OBJECT_TYPES = [
+  // Stage and platforms
   "stage",
   "riser",
-  "backdrop",
-  "box_arch",
-  "skirting",
-  "led_screen",
-  "structure",
+  "modular_stage",
+  "multi_level_stage",
   "steps",
+  "skirting",
+  // Backdrops and branding
+  "backdrop",
+  "framed_backdrop",
+  "modular_backdrop",
+  "step_repeat",
+  "welcome_sign",
+  "display_wall",
+  "media_wall",
+  // Arches and frames
+  "box_arch",
+  "goalpost",
+  "circular_arch",
+  "photo_frame",
+  "entrance_gate",
+  // Screens and truss
+  "led_screen",
+  "display_screen",
+  "projection_screen",
+  "truss_tower",
+  "truss_beam",
+  // Counters and furniture
   "counter",
+  "reception_counter",
+  "exhibition_counter",
+  "info_desk",
+  "rect_table",
   "round_table",
+  "cocktail_table",
+  "lectern",
+  "plinth",
+  "pedestal",
+  "chair",
+  // Exhibition
+  "booth_shell",
+  "corner_booth",
+  "partition_panel",
+  "photo_booth",
+  "display_case",
+  // Generic and user-made
+  "structure",
+  "custom",
 ] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 
@@ -159,6 +198,14 @@ export const objectSchema = z.object({
   props: z.record(z.string().max(40), z.union([z.number().finite(), z.string().max(200), z.boolean()])).default({}),
   /** Manual shift of the name label from its automatic place (0,0 = automatic). */
   labelOffset: vec2Schema.default({ x: 0, y: 0 }),
+  /**
+   * Custom objects only: the construction recipe (custom-schema.ts). The
+   * instance owns its copy, so editing it never changes the library entry
+   * or other instances; props.libraryId names the library entry it came from.
+   */
+  custom: customSpecSchema.optional(),
+}).superRefine((o, ctx) => {
+  if (o.type === "custom" && !o.custom) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["custom"], message: "A custom object needs its construction recipe" });
 });
 
 export const dimensionSchema = z.object({

@@ -8,13 +8,17 @@ import {
   offsetPolygon,
   openingGeometry,
   outwardNormal,
-  paramValue,
   rectCorners,
   roomAt,
   scale,
   signedArea,
   sub,
-  type DesignObject,
+  isRendered,
+  objectParts,
+  partFaces,
+  type Part,
+  type SolidPart,
+  type Tone,
   type Opening,
   type OpeningKind,
   type ProjectModel,
@@ -182,7 +186,7 @@ export function wallPieces(model: ProjectModel): WallPiece[] {
 
 // ------------------------------------------------------------- generic ----
 
-export type Tone = "body" | "accent" | "screen" | "metal" | "glass" | "frame" | "exit";
+export type { Tone };
 
 /** A box in plan space: centre (plan mm), bottom height, size along its own axes, plan rotation. */
 export type PlanBox = { cx: number; cy: number; y0: number; w: number; d: number; h: number; rot: number; tone: Tone; color?: string };
@@ -234,124 +238,41 @@ export function pillarHeight(model: ProjectModel, p: { x: number; y: number; hei
 
 // ------------------------------------------------------------- objects ----
 
-/** One solid part of an object, in the object's own frame (mm): x across, y up from its base, z towards the front. */
-export type Part =
-  | { kind: "box"; x: number; y: number; z: number; w: number; h: number; d: number; tone: Tone }
-  | { kind: "cylinder"; x: number; y: number; z: number; r: number; h: number; tone: Tone }
-  | { kind: "grid"; z: number; y: number; w: number; h: number; cell: number };
+// Object geometry is defined once, as solid parts, in the shared model
+// (lib/design-model: objects/ for built-ins, custom.ts for Custom Builder
+// recipes). Here the parts become merged three.js geometry: one buffer per
+// colour, so a truss arch with hundreds of members is still a few draw calls.
 
-const box = (x: number, y: number, z: number, w: number, h: number, d: number, tone: Tone = "body"): Part => ({ kind: "box", x, y, z, w, h, d, tone });
+export { objectParts };
+export type { Part };
 
-const MAX_RIBS = 200;
+export type MeshGroup = { key: string; tone: Tone; color: string; geometry: THREE.BufferGeometry };
 
-/**
- * Parametric parts for each object type. Adding a type = one case here plus
- * its catalogue entry. Every part sits inside the footprint except stage
- * front steps and table chairs, which are drawn in front of / around it.
- */
-export function objectParts(o: Pick<DesignObject, "type" | "width" | "depth" | "height" | "props">): Part[] {
-  const { width: w, depth: d, height: h } = o;
-  const p = <T extends number | string | boolean>(k: string) => paramValue<T>(o.props, o.type, k);
-  const SK = 20; // skirt thickness
-  switch (o.type) {
-    case "stage":
-    case "riser": {
-      const parts: Part[] = [box(0, 0, 0, w, h, d)];
-      if (p<boolean>("skirting")) {
-        parts.push(box(0, 0, d / 2 - SK / 2, w, h, SK, "accent"));
-        const sides = o.type === "riser" || p<boolean>("skirtSides");
-        if (sides) {
-          parts.push(box(-w / 2 + SK / 2, 0, 0, SK, h, d, "accent"));
-          parts.push(box(w / 2 - SK / 2, 0, 0, SK, h, d, "accent"));
-          parts.push(box(0, 0, -d / 2 + SK / 2, w, h, SK, "accent"));
-        }
-      }
-      if (o.type === "stage" && p<boolean>("frontSteps") && h > 150) {
-        const sw = Math.min(w, p<number>("stepWidth"));
-        const n = Math.max(1, Math.ceil(h / 200) - 1);
-        for (let k = 1; k <= n; k++) {
-          const top = (h * k) / (n + 1);
-          parts.push(box(0, 0, d / 2 + (n - k) * 300 + 150, sw, top, 300));
-        }
-      }
-      return parts;
+/** Merged, flat-shaded geometry for a set of parts (metres), grouped by colour. */
+export function partsGeometry(parts: Part[], colorOf: (p: SolidPart) => string, detail: "render" | "thumb" = "render"): MeshGroup[] {
+  const groups = new Map<string, { tone: Tone; color: string; pos: number[] }>();
+  for (const p of parts) {
+    if (!isRendered(p)) continue;
+    const color = colorOf(p);
+    const key = `${p.tone}:${color}`;
+    let g = groups.get(key);
+    if (!g) groups.set(key, (g = { tone: p.tone, color, pos: [] }));
+    for (const f of partFaces(p, detail)) {
+      // Fan-triangulate each (convex) face.
+      for (let i = 1; i < f.length - 1; i++) for (const q of [f[0], f[i], f[i + 1]]) g.pos.push(q[0] * MM, q[1] * MM, q[2] * MM);
     }
-    case "backdrop": {
-      const parts: Part[] = [box(0, 0, 0, w, h, d)];
-      if (p<boolean>("frame")) {
-        const f = Math.min(p<number>("frameSize"), w / 4, h / 4);
-        const fd = d + 20;
-        parts.push(box(0, h - f, 0, w, f, fd, "accent"), box(0, 0, 0, w, f, fd, "accent"));
-        parts.push(box(-w / 2 + f / 2, f, 0, f, h - 2 * f, fd, "accent"), box(w / 2 - f / 2, f, 0, f, h - 2 * f, fd, "accent"));
-      }
-      return parts;
-    }
-    case "box_arch": {
-      const t = Math.min(p<number>("trussSize"), w / 3, h / 2);
-      const dz = Math.min(t, d);
-      // Base plates, kept inside the footprint so the plan outline is honest.
-      const pw = Math.min(t * 1.6, w / 3);
-      const pd = Math.max(dz, Math.min(t * 1.6, d));
-      return [
-        box(-w / 2 + t / 2, 0, 0, t, h - t, dz, "metal"),
-        box(w / 2 - t / 2, 0, 0, t, h - t, dz, "metal"),
-        box(0, h - t, 0, w, t, dz, "metal"),
-        box(-w / 2 + pw / 2, 0, 0, pw, 10, pd, "accent"),
-        box(w / 2 - pw / 2, 0, 0, pw, 10, pd, "accent"),
-      ];
-    }
-    case "skirting": {
-      const parts: Part[] = [box(0, 0, 0, w, h, Math.max(d, 5))];
-      if (p<boolean>("pleated")) {
-        const n = Math.min(MAX_RIBS, Math.floor(w / 150));
-        for (let i = 1; i < n; i++) parts.push(box(-w / 2 + (i * w) / n, 0, Math.max(d, 5) / 2, 15, h, 10, "accent"));
-      }
-      return parts;
-    }
-    case "led_screen": {
-      const parts: Part[] = [box(0, 0, 0, w, h, d), box(0, 0, d / 2 + 1, w, h, 2, "screen")];
-      const cell = p<number>("moduleSize");
-      if (p<boolean>("showModules") && cell > 0 && w / cell <= 200 && h / cell <= 200) parts.push({ kind: "grid", z: d / 2 + 3, y: 0, w, h, cell });
-      return parts;
-    }
-    case "steps": {
-      const n = Math.max(1, Math.round(p<number>("count")));
-      const tread = d / n;
-      // Lowest step at the front (+z), rising towards the back.
-      return Array.from({ length: n }, (_, i) => box(0, 0, d / 2 - tread * i - tread / 2, w, (h * (i + 1)) / n, tread));
-    }
-    case "counter": {
-      const ov = Math.min(p<number>("topOverhang"), w / 4, d / 4);
-      const top = Math.min(40, h / 4);
-      const bw = w - 2 * ov;
-      const bd = d - ov;
-      return [
-        box(0, h - top, 0, w, top, d),
-        box(0, 0, -ov / 2, bw, h - top, bd),
-        box(0, Math.min(100, (h - top) / 4), -ov / 2 + bd / 2 + 8, bw, h - top - Math.min(100, (h - top) / 4), 16, "accent"),
-      ];
-    }
-    case "round_table": {
-      const r = w / 2;
-      const top = Math.min(30, h / 4);
-      const parts: Part[] = [
-        { kind: "cylinder", x: 0, y: h - top, z: 0, r, h: top, tone: "body" },
-        { kind: "cylinder", x: 0, y: 20, z: 0, r: Math.min(50, r / 4), h: h - top - 20, tone: "metal" },
-        { kind: "cylinder", x: 0, y: 0, z: 0, r: Math.min(300, r * 0.6), h: 20, tone: "metal" },
-      ];
-      const seats = Math.max(0, Math.min(16, Math.round(p<number>("seats"))));
-      const ring = r + 280;
-      for (let i = 0; i < seats; i++) {
-        const a = (i / seats) * Math.PI * 2;
-        parts.push({ kind: "cylinder", x: Math.cos(a) * ring, y: 0, z: Math.sin(a) * ring, r: 210, h: 450, tone: "accent" });
-      }
-      return parts;
-    }
-    case "structure":
-    default:
-      return [box(0, 0, 0, w, h, d)];
   }
+  return [...groups.entries()].map(([key, g]) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(g.pos, 3));
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    return { key, tone: g.tone, color: g.color, geometry };
+  });
 }
+
+/** The LED module grid parts of an object (drawn as lines, not solids). */
+export const gridParts = (parts: Part[]) => parts.filter((p): p is Extract<Part, { kind: "grid" }> => p.kind === "grid");
 
 /** World transform of an object (and pillar/section) centre. */
 export function planTransform(e: { x: number; y: number; rotation: number }, elevationMm = 0): { position: [number, number, number]; rotationY: number } {

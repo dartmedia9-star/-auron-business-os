@@ -15,6 +15,7 @@ import {
   type DesignProjectSummary,
 } from "@workspace/api-client-react";
 import { createEmptyModel } from "@workspace/design-model";
+import { CustomObjectsSection } from "@/components/design-studio/custom-objects-section";
 import { PageHeader } from "@/components/ds/page-header";
 import { CardsSkeleton, EmptyState, ErrorState } from "@/components/ds/states";
 import { Button } from "@/components/ui/button";
@@ -157,6 +158,8 @@ export default function DesignStudioList() {
           ))}
         </ul>
       )}
+
+      <CustomObjectsSection />
 
       <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(id) => navigate(`/design-studio/${id}`)} />
       <RenameDialog project={renaming} onClose={() => setRenaming(null)} onDone={() => void refresh()} />

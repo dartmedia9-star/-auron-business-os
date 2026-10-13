@@ -2459,6 +2459,67 @@ export interface DesignProjectConflict {
   updatedByName?: string | null;
 }
 
+/**
+ * Custom object definition (lib/design-model custom-schema.ts)
+ */
+export type DesignObjectDefinition = { [key: string]: unknown };
+
+export interface DesignObject {
+  id: number;
+  name: string;
+  category: string;
+  /** @nullable */
+  description: string | null;
+  /** Custom object definition (lib/design-model custom-schema.ts) */
+  definition: DesignObjectDefinition;
+  revision: number;
+  schemaVersion: number;
+  /** @nullable */
+  createdByName?: string | null;
+  /** @nullable */
+  updatedByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DesignObjectCreateDefinition = { [key: string]: unknown };
+
+export interface DesignObjectCreate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 60 */
+  category?: string;
+  /**
+     * @maxLength 400
+     * @nullable
+     */
+  description?: string | null;
+  definition: DesignObjectCreateDefinition;
+}
+
+export type DesignObjectUpdateDefinition = { [key: string]: unknown };
+
+export interface DesignObjectUpdate {
+  /** @minimum 1 */
+  baseRevision: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name?: string;
+  /** @maxLength 60 */
+  category?: string;
+  /**
+     * @maxLength 400
+     * @nullable
+     */
+  description?: string | null;
+  definition?: DesignObjectUpdateDefinition;
+}
+
 export interface DesignProjectDuplicate {
   /**
      * @minLength 1

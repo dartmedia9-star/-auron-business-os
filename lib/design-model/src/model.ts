@@ -1,4 +1,6 @@
 import { DEFAULT_CHECKLIST, OBJECT_DEFS, OPENING_DEFS, SECTION_DEFS, objectParamDefaults } from "./catalog";
+import { customSize, resizeCustom } from "./custom";
+import type { CustomSpec } from "./custom-schema";
 import {
   EPS,
   add,
@@ -452,7 +454,34 @@ export function updateEntity(model: ProjectModel, id: string, patch: Record<stri
   if (!ref) return model;
   const key = COLLECTION[ref.kind];
   const list = model[key] as Array<{ id: string }>;
-  return { ...model, [key]: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
+  return {
+    ...model,
+    [key]: list.map((e) => {
+      if (e.id !== id) return e;
+      const next = { ...e, ...patch };
+      return ref.kind === "object" ? reconcileCustom(next as DesignObject, patch) : next;
+    }),
+  };
+}
+
+/**
+ * Keeps a custom object's size and recipe in step: typing or dragging a new
+ * width / depth / height resizes the recipe (custom.ts), and the object's
+ * size is always what the recipe actually builds.
+ */
+export function reconcileCustom(o: DesignObject, patch: Record<string, unknown> = {}): DesignObject {
+  if (o.type !== "custom" || !o.custom) return o;
+  let spec = o.custom;
+  if (!("custom" in patch) && ("width" in patch || "depth" in patch || "height" in patch)) {
+    spec = resizeCustom(spec, { width: o.width, depth: o.depth, height: o.height });
+  }
+  return { ...o, custom: spec, ...customSize(spec) };
+}
+
+/** A custom object placed from a recipe (and, optionally, the library entry it came from). */
+export function makeCustomObject(spec: CustomSpec, x: number, y: number, opts: Partial<Omit<DesignObject, "id" | "type" | "custom">> = {}): DesignObject {
+  const base = makeObject("custom", x, y, opts);
+  return { ...base, custom: spec, ...customSize(spec) };
 }
 
 /**

@@ -28,7 +28,7 @@ import { buildPlan, dimensionPrims, type PlanBuild, type Prim } from "./plan-pri
 import { PlanSvg } from "./plan-svg";
 import { handlesFor, hitTest, resizeRect, snapPoint, toWorld, type Handle, type Hit, type LabelGrip, type SnapResult, type View } from "./interaction";
 import { textBox } from "./annotation-layout";
-import { addRect, finishPolygonRoom, finishWall, placeDimension, placeLabel, placeObject, placeOpening, placePillar, translateEntity, useStore } from "./commands";
+import { addRect, finishPolygonRoom, finishWall, placeDimension, placeLabel, placeCustomObject, placeObject, placeOpening, placePillar, translateEntity, useStore } from "./commands";
 import { useEditor } from "./store";
 import { toast } from "@/hooks/use-toast";
 
@@ -612,10 +612,13 @@ export function Canvas2D() {
         if (!id) toast({ title: `Tap on a wall to place the ${OPENING_DEFS[toolOptions.openingKind].label.toLowerCase()}` });
         return;
       }
-      case "object":
-        placeObject(store, toolOptions.objectType, snapPoint(model, world, snapOpts(v, { touch })).p);
+      case "object": {
+        const at = snapPoint(model, world, snapOpts(v, { touch })).p;
+        if (toolOptions.custom) placeCustomObject(store, toolOptions.custom, at);
+        else placeObject(store, toolOptions.objectType, at);
         store.setTool("select");
         return;
+      }
       case "label":
         placeLabel(store, world);
         store.setTool("select");
