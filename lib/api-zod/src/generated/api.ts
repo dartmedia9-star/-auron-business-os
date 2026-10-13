@@ -3701,3 +3701,159 @@ export const DuplicateDesignProjectResponse = zod.object({
 }))
 
 
+/**
+ * @summary List the custom object library, most recently edited first
+ */
+export const ListDesignObjectsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "description": zod.string().nullable(),
+  "definition": zod.record(zod.string(), zod.unknown()).describe('Custom object definition (lib\/design-model custom-schema.ts)'),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListDesignObjectsResponse = zod.array(ListDesignObjectsResponseItem)
+
+
+/**
+ * `definition` must be a valid custom object definition (lib/design-model custom-schema.ts, version 1): the drawing, the construction settings and the generated recipe.
+ * @summary Save a new custom object to the library
+ */
+export const createDesignObjectBodyNameMax = 120;
+
+export const createDesignObjectBodyCategoryMax = 60;
+
+export const createDesignObjectBodyDescriptionMax = 400;
+
+
+
+export const CreateDesignObjectBody = zod.object({
+  "name": zod.string().min(1).max(createDesignObjectBodyNameMax),
+  "category": zod.string().max(createDesignObjectBodyCategoryMax).optional(),
+  "description": zod.string().max(createDesignObjectBodyDescriptionMax).nullish(),
+  "definition": zod.record(zod.string(), zod.unknown())
+})
+
+export const CreateDesignObjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "description": zod.string().nullable(),
+  "definition": zod.record(zod.string(), zod.unknown()).describe('Custom object definition (lib\/design-model custom-schema.ts)'),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get one custom object
+ */
+export const GetDesignObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetDesignObjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "description": zod.string().nullable(),
+  "definition": zod.record(zod.string(), zod.unknown()).describe('Custom object definition (lib\/design-model custom-schema.ts)'),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Carries `baseRevision`; if the stored revision differs nothing is written and 409 returns the current revision. Projects that already use the object keep their own copy and are not changed.
+ * @summary Rename, recategorise or replace the definition of a custom object
+ */
+export const UpdateDesignObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const updateDesignObjectBodyNameMax = 120;
+
+export const updateDesignObjectBodyCategoryMax = 60;
+
+export const updateDesignObjectBodyDescriptionMax = 400;
+
+
+
+export const UpdateDesignObjectBody = zod.object({
+  "baseRevision": zod.number().min(1),
+  "name": zod.string().min(1).max(updateDesignObjectBodyNameMax).optional(),
+  "category": zod.string().max(updateDesignObjectBodyCategoryMax).optional(),
+  "description": zod.string().max(updateDesignObjectBodyDescriptionMax).nullish(),
+  "definition": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const UpdateDesignObjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "description": zod.string().nullable(),
+  "definition": zod.record(zod.string(), zod.unknown()).describe('Custom object definition (lib\/design-model custom-schema.ts)'),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Projects that already use it keep their own copy.
+ * @summary Permanently delete a custom object from the library
+ */
+export const DeleteDesignObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteDesignObjectResponse = zod.void()
+
+
+/**
+ * @summary Copy a custom object under a new name
+ */
+export const DuplicateDesignObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const duplicateDesignObjectBodyNameMax = 200;
+
+
+
+export const DuplicateDesignObjectBody = zod.object({
+  "name": zod.string().min(1).max(duplicateDesignObjectBodyNameMax).optional()
+})
+
+export const DuplicateDesignObjectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "description": zod.string().nullable(),
+  "definition": zod.record(zod.string(), zod.unknown()).describe('Custom object definition (lib\/design-model custom-schema.ts)'),
+  "revision": zod.number(),
+  "schemaVersion": zod.number(),
+  "createdByName": zod.string().nullish(),
+  "updatedByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+

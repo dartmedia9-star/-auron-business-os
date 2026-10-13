@@ -1,4 +1,5 @@
 import {
+  OBJECT_DEFS,
   add,
   dist,
   dot,
@@ -140,7 +141,7 @@ export function hitTest(model: ProjectModel, p: Vec2, viewScale: number, selecti
   if (s.showObjects) {
     for (const o of [...model.objects].reverse()) {
       if (o.hidden) continue;
-      if (o.type === "round_table" ? dist({ x: o.x, y: o.y }, p) <= o.width / 2 + tol * 0.3 : pointInPolygon(p, objectFootprint(o), tol * 0.3)) return { type: "entity", id: o.id, kind: "object" };
+      if (OBJECT_DEFS[o.type].round ? dist({ x: o.x, y: o.y }, p) <= o.width / 2 + tol * 0.3 : pointInPolygon(p, objectFootprint(o), tol * 0.3)) return { type: "entity", id: o.id, kind: "object" };
     }
   }
   for (const pl of [...model.pillars].reverse()) {

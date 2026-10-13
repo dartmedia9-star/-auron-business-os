@@ -21,6 +21,7 @@ import {
   rotate,
   scale,
   sub,
+  objectPlanShapes,
   type DimLine,
   type DisplayUnit,
   type ProjectModel,
@@ -415,7 +416,18 @@ export function buildPlan(model: ProjectModel, opts: BuildOptions): PlanBuild {
       const hw = o.width / 2;
       const hd = o.depth / 2;
       const st: Style = { role: "object", fill: o.color, fillOpacity: o.type === "box_arch" ? 0 : 0.85 };
-      if (o.type === "round_table") {
+      const def = OBJECT_DEFS[o.type];
+      if (!def.legacyPlan) {
+        // Drawn from the object's own parts, lowest first: the plan shows
+        // what the 3D top view shows. Walk-through frames also get their
+        // footprint dashed so their extent stays visible.
+        if (def.open) out.push({ k: "poly", pts, closed: true, style: { role: "objectLine", dash: [6, 4] }, entityId: o.id });
+        for (const sh of objectPlanShapes(o)) {
+          const style: Style = { role: "object", fill: sh.color, fillOpacity: sh.glass ? 0.25 : 0.9 };
+          if (sh.outline.kind === "circle") out.push({ k: "circle", c: loc(sh.outline.c.x, sh.outline.c.y), r: sh.outline.r, style, entityId: o.id });
+          else out.push({ k: "poly", pts: sh.outline.pts.map((q) => loc(q.x, q.y)), closed: true, style, entityId: o.id });
+        }
+      } else if (o.type === "round_table") {
         out.push({ k: "circle", c, r: o.width / 2, style: st, entityId: o.id });
         const seats = Number(paramValue(o.props, o.type, "seats")) || 0;
         for (let i = 0; i < seats; i++) {
@@ -443,15 +455,17 @@ export function buildPlan(model: ProjectModel, opts: BuildOptions): PlanBuild {
         } else if (o.type === "stage" || o.type === "riser") {
           out.push({ k: "poly", pts: [pts[0], pts[2]], closed: false, style: { role: "objectLine", dash: [2, 4] }, entityId: o.id });
           out.push({ k: "poly", pts: [pts[1], pts[3]], closed: false, style: { role: "objectLine", dash: [2, 4] }, entityId: o.id });
-          if (o.type === "stage" && paramValue<boolean>(o.props, o.type, "frontSteps")) {
-            const sw = Number(paramValue(o.props, o.type, "stepWidth")) || 1200;
-            const sd = Math.max(300, Math.ceil(o.height / 180) * 300);
-            out.push({ k: "poly", pts: [loc(-sw / 2, hd), loc(sw / 2, hd), loc(sw / 2, hd + sd), loc(-sw / 2, hd + sd)], closed: true, style: { role: "object", fill: o.color, fillOpacity: 0.6 }, entityId: o.id });
+          // Front steps: the same treads the 3D stage builds.
+          for (const sh of objectPlanShapes(o)) {
+            if (!sh.outside || sh.outline.kind !== "poly") continue;
+            out.push({ k: "poly", pts: sh.outline.pts.map((q) => loc(q.x, q.y)), closed: true, style: { role: "object", fill: o.color, fillOpacity: 0.6 }, entityId: o.id });
           }
         } else if (o.type === "led_screen") {
           out.push({ k: "poly", pts: [loc(-hw, hd), loc(hw, hd)], closed: false, style: { role: "objectLine", stroke: o.accentColor, width: 2.4 }, entityId: o.id });
         } else if (o.type === "counter") {
-          out.push({ k: "poly", pts: [loc(-hw, hd - 40), loc(hw, hd - 40)], closed: false, style: { role: "objectLine", stroke: o.accentColor, width: 2 }, entityId: o.id });
+          // Guest side: the fascia line under the top's front overhang.
+          const ov = Math.max(2, Math.min(Number(paramValue(o.props, o.type, "topOverhang")) || 0, o.width / 4, o.depth / 3));
+          out.push({ k: "poly", pts: [loc(-hw + ov, hd - ov), loc(hw - ov, hd - ov)], closed: false, style: { role: "objectLine", stroke: o.accentColor, width: 2 }, entityId: o.id });
         }
       }
       const maxSide = Math.max(o.width, o.depth) * opts.pxPerMm;
@@ -464,7 +478,7 @@ export function buildPlan(model: ProjectModel, opts: BuildOptions): PlanBuild {
           // Thin items (backdrops, screens, skirting) are named just behind their face.
           const above = sub(loc(0, -hd - px(9)), c);
           const below = sub(loc(0, hd + px(9)), c);
-          const thin = o.type === "led_screen" || o.type === "backdrop" || o.type === "skirting";
+          const thin = !!def.thin;
           const across = o.depth > o.width * 1.6 ? rotate({ x: 1, y: 0 }, o.rotation) : rotate({ x: 0, y: 1 }, o.rotation);
           const half = (o.depth > o.width * 1.6 ? hw : hd) / 2;
           const cands: Candidate[] = thin

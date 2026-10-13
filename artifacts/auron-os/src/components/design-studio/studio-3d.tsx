@@ -26,12 +26,12 @@ import { alignMove } from "./interaction";
 import { useEditor, useModel, type EditorStore } from "./store";
 import { SelectField, ToggleRow } from "./fields";
 import { downloadBlob, safeFilename } from "./export-plan";
+import { ObjectModel, TONE_DEFAULTS } from "./object-mesh";
 import {
   floorGeometry,
   footprint,
   framePosition,
   MM,
-  objectParts,
   openingDressing,
   pillarHeight,
   planTransform,
@@ -39,7 +39,6 @@ import {
   sceneBounds,
   VIEW_DIRS,
   wallPieces,
-  type Part,
   type PlanBox,
   type Tone,
   type ViewName,
@@ -614,15 +613,6 @@ function buildAnchors(model: ProjectModel, selection: string[], showDims: boolea
 
 // --------------------------------------------------------------- scene ----
 
-const TONE_DEFAULTS: Record<Tone, string> = {
-  body: "#9aa0aa",
-  accent: "#2b2f3a",
-  screen: "#3b82f6",
-  metal: "#b9bcc4",
-  glass: "#a8d0ef",
-  frame: "#d8d4cc",
-  exit: "#16a34a",
-};
 
 const LIGHTING = {
   studio: { hemi: 0.9, sun: 1.6, sky: "#ffffff", ground: "#9aa0aa", sunColor: "#ffffff" },
@@ -855,13 +845,6 @@ function PlanBoxMesh({ box, highlight }: { box: PlanBox; highlight: boolean }) {
   );
 }
 
-function toneColor(o: DesignObject, tone: Tone): string {
-  if (tone === "body") return o.color;
-  if (tone === "accent") return o.accentColor;
-  if (tone === "screen") return o.accentColor;
-  return TONE_DEFAULTS[tone];
-}
-
 const ObjectMesh = memo(function ObjectMesh({
   object: o,
   selected,
@@ -873,56 +856,14 @@ const ObjectMesh = memo(function ObjectMesh({
   onClick: (e: ThreeEvent<MouseEvent>) => void;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
 }) {
-  const parts = useMemo(() => objectParts(o), [o]);
   const t = planTransform(o, o.elevation);
   return (
     <group position={t.position} rotation-y={t.rotationY} onClick={onClick} onPointerDown={onPointerDown} name={o.id}>
-      {parts.map((p, i) => (
-        <PartMesh key={i} part={p} color={p.kind === "grid" ? "#000000" : toneColor(o, p.tone)} />
-      ))}
+      <ObjectModel object={o} />
       {selected && <SelectionBox w={o.width} d={o.depth} h={o.height} />}
     </group>
   );
 });
-
-function PartMesh({ part, color }: { part: Part; color: string }) {
-  if (part.kind === "grid") return <ModuleGrid part={part} />;
-  if (part.kind === "cylinder")
-    return (
-      <mesh position={[part.x * MM, (part.y + part.h / 2) * MM, part.z * MM]} castShadow receiveShadow>
-        <cylinderGeometry args={[part.r * MM, part.r * MM, part.h * MM, 40]} />
-        <meshStandardMaterial color={color} roughness={part.tone === "metal" ? 0.35 : 0.8} metalness={part.tone === "metal" ? 0.6 : 0} />
-      </mesh>
-    );
-  return (
-    <mesh position={[part.x * MM, (part.y + part.h / 2) * MM, part.z * MM]} castShadow receiveShadow>
-      <boxGeometry args={[part.w * MM, part.h * MM, part.d * MM]} />
-      <meshStandardMaterial
-        color={part.tone === "screen" ? "#05070b" : color}
-        roughness={part.tone === "metal" ? 0.35 : part.tone === "screen" ? 0.3 : 0.8}
-        metalness={part.tone === "metal" ? 0.6 : 0}
-        emissive={part.tone === "screen" ? color : "#000000"}
-        emissiveIntensity={part.tone === "screen" ? 0.35 : 0}
-      />
-    </mesh>
-  );
-}
-
-function ModuleGrid({ part }: { part: Extract<Part, { kind: "grid" }> }) {
-  const geo = useMemo(() => {
-    const pts: THREE.Vector3[] = [];
-    const x0 = -part.w / 2;
-    for (let x = 0; x <= part.w + 0.5; x += part.cell) pts.push(new THREE.Vector3((x0 + x) * MM, part.y * MM, 0), new THREE.Vector3((x0 + x) * MM, (part.y + part.h) * MM, 0));
-    for (let y = 0; y <= part.h + 0.5; y += part.cell) pts.push(new THREE.Vector3(x0 * MM, (part.y + y) * MM, 0), new THREE.Vector3((x0 + part.w) * MM, (part.y + y) * MM, 0));
-    return new THREE.BufferGeometry().setFromPoints(pts);
-  }, [part.w, part.h, part.y, part.cell]);
-  useEffect(() => () => geo.dispose(), [geo]);
-  return (
-    <lineSegments geometry={geo} position-z={part.z * MM}>
-      <lineBasicMaterial color="#0f172a" transparent opacity={0.6} />
-    </lineSegments>
-  );
-}
 
 function SelectionBox({ w, d, h }: { w: number; d: number; h: number }) {
   const geo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(w * MM + 0.04, h * MM + 0.04, d * MM + 0.04)), [w, d, h]);

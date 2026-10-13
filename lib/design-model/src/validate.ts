@@ -105,8 +105,8 @@ export function validateModel(model: ProjectModel): Issue[] {
     const top = o.elevation + o.height;
     if (ceiling != null && top > ceiling + 0.5) issues.push({ key: `objceil:${o.id}`, entityId: o.id, severity: "warning", message: `${o.name} is ${fmt(top)} high, above the recorded ceiling height (${fmt(ceiling)})` });
   }
-  // Solid objects whose volumes intersect (a frame such as a box arch is left out).
-  const solids = model.objects.filter((o) => !o.hidden && o.type !== "box_arch");
+  // Solid objects whose volumes intersect (frames people walk through, such as a box arch, are left out).
+  const solids = model.objects.filter((o) => !o.hidden && !OBJECT_DEFS[o.type].open);
   for (let i = 0; i < solids.length; i++) {
     for (let j = i + 1; j < solids.length; j++) {
       const a = solids[i];
@@ -114,7 +114,7 @@ export function validateModel(model: ProjectModel): Issue[] {
       const zOverlap = a.elevation < b.elevation + b.height - 0.5 && b.elevation < a.elevation + a.height - 0.5;
       if (!zOverlap) continue;
       if (convexOverlap(objectFootprint(a), objectFootprint(b), 1)) {
-        const hint = OBJECT_DEFS[b.type].group === "Stage" || OBJECT_DEFS[a.type].group === "Stage" ? " (set the elevation if one stands on the other)" : "";
+        const hint = OBJECT_DEFS[b.type].surface || OBJECT_DEFS[a.type].surface ? " (set the elevation if one stands on the other)" : "";
         issues.push({ key: `objlap:${a.id}:${b.id}`, entityId: b.id, severity: "warning", message: `${b.name} intersects ${a.name}${hint}` });
       }
     }

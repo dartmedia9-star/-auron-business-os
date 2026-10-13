@@ -6,6 +6,7 @@ import {
   duplicateEntities,
   findEntity,
   makeDimension,
+  makeCustomObject,
   makeLabel,
   makeObject,
   makeOpening,
@@ -16,6 +17,7 @@ import {
   makeSectionTL,
   nearestWall,
   objectFootprint,
+  OBJECT_DEFS,
   OPENING_DEFS,
   pointInPolygon,
   roomAt,
@@ -26,7 +28,7 @@ import {
   type SectionKind,
   type Vec2,
 } from "@workspace/design-model";
-import type { EditorStore } from "./store";
+import type { CustomPlacement, EditorStore } from "./store";
 
 // Editor commands shared by the canvas, toolbars, panels and keyboard
 // shortcuts. Each one is a single undo step.
@@ -131,6 +133,20 @@ export function placeObject(store: EditorStore, type: ObjectType, p: Vec2): stri
   return obj.id;
 }
 
+/** Places an independent copy of a custom object; later edits to it never change the library entry. */
+export function placeCustomObject(store: EditorStore, c: CustomPlacement, p: Vec2): string {
+  const m = next(store);
+  const props: Record<string, string | number | boolean> = {};
+  if (c.libraryId != null) props.libraryId = c.libraryId;
+  if (c.libraryRevision != null) props.libraryRevision = c.libraryRevision;
+  const same = m.objects.filter((o) => o.type === "custom" && o.name.replace(/ \d+$/, "") === c.name).length;
+  const obj = makeCustomObject(c.spec, p.x, p.y, { name: same > 0 ? `${c.name} ${same + 1}` : c.name, color: c.color, accentColor: c.accentColor, props });
+  obj.elevation = Math.max(c.elevation, surfaceBelow(m, obj));
+  store.commit({ ...m, objects: [...m.objects, obj] });
+  store.select([obj.id]);
+  return obj.id;
+}
+
 /**
  * Height of the top of the highest object under the centre of `obj`
  * (0 = floor). Used to sit a backdrop or riser on a stage.
@@ -139,7 +155,7 @@ export function surfaceBelow(m: ProjectModel, obj: Pick<DesignObject, "id" | "x"
   let top = 0;
   for (const o of m.objects) {
     if (o.id === obj.id || o.hidden) continue;
-    if (!["stage", "riser", "structure", "counter"].includes(o.type)) continue;
+    if (!OBJECT_DEFS[o.type].surface) continue;
     if (pointInPolygon({ x: obj.x, y: obj.y }, objectFootprint(o), 0)) top = Math.max(top, o.elevation + o.height);
   }
   return top;

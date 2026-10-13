@@ -22,19 +22,22 @@ import {
   Pentagon,
 } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
-import { validateModel, type ProjectModel } from "@workspace/design-model";
+import { updateEntity, validateModel, type ProjectModel } from "@workspace/design-model";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Canvas2D } from "./canvas-2d";
-import { EditorContext, deleteSelection, duplicateSelection, nudgeSelection, useStore } from "./commands";
+import { EditorContext, deleteSelection, dropPoint, duplicateSelection, nudgeSelection, placeCustomObject, useStore } from "./commands";
 import { EditorStore, useEditor } from "./store";
 import { Inspector } from "./inspector";
-import { ContextBar, ObjectLibrary, TOOLS, ToolRail } from "./toolbar";
+import { ContextBar, TOOLS, ToolRail } from "./toolbar";
+import { ObjectLibrary } from "./object-library";
+import { OpenBuilderContext, type BuilderRequest } from "./builder-types";
 import { AddRoomDialog } from "./dialogs";
 import { ExportDialog } from "./export-dialog";
 import { Saver, clearLocalDraft, useAutosave, type SaveStatus } from "./autosave";
 
 const Studio3D = lazy(() => import("./studio-3d"));
+const CustomBuilder = lazy(() => import("./custom-builder"));
 
 // ---------------------------------------------------------------------------
 // The full-screen Design Studio editor (iPad first).
@@ -117,6 +120,7 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
   const [library, setLibrary] = useState(false);
   const [addRoom, setAddRoom] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [builder, setBuilder] = useState<BuilderRequest | null>(null);
   const [draftOffer, setDraftOffer] = useState(recoveredDraft ?? null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -173,6 +177,7 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
   const inspector = <Inspector issuesCount={issues.length} />;
 
   return (
+    <OpenBuilderContext.Provider value={setBuilder}>
     <div className="design-studio fixed inset-0 z-40 flex flex-col bg-background text-foreground" style={{ paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }} data-testid="design-editor">
       <TopBar
         name={name}
@@ -324,10 +329,25 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
         </div>
       )}
 
-      <ObjectLibrary open={library} onOpenChange={setLibrary} side={phone ? "bottom" : "left"} />
+      <ObjectLibrary open={library} onOpenChange={setLibrary} side={phone ? "bottom" : "left"} onOpenBuilder={setBuilder} />
       <AddRoomDialog open={addRoom} onOpenChange={setAddRoom} unit={model.settings.displayUnit} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} model={model} projectName={name} />
+      {builder && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-background"><CenteredSpinner label="Opening the Custom Builder…" /></div>}>
+          <CustomBuilder
+            request={builder}
+            unit={model.settings.displayUnit}
+            onClose={() => setBuilder(null)}
+            onPlace={(placement) => {
+              placeCustomObject(store, placement, dropPoint(store));
+              store.setTool("select");
+            }}
+            onApplyInstance={(id, change) => store.commit(updateEntity(store.getState().history.present, id, { custom: change.spec, color: change.color, accentColor: change.accentColor, name: change.name }))}
+          />
+        </Suspense>
+      )}
     </div>
+    </OpenBuilderContext.Provider>
   );
 }
 

@@ -22,6 +22,12 @@ import {
   rotate,
   translatePoints,
   updateEntity,
+  makeCustomObject,
+  partsBounds,
+  partsFinite,
+  applyTemplate,
+  buildSpec,
+  type CustomSpec,
   type ProjectModel,
 } from "@workspace/design-model";
 import {
@@ -30,6 +36,7 @@ import {
   MM,
   objectParts,
   openingDressing,
+  partsGeometry,
   pillarHeight,
   planTransform,
   prismGeometry,
@@ -48,6 +55,12 @@ function check(name: string, actual: unknown, expected: unknown): void {
   console.log(`[${ok ? "PASS" : "FAIL"}] ${name}${ok ? "" : ` — got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`}`);
 }
 const near = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) <= tol;
+/** A photo-booth frame recipe from the Custom Builder's exact-size template. */
+function applyTemplateSpec(): CustomSpec {
+  const r = buildSpec(applyTemplate("photo_booth", {}));
+  if (!r.ok) throw new Error(r.error);
+  return r.spec;
+}
 const round = (n: number, d = 4) => Math.round(n * 10 ** d) / 10 ** d;
 
 /** Signed volume of a closed triangle mesh (positive when faces point outwards), m³. */
@@ -169,43 +182,51 @@ function hall(): ProjectModel {
 
 // ------------------------------------------------------------ objects ----
 {
+  // Every object type builds finite solids whose overall size is the
+  // object's width × height × depth (geometry checks in detail:
+  // scripts/test-design-objects.ts).
   for (const type of OBJECT_TYPES) {
-    const o = makeObject(type, 0, 0);
+    const o = type === "custom" ? makeCustomObject(applyTemplateSpec(), 0, 0) : makeObject(type, 0, 0);
     const parts = objectParts(o);
-    const finite = parts.every((p) => Object.values(p).every((v) => typeof v !== "number" || Number.isFinite(v)));
-    const solids = parts.filter((p) => p.kind !== "grid");
-    const top = Math.max(...solids.map((p) => p.y + p.h));
-    check(`${type}: builds ${parts.length} finite parts reaching its height`, [parts.length > 0, finite, near(top, o.height, 0.5)], [true, true, true]);
+    const b = partsBounds(parts, (p) => !p.outside);
+    // Within 0.5 mm: a curved tube is drawn as straight segments.
+    const size = b ? [b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]] : null;
+    const fits = !!size && near(size[0], o.width, 0.5) && near(size[1], o.height, 0.5) && near(size[2], o.depth, 0.5);
+    check(`${type}: builds ${parts.length} finite parts filling ${o.width} × ${o.height} × ${o.depth}`, [parts.length > 0, partsFinite(parts), fits ? "fits" : size], [true, true, "fits"]);
   }
   const stage = makeObject("stage", 0, 0, { width: 6000, depth: 4000, height: 900 });
-  const inside = (o: typeof stage) =>
-    objectParts(o).every((p) => {
-      if (p.kind === "box") return Math.abs(p.x) + p.w / 2 <= o.width / 2 + 0.5 && Math.abs(p.z) + p.d / 2 <= o.depth / 2 + 0.5;
-      if (p.kind === "cylinder") return Math.hypot(p.x, p.z) + p.r <= o.width / 2 + 0.5;
-      return true;
-    });
+  const inside = (o: typeof stage) => {
+    const b = partsBounds(objectParts(o), (p) => !p.outside);
+    return !!b && b.min[0] >= -o.width / 2 - 0.5 && b.max[0] <= o.width / 2 + 0.5 && b.min[2] >= -o.depth / 2 - 0.5 && b.max[2] <= o.depth / 2 + 0.5 && b.min[1] >= -0.5 && b.max[1] <= o.height + 0.5;
+  };
   check("stage parts stay within the footprint", inside(stage), true);
   const withSteps = { ...stage, props: { ...stage.props, frontSteps: true } };
-  const extra = objectParts(withSteps).length - objectParts(stage).length;
-  check("front steps: 900 mm stage gets 4 steps", extra, 4);
-  check("front steps stand in front of the stage", objectParts(withSteps).slice(-extra).every((p) => p.kind === "box" && p.z - p.d / 2 >= stage.depth / 2 - 0.5), true);
+  const treads = objectParts(withSteps).filter((p) => p.role === "tread");
+  check("front steps: 900 mm stage gets 4 steps", treads.length, 4);
+  check("front steps stand in front of the stage", objectParts(withSteps).filter((p) => p.outside).every((p) => p.kind === "box" && p.z - p.d / 2 >= stage.depth / 2 - 0.5), true);
   const steps = makeObject("steps", 0, 0, { width: 1200, depth: 900, height: 600, props: { count: 3 } });
-  const sp = objectParts(steps);
-  check("steps: count parts rising towards the back", sp.map((p) => (p.kind === "box" ? [round(p.h), round(p.z)] : null)), [[200, 300], [400, 0], [600, -300]]);
+  const sp = objectParts(steps).filter((p) => p.role === "tread");
+  check("steps: count treads rising towards the back", sp.map((p) => (p.kind === "box" ? [round(p.y + p.h), round(p.z)] : null)), [[200, 300], [400, 0], [600, -300]]);
   const led = makeObject("led_screen", 0, 0, { width: 6000, height: 3000, props: { moduleSize: 500, showModules: true } });
   check("LED screen draws its module grid", objectParts(led).some((p) => p.kind === "grid"), true);
   const huge = makeObject("led_screen", 0, 0, { width: 100000, height: 3000, props: { moduleSize: 100, showModules: true } });
   check("LED grid is skipped when it would be too dense", objectParts(huge).some((p) => p.kind === "grid"), false);
   const table = makeObject("round_table", 0, 0, { props: { seats: 8 } });
-  check("round table with 8 seats", objectParts(table).filter((p) => p.kind === "cylinder" && p.tone === "accent").length, 8);
+  check("round table with 8 seats", objectParts(table).filter((p) => p.role === "seat").length, 8);
   const arch = makeObject("box_arch", 0, 0);
   check("box arch fits inside its footprint", inside(arch), true);
   // Numeric edits change the 3D object.
   const m = hall();
   m.objects.push(stage);
   const wider = updateEntity(m, stage.id, { width: 8000 });
-  const deck = objectParts(wider.objects[0])[0];
-  check("changing width in the panel resizes the 3D deck", deck.kind === "box" ? deck.w : null, 8000);
+  const deck = objectParts(wider.objects[0]).find((p) => p.role === "stage-deck");
+  check("changing width in the panel resizes the 3D deck", deck?.kind === "box" ? deck.w : null, 8000);
+  // Merged meshes: one buffer per colour, every triangle finite and outward-facing.
+  const groups = partsGeometry(objectParts(arch), () => "#888888");
+  const volume = groups.reduce((s, g) => s + meshVolume(g.geometry), 0);
+  check("box arch merges into one buffer per colour", groups.length <= 3, true);
+  check("box arch mesh faces point outwards (positive volume)", volume > 0, true);
+  groups.forEach((g) => g.geometry.dispose());
 }
 
 // ---------------------------------------------------- axes and camera ----

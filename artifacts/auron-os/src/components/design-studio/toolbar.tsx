@@ -21,15 +21,14 @@ import {
   X,
   Keyboard,
 } from "lucide-react";
-import { OBJECT_DEFS, OBJECT_TYPES, OPENING_DEFS, OPENING_KINDS, SECTION_DEFS, SECTION_KINDS, dist, formatLength, parseLength, type ObjectType } from "@workspace/design-model";
+import { OBJECT_DEFS, OPENING_DEFS, OPENING_KINDS, SECTION_DEFS, SECTION_KINDS, dist, formatLength, parseLength } from "@workspace/design-model";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { chainStep, dropPoint, finishPolygonRoom, finishWall, placeObject, useStore } from "./commands";
+import { chainStep, finishPolygonRoom, finishWall, useStore } from "./commands";
 import { useEditor, type Tool } from "./store";
 
 // Tool rail (left on iPad/desktop, bottom on phones), the contextual bar for
-// the active tool, and the object library.
+// the active tool. The object library is in object-library.tsx.
 
 type ToolDef = { tool: Tool; label: string; icon: ComponentType<{ className?: string }>; key: string; group: number };
 
@@ -237,7 +236,7 @@ export function ContextBar({ onTypeRoom, onOpenLibrary }: { onTypeRoom: () => vo
 
       {tool === "object" && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium">{OBJECT_DEFS[opts.objectType].label}</span>
+          <span className="text-xs font-medium" data-testid="placing-label">{opts.custom ? opts.custom.name : OBJECT_DEFS[opts.objectType].label}</span>
           <Button variant="outline" className="h-10" onClick={onOpenLibrary}>
             <LibraryBig className="mr-1 h-4 w-4" /> Change
           </Button>
@@ -250,54 +249,5 @@ export function ContextBar({ onTypeRoom, onOpenLibrary }: { onTypeRoom: () => vo
         </p>
       )}
     </div>
-  );
-}
-
-export function ObjectLibrary({ open, onOpenChange, side }: { open: boolean; onOpenChange: (v: boolean) => void; side: "left" | "bottom" }) {
-  const store = useStore();
-  const current = useEditor(store, (s) => s.toolOptions.objectType);
-  const groups = [...new Set(OBJECT_TYPES.map((t) => OBJECT_DEFS[t].group))];
-  const pick = (type: ObjectType, now: boolean) => {
-    if (now) {
-      placeObject(store, type, dropPoint(store));
-      store.setTool("select");
-    } else store.setTool("object", { objectType: type });
-    onOpenChange(false);
-  };
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={side} className={cn("overflow-y-auto", side === "bottom" ? "max-h-[75dvh] rounded-t-2xl" : "w-[22rem] max-w-[90vw]")} data-testid="object-library">
-        <SheetHeader>
-          <SheetTitle>Objects</SheetTitle>
-          <SheetDescription>Tap an object, then tap the plan to place it. Or add it to the middle of the view.</SheetDescription>
-        </SheetHeader>
-        <div className="mt-4 space-y-5">
-          {groups.map((g) => (
-            <section key={g}>
-              <h3 className="mb-2 text-eyebrow font-semibold uppercase text-muted-foreground">{g}</h3>
-              <ul className="space-y-1.5">
-                {OBJECT_TYPES.filter((t) => OBJECT_DEFS[t].group === g).map((t) => {
-                  const d = OBJECT_DEFS[t];
-                  return (
-                    <li key={t} className={cn("flex items-center gap-2 rounded-xl border p-2", current === t && "border-primary/60 bg-primary/5")}>
-                      <button type="button" className="min-h-12 min-w-0 flex-1 text-left" onClick={() => pick(t, false)} data-object={t}>
-                        <span className="flex items-center gap-2">
-                          <span className="h-4 w-4 shrink-0 rounded border" style={{ background: d.color }} aria-hidden />
-                          <span className="text-sm font-medium">{d.label}</span>
-                        </span>
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground">{d.description}</span>
-                      </button>
-                      <Button variant="outline" size="sm" className="h-10 shrink-0" onClick={() => pick(t, true)} aria-label={`Add ${d.label} to the middle of the view`}>
-                        Add
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 }

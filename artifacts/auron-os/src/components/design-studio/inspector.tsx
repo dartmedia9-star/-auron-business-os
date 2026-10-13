@@ -40,6 +40,7 @@ import { deleteSelection, duplicateSelection, surfaceBelow, useStore } from "./c
 import { useEditor } from "./store";
 import { SplitSectionDialog } from "./dialogs";
 import { ProjectPanel } from "./project-panel";
+import { CustomObjectFields } from "./custom-fields";
 
 // Properties for whatever is selected; the project panel when nothing is.
 // Every dimension is typed exactly; dragging on the canvas is optional.
@@ -427,8 +428,8 @@ function ObjectFields({ o, model, patch }: { o: DesignObject; model: ProjectMode
       <PanelSection title="Object">
         <TextField label="Name" testId="object-name" value={o.name} onCommit={(name) => patch({ name })} />
         <div className="grid grid-cols-2 gap-3">
-          <LengthField label={o.type === "round_table" ? "Diameter" : "Width"} testId="object-width" valueMm={o.width} unit={unit} onCommit={(width) => patch(o.type === "round_table" ? { width, depth: width } : { width })} />
-          {o.type !== "round_table" && <LengthField label="Depth" testId="object-depth" valueMm={o.depth} unit={unit} onCommit={(depth) => patch({ depth })} />}
+          <LengthField label={def.round ? "Diameter" : def.widthLabel ?? "Width"} testId="object-width" valueMm={o.width} unit={unit} onCommit={(width) => patch(def.round ? { width, depth: width } : { width })} />
+          {!def.round && <LengthField label="Depth" testId="object-depth" valueMm={o.depth} unit={unit} onCommit={(depth) => patch({ depth })} />}
           <LengthField label="Height" testId="object-height" valueMm={o.height} unit={unit} onCommit={(height) => patch({ height })} />
           <LengthField label="Elevation" testId="object-elevation" valueMm={o.elevation} unit={unit} allowZero onCommit={(elevation) => patch({ elevation })} hint="Base above the floor" />
           <LengthField label="Centre X" valueMm={o.x} unit={unit} allowZero min={-1e6} onCommit={(x) => patch({ x })} />
@@ -463,9 +464,11 @@ function ObjectFields({ o, model, patch }: { o: DesignObject; model: ProjectMode
           if (p.kind === "boolean") return <ToggleRow key={p.key} label={p.label} checked={Boolean(v)} onChange={set} />;
           if (p.kind === "length") return <LengthField key={p.key} label={p.label} valueMm={Number(v)} unit={unit} min={p.min ?? 0} onCommit={set} />;
           if (p.kind === "count") return <NumberField key={p.key} label={p.label} value={Number(v)} min={p.min} max={p.max} onCommit={set} />;
+          if (p.kind === "choice") return <SelectField key={p.key} label={p.label} value={String(v)} options={p.options} onChange={set} />;
           return <ColorField key={p.key} label={p.label} value={String(v)} onChange={set} />;
         })}
       </PanelSection>
+      {o.type === "custom" && <CustomObjectFields o={o} model={model} patch={patch} />}
       <p className="px-4 pb-3 text-[11px] text-muted-foreground">Models show size and placement only. They don't confirm that a structure is safe to build.</p>
     </>
   );

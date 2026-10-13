@@ -1,9 +1,9 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { MEASURE_STATUSES, parseLength, toInputValue, UNIT_LABELS, type DisplayUnit, type MeasureStatus } from "@workspace/design-model";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useStore } from "./commands";
+import { EditorContext } from "./commands";
 
 // Touch-first form fields for the properties panel. Inputs are 44 px tall
 // and 16 px text (no iOS focus zoom). Values commit on Enter, blur or
@@ -27,8 +27,10 @@ export function FieldRow({ label, htmlFor, hint, children, className }: { label:
 }
 
 function useEnsureVisibleOnFocus() {
-  const store = useStore();
+  // Optional: the same fields are used in the Custom Builder, which can open outside the editor.
+  const store = useContext(EditorContext);
   return () => {
+    if (!store) return;
     const sel = store.getState().selection;
     // Wait for the iPad keyboard to resize the viewport first.
     window.setTimeout(() => store.canvas?.ensureVisible(sel), 350);
