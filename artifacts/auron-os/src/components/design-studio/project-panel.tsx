@@ -13,6 +13,7 @@ import {
   type NoteStatus,
   type ProjectModel,
 } from "@workspace/design-model";
+import { withDisplayUnit } from "./unit-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LengthField, PanelSection, SelectField, StatusField, TextField, ToggleRow, UNIT_OPTIONS } from "./fields";
@@ -173,7 +174,7 @@ export function ProjectPanel({ issuesCount }: { issuesCount: number }) {
             </PanelSection>
           )}
           <PanelSection title="Units and grid">
-            <SelectField label="Units" testId="units" value={unit} options={UNIT_OPTIONS} onChange={(displayUnit) => set({ settings: { ...model.settings, displayUnit, gridSize: gridOptions(displayUnit).some((g) => Math.abs(g.mm - model.settings.gridSize) < 0.1) ? model.settings.gridSize : displayUnit === "ft" ? 304.8 : 500 } })} />
+            <SelectField label="Units" testId="units" value={unit} options={UNIT_OPTIONS} onChange={(displayUnit) => set({ settings: withDisplayUnit(model.settings, displayUnit) })} />
             <SelectField
               label="Grid size"
               value={String(model.settings.gridSize)}

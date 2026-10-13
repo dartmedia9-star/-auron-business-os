@@ -23,6 +23,7 @@ import {
   type Bounds,
   type ProjectModel,
   type Vec2,
+  isImperial,
 } from "@workspace/design-model";
 import { buildPlan, dimensionPrims, type PlanBuild, type Prim } from "./plan-primitives";
 import { PlanSvg } from "./plan-svg";
@@ -893,7 +894,7 @@ function HandleMark({ h, px }: { h: Handle; px: (n: number) => number }) {
 /** A scale bar with a round length, bottom-left. */
 function ScaleBar({ scale, unit }: { scale: number; unit: ProjectModel["settings"]["displayUnit"] }) {
   const targetPx = 110;
-  const steps = unit === "ft" ? [304.8, 609.6, 1524, 3048, 6096, 15240, 30480, 60960, 152400] : [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+  const steps = isImperial(unit) ? [304.8, 609.6, 1524, 3048, 6096, 15240, 30480, 60960, 152400] : [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
   const mm = steps.find((s) => s * scale >= targetPx * 0.6) ?? steps[steps.length - 1];
   const w = mm * scale;
   return (

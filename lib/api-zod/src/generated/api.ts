@@ -3857,3 +3857,207 @@ export const DuplicateDesignObjectResponse = zod.object({
 })
 
 
+/**
+ * Image bytes are fetched separately from `/design-assets/{id}/file` and thumbnails from `/design-assets/{id}/thumb` (binary responses, not described here).
+ * @summary List imported images (metadata only), newest first
+ */
+export const ListDesignAssetsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "mime": zod.string(),
+  "width": zod.number(),
+  "height": zod.number(),
+  "byteSize": zod.number(),
+  "sha256": zod.string(),
+  "hasThumb": zod.boolean(),
+  "sourceName": zod.string().nullish(),
+  "sourcePage": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListDesignAssetsResponse = zod.array(ListDesignAssetsResponseItem)
+
+
+/**
+ * Pieces are then sent with `PUT /design-assets/uploads/{uploadId}/chunks/{index}` as `application/octet-stream` (each exactly `chunkSize` bytes except the last; optional `X-Chunk-Sha256` header), and the upload is finished with `POST /design-assets/uploads/{uploadId}/complete`. Pieces stay below Nginx's default 1 MB body limit.
+ * @summary Start a chunked image upload (or find an identical image already stored)
+ */
+export const startDesignAssetUploadBodyNameMax = 200;
+
+
+export const startDesignAssetUploadBodySha256RegExp = new RegExp('^[0-9a-f]{64}$');
+export const startDesignAssetUploadBodySourceNameMax = 300;
+
+
+
+
+export const StartDesignAssetUploadBody = zod.object({
+  "name": zod.string().min(1).max(startDesignAssetUploadBodyNameMax),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "byteSize": zod.number().min(1),
+  "sha256": zod.string().regex(startDesignAssetUploadBodySha256RegExp),
+  "sourceName": zod.string().max(startDesignAssetUploadBodySourceNameMax).nullish(),
+  "sourcePage": zod.number().min(1).nullish()
+})
+
+export const StartDesignAssetUploadResponse = zod.object({
+  "status": zod.enum(['exists', 'upload']),
+  "asset": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "mime": zod.string(),
+  "width": zod.number(),
+  "height": zod.number(),
+  "byteSize": zod.number(),
+  "sha256": zod.string(),
+  "hasThumb": zod.boolean(),
+  "sourceName": zod.string().nullish(),
+  "sourcePage": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).optional(),
+  "uploadId": zod.string().optional(),
+  "chunkSize": zod.number().optional(),
+  "chunkCount": zod.number().optional(),
+  "expiresAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Which pieces of an unfinished upload have arrived (to resume)
+ */
+export const GetDesignAssetUploadParams = zod.object({
+  "uploadId": zod.coerce.string()
+})
+
+export const GetDesignAssetUploadResponse = zod.object({
+  "uploadId": zod.string(),
+  "chunkSize": zod.number(),
+  "chunkCount": zod.number(),
+  "received": zod.array(zod.number()),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Cancel an unfinished upload and discard its pieces
+ */
+export const AbortDesignAssetUploadParams = zod.object({
+  "uploadId": zod.coerce.string()
+})
+
+export const AbortDesignAssetUploadResponse = zod.void()
+
+
+/**
+ * Checks every piece is present with the right size, the whole file's SHA-256, that the bytes are a PNG, JPEG or WebP image (by content), and the pixel limits. An identical image already stored is returned instead of a duplicate.
+ * @summary Assemble and check the pieces, then store the image
+ */
+export const CompleteDesignAssetUploadParams = zod.object({
+  "uploadId": zod.coerce.string()
+})
+
+export const CompleteDesignAssetUploadBody = zod.object({
+  "thumbnail": zod.string().nullish().describe('Base64 PNG, JPEG or WebP thumbnail made in the browser (at most 300 KB, 1024 px)')
+})
+
+export const CompleteDesignAssetUploadResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "mime": zod.string(),
+  "width": zod.number(),
+  "height": zod.number(),
+  "byteSize": zod.number(),
+  "sha256": zod.string(),
+  "hasThumb": zod.boolean(),
+  "sourceName": zod.string().nullish(),
+  "sourcePage": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get one image's metadata
+ */
+export const GetDesignAssetParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetDesignAssetResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "mime": zod.string(),
+  "width": zod.number(),
+  "height": zod.number(),
+  "byteSize": zod.number(),
+  "sha256": zod.string(),
+  "hasThumb": zod.boolean(),
+  "sourceName": zod.string().nullish(),
+  "sourcePage": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rename an image
+ */
+export const RenameDesignAssetParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const renameDesignAssetBodyNameMax = 200;
+
+
+
+export const RenameDesignAssetBody = zod.object({
+  "name": zod.string().min(1).max(renameDesignAssetBodyNameMax)
+})
+
+export const RenameDesignAssetResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "kind": zod.enum(['image', 'pdf-image', 'pdf-page']),
+  "mime": zod.string(),
+  "width": zod.number(),
+  "height": zod.number(),
+  "byteSize": zod.number(),
+  "sha256": zod.string(),
+  "hasThumb": zod.boolean(),
+  "sourceName": zod.string().nullish(),
+  "sourcePage": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an image that no design or custom object uses
+ */
+export const DeleteDesignAssetParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteDesignAssetResponse = zod.void()
+
+
+/**
+ * @summary Designs and custom objects that use an image
+ */
+export const GetDesignAssetUsageParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetDesignAssetUsageResponseItem = zod.object({
+  "type": zod.enum(['project', 'customObject']),
+  "id": zod.number(),
+  "name": zod.string()
+})
+export const GetDesignAssetUsageResponse = zod.array(GetDesignAssetUsageResponseItem)
+
+

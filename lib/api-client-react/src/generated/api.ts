@@ -42,6 +42,14 @@ import type {
   CompanySettings,
   CompanySettingsUpdate,
   DashboardSummary,
+  DesignAsset,
+  DesignAssetInUse,
+  DesignAssetRename,
+  DesignAssetUploadComplete,
+  DesignAssetUploadStart,
+  DesignAssetUploadStarted,
+  DesignAssetUploadState,
+  DesignAssetUse,
   DesignObject,
   DesignObjectCreate,
   DesignObjectUpdate,
@@ -9937,4 +9945,672 @@ export const useDuplicateDesignObject = <TError = ErrorType<ErrorEnvelope>,
       > => {
       return useMutation(getDuplicateDesignObjectMutationOptions(options));
     }
+
+export const getListDesignAssetsUrl = () => {
+
+
+
+
+  return `/api/design-assets`
+}
+
+/**
+ * Image bytes are fetched separately from `/design-assets/{id}/file` and thumbnails from `/design-assets/{id}/thumb` (binary responses, not described here).
+ * @summary List imported images (metadata only), newest first
+ */
+export const listDesignAssets = async ( options?: Parameters<typeof customFetch>[1]): Promise<DesignAsset[]> => {
+
+  return customFetch<DesignAsset[]>(getListDesignAssetsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDesignAssetsQueryKey = () => {
+    return [
+    `/api/design-assets`
+    ] as const;
+    }
+
+
+export const getListDesignAssetsQueryOptions = <TData = Awaited<ReturnType<typeof listDesignAssets>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDesignAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDesignAssetsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDesignAssets>>> = ({ signal }) => listDesignAssets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDesignAssets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDesignAssetsQueryResult = NonNullable<Awaited<ReturnType<typeof listDesignAssets>>>
+export type ListDesignAssetsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List imported images (metadata only), newest first
+ */
+
+export function useListDesignAssets<TData = Awaited<ReturnType<typeof listDesignAssets>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDesignAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDesignAssetsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartDesignAssetUploadUrl = () => {
+
+
+
+
+  return `/api/design-assets/uploads`
+}
+
+/**
+ * Pieces are then sent with `PUT /design-assets/uploads/{uploadId}/chunks/{index}` as `application/octet-stream` (each exactly `chunkSize` bytes except the last; optional `X-Chunk-Sha256` header), and the upload is finished with `POST /design-assets/uploads/{uploadId}/complete`. Pieces stay below Nginx's default 1 MB body limit.
+ * @summary Start a chunked image upload (or find an identical image already stored)
+ */
+export const startDesignAssetUpload = async (designAssetUploadStart: DesignAssetUploadStart, options?: Parameters<typeof customFetch>[1]): Promise<DesignAssetUploadStarted> => {
+
+  return customFetch<DesignAssetUploadStarted>(getStartDesignAssetUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designAssetUploadStart)
+  }
+);}
+
+
+
+
+
+export const getStartDesignAssetUploadMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDesignAssetUpload>>, TError,{data: BodyType<DesignAssetUploadStart>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startDesignAssetUpload>>, TError,{data: BodyType<DesignAssetUploadStart>}, TContext> => {
+
+const mutationKey = ['startDesignAssetUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startDesignAssetUpload>>, {data: BodyType<DesignAssetUploadStart>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  startDesignAssetUpload(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartDesignAssetUploadMutationResult = NonNullable<Awaited<ReturnType<typeof startDesignAssetUpload>>>
+    export type StartDesignAssetUploadMutationBody = BodyType<DesignAssetUploadStart>
+    export type StartDesignAssetUploadMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Start a chunked image upload (or find an identical image already stored)
+ */
+export const useStartDesignAssetUpload = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDesignAssetUpload>>, TError,{data: BodyType<DesignAssetUploadStart>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startDesignAssetUpload>>,
+        TError,
+        {data: BodyType<DesignAssetUploadStart>},
+        TContext
+      > => {
+      return useMutation(getStartDesignAssetUploadMutationOptions(options));
+    }
+
+export const getGetDesignAssetUploadUrl = (uploadId: string,) => {
+
+
+
+
+  return `/api/design-assets/uploads/${uploadId}`
+}
+
+/**
+ * @summary Which pieces of an unfinished upload have arrived (to resume)
+ */
+export const getDesignAssetUpload = async (uploadId: string, options?: Parameters<typeof customFetch>[1]): Promise<DesignAssetUploadState> => {
+
+  return customFetch<DesignAssetUploadState>(getGetDesignAssetUploadUrl(uploadId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDesignAssetUploadQueryKey = (uploadId: string,) => {
+    return [
+    `/api/design-assets/uploads/${uploadId}`
+    ] as const;
+    }
+
+
+export const getGetDesignAssetUploadQueryOptions = <TData = Awaited<ReturnType<typeof getDesignAssetUpload>>, TError = ErrorType<ErrorEnvelope>>(uploadId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUpload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDesignAssetUploadQueryKey(uploadId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDesignAssetUpload>>> = ({ signal }) => getDesignAssetUpload(uploadId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: uploadId !== null && uploadId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUpload>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDesignAssetUploadQueryResult = NonNullable<Awaited<ReturnType<typeof getDesignAssetUpload>>>
+export type GetDesignAssetUploadQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Which pieces of an unfinished upload have arrived (to resume)
+ */
+
+export function useGetDesignAssetUpload<TData = Awaited<ReturnType<typeof getDesignAssetUpload>>, TError = ErrorType<ErrorEnvelope>>(
+ uploadId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUpload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDesignAssetUploadQueryOptions(uploadId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAbortDesignAssetUploadUrl = (uploadId: string,) => {
+
+
+
+
+  return `/api/design-assets/uploads/${uploadId}`
+}
+
+/**
+ * @summary Cancel an unfinished upload and discard its pieces
+ */
+export const abortDesignAssetUpload = async (uploadId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getAbortDesignAssetUploadUrl(uploadId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getAbortDesignAssetUploadMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abortDesignAssetUpload>>, TError,{uploadId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof abortDesignAssetUpload>>, TError,{uploadId: string}, TContext> => {
+
+const mutationKey = ['abortDesignAssetUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof abortDesignAssetUpload>>, {uploadId: string}> = (props) => {
+          const {uploadId} = props ?? {};
+
+          return  abortDesignAssetUpload(uploadId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AbortDesignAssetUploadMutationResult = NonNullable<Awaited<ReturnType<typeof abortDesignAssetUpload>>>
+
+    export type AbortDesignAssetUploadMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Cancel an unfinished upload and discard its pieces
+ */
+export const useAbortDesignAssetUpload = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abortDesignAssetUpload>>, TError,{uploadId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof abortDesignAssetUpload>>,
+        TError,
+        {uploadId: string},
+        TContext
+      > => {
+      return useMutation(getAbortDesignAssetUploadMutationOptions(options));
+    }
+
+export const getCompleteDesignAssetUploadUrl = (uploadId: string,) => {
+
+
+
+
+  return `/api/design-assets/uploads/${uploadId}/complete`
+}
+
+/**
+ * Checks every piece is present with the right size, the whole file's SHA-256, that the bytes are a PNG, JPEG or WebP image (by content), and the pixel limits. An identical image already stored is returned instead of a duplicate.
+ * @summary Assemble and check the pieces, then store the image
+ */
+export const completeDesignAssetUpload = async (uploadId: string,
+    designAssetUploadComplete?: DesignAssetUploadComplete, options?: Parameters<typeof customFetch>[1]): Promise<DesignAsset> => {
+
+  return customFetch<DesignAsset>(getCompleteDesignAssetUploadUrl(uploadId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designAssetUploadComplete)
+  }
+);}
+
+
+
+
+
+export const getCompleteDesignAssetUploadMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDesignAssetUpload>>, TError,{uploadId: string;data?: BodyType<DesignAssetUploadComplete>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeDesignAssetUpload>>, TError,{uploadId: string;data?: BodyType<DesignAssetUploadComplete>}, TContext> => {
+
+const mutationKey = ['completeDesignAssetUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeDesignAssetUpload>>, {uploadId: string;data?: BodyType<DesignAssetUploadComplete>}> = (props) => {
+          const {uploadId,data} = props ?? {};
+
+          return  completeDesignAssetUpload(uploadId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteDesignAssetUploadMutationResult = NonNullable<Awaited<ReturnType<typeof completeDesignAssetUpload>>>
+    export type CompleteDesignAssetUploadMutationBody = BodyType<DesignAssetUploadComplete> | undefined
+    export type CompleteDesignAssetUploadMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Assemble and check the pieces, then store the image
+ */
+export const useCompleteDesignAssetUpload = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDesignAssetUpload>>, TError,{uploadId: string;data?: BodyType<DesignAssetUploadComplete>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeDesignAssetUpload>>,
+        TError,
+        {uploadId: string;data?: BodyType<DesignAssetUploadComplete>},
+        TContext
+      > => {
+      return useMutation(getCompleteDesignAssetUploadMutationOptions(options));
+    }
+
+export const getGetDesignAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-assets/${id}`
+}
+
+/**
+ * @summary Get one image's metadata
+ */
+export const getDesignAsset = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<DesignAsset> => {
+
+  return customFetch<DesignAsset>(getGetDesignAssetUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDesignAssetQueryKey = (id: number,) => {
+    return [
+    `/api/design-assets/${id}`
+    ] as const;
+    }
+
+
+export const getGetDesignAssetQueryOptions = <TData = Awaited<ReturnType<typeof getDesignAsset>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDesignAssetQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDesignAsset>>> = ({ signal }) => getDesignAsset(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDesignAsset>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDesignAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getDesignAsset>>>
+export type GetDesignAssetQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get one image's metadata
+ */
+
+export function useGetDesignAsset<TData = Awaited<ReturnType<typeof getDesignAsset>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDesignAssetQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRenameDesignAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-assets/${id}`
+}
+
+/**
+ * @summary Rename an image
+ */
+export const renameDesignAsset = async (id: number,
+    designAssetRename: DesignAssetRename, options?: Parameters<typeof customFetch>[1]): Promise<DesignAsset> => {
+
+  return customFetch<DesignAsset>(getRenameDesignAssetUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(designAssetRename)
+  }
+);}
+
+
+
+
+
+export const getRenameDesignAssetMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameDesignAsset>>, TError,{id: number;data: BodyType<DesignAssetRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameDesignAsset>>, TError,{id: number;data: BodyType<DesignAssetRename>}, TContext> => {
+
+const mutationKey = ['renameDesignAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameDesignAsset>>, {id: number;data: BodyType<DesignAssetRename>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameDesignAsset(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameDesignAssetMutationResult = NonNullable<Awaited<ReturnType<typeof renameDesignAsset>>>
+    export type RenameDesignAssetMutationBody = BodyType<DesignAssetRename>
+    export type RenameDesignAssetMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Rename an image
+ */
+export const useRenameDesignAsset = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameDesignAsset>>, TError,{id: number;data: BodyType<DesignAssetRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renameDesignAsset>>,
+        TError,
+        {id: number;data: BodyType<DesignAssetRename>},
+        TContext
+      > => {
+      return useMutation(getRenameDesignAssetMutationOptions(options));
+    }
+
+export const getDeleteDesignAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-assets/${id}`
+}
+
+/**
+ * @summary Delete an image that no design or custom object uses
+ */
+export const deleteDesignAsset = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteDesignAssetUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDesignAssetMutationOptions = <TError = ErrorType<ErrorEnvelope | DesignAssetInUse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDesignAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDesignAsset>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDesignAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDesignAsset>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDesignAsset(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDesignAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDesignAsset>>>
+
+    export type DeleteDesignAssetMutationError = ErrorType<ErrorEnvelope | DesignAssetInUse>
+
+    /**
+ * @summary Delete an image that no design or custom object uses
+ */
+export const useDeleteDesignAsset = <TError = ErrorType<ErrorEnvelope | DesignAssetInUse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDesignAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDesignAsset>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDesignAssetMutationOptions(options));
+    }
+
+export const getGetDesignAssetUsageUrl = (id: number,) => {
+
+
+
+
+  return `/api/design-assets/${id}/usage`
+}
+
+/**
+ * @summary Designs and custom objects that use an image
+ */
+export const getDesignAssetUsage = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<DesignAssetUse[]> => {
+
+  return customFetch<DesignAssetUse[]>(getGetDesignAssetUsageUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDesignAssetUsageQueryKey = (id: number,) => {
+    return [
+    `/api/design-assets/${id}/usage`
+    ] as const;
+    }
+
+
+export const getGetDesignAssetUsageQueryOptions = <TData = Awaited<ReturnType<typeof getDesignAssetUsage>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDesignAssetUsageQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDesignAssetUsage>>> = ({ signal }) => getDesignAssetUsage(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUsage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDesignAssetUsageQueryResult = NonNullable<Awaited<ReturnType<typeof getDesignAssetUsage>>>
+export type GetDesignAssetUsageQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Designs and custom objects that use an image
+ */
+
+export function useGetDesignAssetUsage<TData = Awaited<ReturnType<typeof getDesignAssetUsage>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDesignAssetUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDesignAssetUsageQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

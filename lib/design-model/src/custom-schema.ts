@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isSelfIntersecting, signedArea } from "./geometry";
+import { finishesSchema } from "./finish-schema";
 
 // ---------------------------------------------------------------------------
 // Custom objects made in the Custom Builder. A custom object is never stored
@@ -126,8 +127,35 @@ export const sketchShapeSchema = z.discriminatedUnion("kind", [
 ]);
 export type SketchShape = z.infer<typeof sketchShapeSchema>;
 
+/**
+ * A reference picture behind the drawing, for tracing. Only the image's id
+ * and how it's placed are stored. Image pixel (px, py) lands at
+ * (x, y) + R(rotation) · (px, py) · mmPerPx in drawing coordinates.
+ */
+export const referenceImageSchema = z.object({
+  assetId: z.number().int().positive().max(2_147_483_647),
+  /** Where the image's top-left corner sits in the drawing (mm). */
+  x: mm,
+  y: mm,
+  /** Millimetres per image pixel: the image's scale. */
+  mmPerPx: z.number().finite().gt(0).max(10_000),
+  /** Clockwise turn in degrees. */
+  rotation: z.number().finite().min(-360).max(360).default(0),
+  opacity: z.number().finite().min(0.05).max(1).default(0.5),
+  locked: z.boolean().default(false),
+  hidden: z.boolean().default(false),
+  /** The last two-point calibration: points in image pixels and the real distance between them. */
+  calibration: z
+    .object({ a: z.object({ x: z.number().finite(), y: z.number().finite() }), b: z.object({ x: z.number().finite(), y: z.number().finite() }), lengthMm: pos() })
+    .nullable()
+    .default(null),
+});
+export type ReferenceImage = z.infer<typeof referenceImageSchema>;
+
 export const sketchSchema = z.object({
   plane: z.enum(["front", "top"]),
+  /** Reference pictures, one per view (front view and plan each keep their own). */
+  references: z.object({ front: referenceImageSchema.optional(), top: referenceImageSchema.optional() }).optional(),
   shapes: z.array(sketchShapeSchema).max(CUSTOM_LIMITS.shapes),
   dims: z.array(z.object({ id, a: sketchPointSchema, b: sketchPointSchema, offset: mm })).max(200),
   labels: z.array(z.object({ id, x: mm, y: mm, text: z.string().max(120) })).max(200),
@@ -159,6 +187,8 @@ export const customDefinitionSchema = z.object({
   color,
   accentColor: color,
   elevation: z.number().finite().min(0).max(CUSTOM_LIMITS.maxSize).default(0),
+  /** Artwork per surface, copied onto each placed instance (image ids only). */
+  finishes: finishesSchema.optional(),
 });
 export type CustomDefinition = z.infer<typeof customDefinitionSchema>;
 

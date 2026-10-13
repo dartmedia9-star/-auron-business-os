@@ -37,7 +37,7 @@ import {
   type Vec2,
   type Vertex,
 } from "./schema";
-import { roundMm, type DisplayUnit } from "./units";
+import { isImperial, roundMm, type DisplayUnit } from "./units";
 
 // ---------------------------------------------------------------------------
 // Factories and edits. Every function is pure: it returns new objects and
@@ -59,7 +59,7 @@ export function createEmptyModel(opts: { venueName?: string; title?: string; cli
     schemaVersion: SCHEMA_VERSION,
     settings: {
       displayUnit: unit,
-      gridSize: unit === "ft" ? 304.8 : 500,
+      gridSize: isImperial(unit) ? 304.8 : 500,
       showGrid: true,
       snapGrid: true,
       snapGeometry: true,

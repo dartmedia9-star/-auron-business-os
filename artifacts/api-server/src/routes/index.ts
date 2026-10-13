@@ -20,6 +20,7 @@ import performanceRouter from "./performance";
 import rateCatalogRouter from "./rate-catalog";
 import designProjectsRouter from "./design-projects";
 import designObjectsRouter from "./design-objects";
+import designAssetsRouter from "./design-assets";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(performanceRouter);
 router.use(rateCatalogRouter);
 router.use(designProjectsRouter);
 router.use(designObjectsRouter);
+router.use(designAssetsRouter);
 
 export default router;

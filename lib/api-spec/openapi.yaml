@@ -3166,6 +3166,320 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /design-assets:
+    get:
+      operationId: listDesignAssets
+      tags: [designStudio]
+      summary: List imported images (metadata only), newest first
+      description: >
+        Image bytes are fetched separately from `/design-assets/{id}/file`
+        and thumbnails from `/design-assets/{id}/thumb` (binary responses,
+        not described here).
+      responses:
+        "200":
+          description: Assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DesignAsset"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-assets/uploads:
+    post:
+      operationId: startDesignAssetUpload
+      tags: [designStudio]
+      summary: Start a chunked image upload (or find an identical image already stored)
+      description: >
+        Pieces are then sent with `PUT /design-assets/uploads/{uploadId}/chunks/{index}`
+        as `application/octet-stream` (each exactly `chunkSize` bytes except
+        the last; optional `X-Chunk-Sha256` header), and the upload is
+        finished with `POST /design-assets/uploads/{uploadId}/complete`.
+        Pieces stay below Nginx's default 1 MB body limit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignAssetUploadStart"
+      responses:
+        "200":
+          description: An identical image is already stored; nothing to upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAssetUploadStarted"
+        "201":
+          description: Upload session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAssetUploadStarted"
+        "400":
+          description: Invalid request or file too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Too many unfinished uploads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-assets/uploads/{uploadId}:
+    get:
+      operationId: getDesignAssetUpload
+      tags: [designStudio]
+      summary: Which pieces of an unfinished upload have arrived (to resume)
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upload state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAssetUploadState"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: abortDesignAssetUpload
+      tags: [designStudio]
+      summary: Cancel an unfinished upload and discard its pieces
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Cancelled
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-assets/uploads/{uploadId}/complete:
+    post:
+      operationId: completeDesignAssetUpload
+      tags: [designStudio]
+      summary: Assemble and check the pieces, then store the image
+      description: >
+        Checks every piece is present with the right size, the whole file's
+        SHA-256, that the bytes are a PNG, JPEG or WebP image (by content),
+        and the pixel limits. An identical image already stored is returned
+        instead of a duplicate.
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignAssetUploadComplete"
+      responses:
+        "200":
+          description: An identical image was already stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAsset"
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAsset"
+        "400":
+          description: Missing pieces, wrong checksum or not a supported image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /design-assets/{id}:
+    get:
+      operationId: getDesignAsset
+      tags: [designStudio]
+      summary: Get one image's metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAsset"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: renameDesignAsset
+      tags: [designStudio]
+      summary: Rename an image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignAssetRename"
+      responses:
+        "200":
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAsset"
+        "400":
+          description: Invalid name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteDesignAsset
+      tags: [designStudio]
+      summary: Delete an image that no design or custom object uses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Still used by a design or custom object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAssetInUse"
+
+  /design-assets/{id}/usage:
+    get:
+      operationId: getDesignAssetUsage
+      tags: [designStudio]
+      summary: Designs and custom objects that use an image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Where the image is used
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DesignAssetUse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -6723,3 +7037,136 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+
+    DesignAsset:
+      type: object
+      required: [id, name, kind, mime, width, height, byteSize, sha256, hasThumb, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [image, pdf-image, pdf-page]
+        mime:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        byteSize:
+          type: integer
+        sha256:
+          type: string
+        hasThumb:
+          type: boolean
+        sourceName:
+          type: [string, "null"]
+        sourcePage:
+          type: [integer, "null"]
+        createdByName:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DesignAssetUploadStart:
+      type: object
+      required: [name, kind, byteSize, sha256]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        kind:
+          type: string
+          enum: [image, pdf-image, pdf-page]
+        byteSize:
+          type: integer
+          minimum: 1
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        sourceName:
+          type: [string, "null"]
+          maxLength: 300
+        sourcePage:
+          type: [integer, "null"]
+          minimum: 1
+
+    DesignAssetUploadStarted:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [exists, upload]
+        asset:
+          $ref: "#/components/schemas/DesignAsset"
+        uploadId:
+          type: string
+        chunkSize:
+          type: integer
+        chunkCount:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    DesignAssetUploadState:
+      type: object
+      required: [uploadId, chunkSize, chunkCount, received, expiresAt]
+      properties:
+        uploadId:
+          type: string
+        chunkSize:
+          type: integer
+        chunkCount:
+          type: integer
+        received:
+          type: array
+          items:
+            type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    DesignAssetUploadComplete:
+      type: object
+      properties:
+        thumbnail:
+          type: [string, "null"]
+          description: Base64 PNG, JPEG or WebP thumbnail made in the browser (at most 300 KB, 1024 px)
+
+    DesignAssetRename:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    DesignAssetUse:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          type: string
+          enum: [project, customObject]
+        id:
+          type: integer
+        name:
+          type: string
+
+    DesignAssetInUse:
+      type: object
+      required: [error, usedBy]
+      properties:
+        error:
+          type: string
+        usedBy:
+          type: array
+          items:
+            $ref: "#/components/schemas/DesignAssetUse"

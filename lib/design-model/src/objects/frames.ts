@@ -33,7 +33,17 @@ export const FRAME_DEFS = {
         ],
       },
       { key: "trussSize", label: "Truss section", kind: "length", default: 300, min: 100, max: 1000 },
+      { key: "cladding", label: "Branding panels on the front", kind: "boolean", default: false },
     ],
+    surfaces: (o, p) => {
+      if (p.str("style") !== "box" && !p.bool("cladding")) return [];
+      const header = p.str("style") === "box" ? ["beam", "corner", "header-panel"] : ["header-panel"];
+      return [
+        { id: "header", label: "Header front", facing: "front", roles: header },
+        { id: "upright-left", label: "Left upright front", facing: "front", roles: p.str("style") === "box" ? ["leg-left", "upright-left-panel"] : ["upright-left-panel"] },
+        { id: "upright-right", label: "Right upright front", facing: "front", roles: p.str("style") === "box" ? ["leg-right", "upright-right-panel"] : ["upright-right-panel"] },
+      ];
+    },
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const t = archSection(o, p.num("trussSize"));
@@ -49,6 +59,13 @@ export const FRAME_DEFS = {
         parts.push(box(x, h - t, 0, t, t, t, truss ? "accent" : "body", { role: "corner" }));
       }
       parts.push(...(truss ? trussMember("x", -w / 2 + t, w / 2 - t, [h - t / 2, 0], t, "beam") : tubeMember("x", -w / 2 + t, w / 2 - t, [h - t / 2, 0], t, "beam", "body")));
+      if (truss && p.bool("cladding")) {
+        // Printed panels (2 mm) on the front of the truss, inside the footprint.
+        const zp = Math.min(t / 2 + 1, d / 2 - 1);
+        parts.push(box(0, h - t, zp, w, t, 2, "body", { role: "header-panel", plan: false }));
+        parts.push(box(-lx, PLATE, zp, t, h - t - PLATE, 2, "body", { role: "upright-left-panel", plan: false }));
+        parts.push(box(lx, PLATE, zp, t, h - t - PLATE, 2, "body", { role: "upright-right-panel", plan: false }));
+      }
       return parts;
     },
   },
@@ -123,6 +140,7 @@ export const FRAME_DEFS = {
       { key: "border", label: "Border width", kind: "length", default: 200, min: 30, max: 1000 },
       { key: "thickness", label: "Frame thickness", kind: "length", default: 100, min: 18, max: 600 },
     ],
+    surfaces: () => [{ id: "front", label: "Frame front", facing: "front", roles: ["frame-top", "frame-bottom", "frame-side", "trim"] }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const b = clamp(p.num("border"), 20, Math.min(w, h) / 3);
@@ -154,6 +172,12 @@ export const FRAME_DEFS = {
     params: [
       { key: "pillarWidth", label: "Pillar width", kind: "length", default: 600, min: 100, max: 3000 },
       { key: "headerHeight", label: "Header height", kind: "length", default: 600, min: 100, max: 3000 },
+    ],
+    surfaces: () => [
+      { id: "header", label: "Header front", facing: "front", roles: ["beam", "sign"] },
+      { id: "upright-left", label: "Left upright front", facing: "front", roles: ["leg-left"] },
+      { id: "upright-right", label: "Right upright front", facing: "front", roles: ["leg-right"] },
+      { id: "header-rear", label: "Header rear", facing: "back", roles: ["beam"] },
     ],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;

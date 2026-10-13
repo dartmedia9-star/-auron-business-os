@@ -35,6 +35,9 @@ app.use(cookieParser());
 // used everywhere else.
 app.use("/api/design-projects", express.json({ limit: "5mb" }));
 app.use("/api/design-objects", express.json({ limit: "2mb" }));
+// Image uploads arrive as raw pieces (see routes/design-assets.ts); only the
+// final step carries JSON, with a small preview image.
+app.use("/api/design-assets", express.json({ limit: "512kb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);

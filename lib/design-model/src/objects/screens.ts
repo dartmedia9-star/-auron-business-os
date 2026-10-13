@@ -22,6 +22,7 @@ export const SCREEN_DEFS = {
       { key: "moduleSize", label: "Module size", kind: "length", default: 500, min: 100, max: 2000 },
       { key: "showModules", label: "Show module grid", kind: "boolean", default: true },
     ],
+    surfaces: () => [{ id: "screen", label: "Screen", facing: "front", roles: ["screen"], glow: true }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       // Cabinet behind, the LED face as the front 2 mm, module lines on that face.
@@ -45,6 +46,7 @@ export const SCREEN_DEFS = {
     color: "#111318",
     accentColor: "#3b82f6",
     params: [{ key: "screenHeight", label: "Screen height", kind: "length", default: 830, min: 200, max: 5000 }],
+    surfaces: () => [{ id: "screen", label: "Screen", facing: "front", roles: ["screen"], glow: true }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const sh = clamp(p.num("screenHeight"), 100, h - 200);
@@ -73,6 +75,7 @@ export const SCREEN_DEFS = {
       { key: "screenHeight", label: "Screen height (incl. border)", kind: "length", default: 1800, min: 300, max: 10000 },
       { key: "border", label: "Border", kind: "length", default: 80, min: 0, max: 500 },
     ],
+    surfaces: () => [{ id: "screen", label: "Projected image", facing: "front", roles: ["surface"], glow: true }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const sh = clamp(p.num("screenHeight"), 200, h - 200);

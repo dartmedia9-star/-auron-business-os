@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement, type WheelEvent as ReactWheelEvent } from "react";
-import { arcThrough, formatLength, sketchSnapPoints, type CustomPart, type DisplayUnit, type Sketch, type SketchPoint, type SketchShape } from "@workspace/design-model";
+import { arcThrough, formatLength, referenceBounds, sketchSnapPoints, type CustomPart, type DisplayUnit, type ReferenceImage, type Sketch, type SketchPoint, type SketchShape } from "@workspace/design-model";
 import { dragHandle, eraseHits, hitSketch, moveShape, newSketchId, polyLength, removeHits, shapeHandles, shapePoints, sketchBounds, snapSketch, type Bounds, type SketchHit } from "./builder-sketch";
 
 // The Custom Builder's drawing surface (SVG). One finger, the Pencil or the
@@ -27,7 +27,9 @@ type Gesture =
   | { kind: "move"; id: number; start: SketchPoint; base: SketchShape }
   | { kind: "handle"; id: number; key: string; base: SketchShape }
   | { kind: "draw"; id: number }
-  | { kind: "erase"; id: number; last: SketchPoint };
+  | { kind: "erase"; id: number; last: SketchPoint }
+  | { kind: "refmove"; id: number; start: SketchPoint; base: ReferenceImage }
+  | { kind: "caltap"; id: number; start: { x: number; y: number }; world: SketchPoint };
 
 const TAP_PX = { touch: 10, pen: 6, mouse: 4 } as const;
 const MIN_SCALE = 0.004;
@@ -54,7 +56,23 @@ export type BuilderCanvasProps = {
   onDraftState: (state: { active: boolean; points: number; tool: BuilderTool | null }) => void;
   /** Assembly parts, drawn read-only as a front elevation (floor at y = 0) so the drawing matches the 3D. */
   parts?: CustomPart[];
+  /** Reference picture behind the drawing, with the image's pixel size. */
+  reference?: { ref: ReferenceImage; href: string; width: number; height: number } | null;
+  /** move: one finger / Pencil drags the picture; calibrate: taps pick the two calibration points. */
+  refMode?: "move" | "calibrate" | null;
+  onReferenceChange?: (r: ReferenceImage) => void;
+  calibrationPoints?: SketchPoint[];
+  onCalibrationTap?: (p: SketchPoint) => void;
 };
+
+type RefShown = NonNullable<BuilderCanvasProps["reference"]>;
+
+function withReference(b: Bounds | null, r: RefShown | null | undefined): Bounds | null {
+  if (!r || r.ref.hidden) return b;
+  const e = referenceBounds(r.ref, r.width, r.height);
+  if (!b) return e;
+  return { minX: Math.min(b.minX, e.minX), minY: Math.min(b.minY, e.minY), maxX: Math.max(b.maxX, e.maxX), maxY: Math.max(b.maxY, e.maxY) };
+}
 
 /** A part's outline in front view, in drawing coordinates (y down, floor at 0). */
 export function partElevation(p: CustomPart): { x: number; y: number; w: number; h: number } {
@@ -82,7 +100,14 @@ function fitView(b: Bounds | null, w: number, h: number): View {
 }
 
 export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>(function BuilderCanvas(props, ref) {
-  const { sketch, onChange, tool, selected, onSelect, grid, snapPoints, penMode, onPenDetected, unit, onRequestText, onDraftState, parts } = props;
+  const { sketch, onChange, tool, selected, onSelect, grid, snapPoints, penMode, onPenDetected, unit, onRequestText, onDraftState, parts, reference, refMode, onReferenceChange, calibrationPoints, onCalibrationTap } = props;
+  const [refPreview, setRefPreviewState] = useState<ReferenceImage | null>(null);
+  // Read on pointer-up, which can come before React re-renders after the last move.
+  const refPreviewRef = useRef<ReferenceImage | null>(null);
+  const setRefPreview = (r: ReferenceImage | null) => {
+    refPreviewRef.current = r;
+    setRefPreviewState(r);
+  };
   const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [view, setView] = useState<View | null>(null);
@@ -108,7 +133,7 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       setSize({ w: r.width, h: r.height });
-      if (!viewRef.current && r.width > 0) setView(fitView(withParts(sketchBounds(sketch), parts), r.width, r.height));
+      if (!viewRef.current && r.width > 0) setView(fitView(withReference(withParts(sketchBounds(sketch), parts), reference), r.width, r.height));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -156,7 +181,7 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
   );
 
   useImperativeHandle(ref, () => ({
-    fit: () => setView(fitView(withParts(sketchBounds(sketch), parts), size.w, size.h)),
+    fit: () => setView(fitView(withReference(withParts(sketchBounds(sketch), parts), reference), size.w, size.h)),
     zoom: (f: number) => setView((v) => (v ? zoomAt(v, f, size.w / 2, size.h / 2) : v)),
     finish: () => finishChain(draftRef.current?.kind === "chain" && draftRef.current.tool === "polygon"),
     cancel: () => setDraft(null),
@@ -195,7 +220,13 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
     const world = toWorld(v, lp.x, lp.y);
     const touch = e.pointerType !== "mouse";
     const fingerInPenMode = penMode && e.pointerType === "touch";
-    if (e.button === 1 || tool === "pan" || (fingerInPenMode && drawTool)) {
+    if (refMode && reference && e.button !== 1 && !fingerInPenMode) {
+      if (refMode === "move" && !reference.ref.locked) gesture.current = { kind: "refmove", id: e.pointerId, start: world, base: reference.ref };
+      else if (refMode === "calibrate") gesture.current = { kind: "caltap", id: e.pointerId, start: lp, world };
+      else gesture.current = { kind: "pan", id: e.pointerId, last: lp };
+      return;
+    }
+    if (e.button === 1 || tool === "pan" || (fingerInPenMode && drawTool) || (refMode && fingerInPenMode)) {
       gesture.current = { kind: "pan", id: e.pointerId, last: lp };
       return;
     }
@@ -273,6 +304,15 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
     if (g.kind === "pan") {
       setView({ ...v, tx: v.tx + lp.x - g.last.x, ty: v.ty + lp.y - g.last.y });
       gesture.current = { ...g, last: lp };
+      return;
+    }
+    if (g.kind === "refmove") {
+      setRefPreview({ ...g.base, x: g.base.x + world.x - g.start.x, y: g.base.y + world.y - g.start.y });
+      return;
+    }
+    if (g.kind === "caltap") {
+      // A drag rather than a tap: pan the view instead.
+      if (Math.hypot(lp.x - g.start.x, lp.y - g.start.y) >= (TAP_PX[e.pointerType as keyof typeof TAP_PX] ?? 6)) gesture.current = { kind: "pan", id: g.id, last: lp };
       return;
     }
     if (g.kind === "draw" && d?.kind === "stroke") {
@@ -354,6 +394,16 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
       return;
     }
     if (g.kind === "pan" || g.kind === "erase") return;
+    if (g.kind === "refmove") {
+      const moved = refPreviewRef.current;
+      if (moved && (moved.x !== g.base.x || moved.y !== g.base.y)) onReferenceChange?.({ ...moved, x: round1(moved.x), y: round1(moved.y) });
+      setRefPreview(null);
+      return;
+    }
+    if (g.kind === "caltap") {
+      onCalibrationTap?.(world);
+      return;
+    }
 
     if (d?.kind === "stroke") {
       setDraft(null);
@@ -426,6 +476,7 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
 
   function onPointerCancel(e: ReactPointerEvent<SVGSVGElement>) {
     pointers.current.delete(e.pointerId);
+    setRefPreview(null);
     const d = draftRef.current;
     if (d?.kind === "stroke" || (d?.kind === "two" && d.dragging)) setDraft(null);
     setPreview(null);
@@ -448,7 +499,7 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
     <svg
       ref={svgRef}
       className="h-full w-full touch-none select-none bg-[hsl(var(--background))]"
-      style={{ cursor: tool === "pan" ? "grab" : tool === "select" ? "default" : "crosshair" }}
+      style={{ cursor: refMode === "move" ? "move" : refMode === "calibrate" ? "crosshair" : tool === "pan" ? "grab" : tool === "select" ? "default" : "crosshair" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -463,6 +514,22 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
       {v && (
         <>
           <GridLines view={v} size={size} grid={grid} />
+          {reference && !reference.ref.hidden && (() => {
+            const r = refPreview ?? reference.ref;
+            return (
+              <g transform={`translate(${v.tx} ${v.ty}) scale(${v.scale})`} pointerEvents="none">
+                <image
+                  href={reference.href}
+                  width={reference.width}
+                  height={reference.height}
+                  opacity={r.opacity}
+                  preserveAspectRatio="none"
+                  transform={`translate(${r.x} ${r.y}) rotate(${r.rotation}) scale(${r.mmPerPx})`}
+                  data-testid="builder-reference"
+                />
+              </g>
+            );
+          })()}
           {bounds && sketch.plane === "front" && !parts?.length && (
             <g aria-hidden>
               <line x1={0} x2={size.w} y1={bounds.maxY * v.scale + v.ty} y2={bounds.maxY * v.scale + v.ty} stroke="hsl(var(--primary))" strokeDasharray="6 4" strokeWidth={1} opacity={0.6} />
@@ -517,6 +584,23 @@ export const BuilderCanvas = forwardRef<BuilderCanvasHandle, BuilderCanvasProps>
               return s ? shapeHandles(s).map((h) => <circle key={h.key} cx={h.p.x * v.scale + v.tx} cy={h.p.y * v.scale + v.ty} r={HANDLE_PX} fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth={2} />) : null;
             })()}
           <DraftLayer draft={draft} view={v} unit={unit} />
+          {refMode === "calibrate" && calibrationPoints && calibrationPoints.length > 0 && (
+            <g data-testid="calibration-points" pointerEvents="none">
+              {calibrationPoints.length === 2 && (
+                <line x1={calibrationPoints[0].x * v.scale + v.tx} y1={calibrationPoints[0].y * v.scale + v.ty} x2={calibrationPoints[1].x * v.scale + v.tx} y2={calibrationPoints[1].y * v.scale + v.ty} stroke="#e11d48" strokeWidth={2} strokeDasharray="6 4" />
+              )}
+              {calibrationPoints.map((p, i) => (
+                <g key={i} transform={`translate(${p.x * v.scale + v.tx} ${p.y * v.scale + v.ty})`}>
+                  <circle r={9} fill="none" stroke="#e11d48" strokeWidth={2} />
+                  <line x1={-14} x2={14} y1={0} y2={0} stroke="#e11d48" strokeWidth={1.5} />
+                  <line x1={0} x2={0} y1={-14} y2={14} stroke="#e11d48" strokeWidth={1.5} />
+                  <text x={12} y={-12} fontSize={13} fontWeight={700} fill="#e11d48" style={{ paintOrder: "stroke" }} stroke="hsl(var(--background))" strokeWidth={3}>
+                    {i === 0 ? "A" : "B"}
+                  </text>
+                </g>
+              ))}
+            </g>
+          )}
           {cursor && cursor.kind !== "none" && drawTool && (
             <rect x={cursor.p.x * v.scale + v.tx - 5} y={cursor.p.y * v.scale + v.ty - 5} width={10} height={10} fill="none" stroke={cursor.kind === "point" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"} strokeWidth={1.5} />
           )}

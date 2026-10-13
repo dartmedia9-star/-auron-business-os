@@ -6,6 +6,7 @@ import { Box, Camera, Eye, Hand, Layers, Maximize, Move, Plus, RotateCcw, Square
 import {
   findEntity,
   formatLength,
+  modelAssetIds,
   outwardNormal,
   rectCorners,
   snapTo,
@@ -27,6 +28,7 @@ import { useEditor, useModel, type EditorStore } from "./store";
 import { SelectField, ToggleRow } from "./fields";
 import { downloadBlob, safeFilename } from "./export-plan";
 import { ObjectModel, TONE_DEFAULTS } from "./object-mesh";
+import { artSettled } from "./art-textures";
 import {
   floorGeometry,
   footprint,
@@ -183,8 +185,12 @@ function StudioInner({ store, onOpenLibrary, onLost }: { store: EditorStore; onO
     };
   }, [store]);
 
-  const snapshot = () => {
+  const snapshot = async () => {
     try {
+      // Wait for artwork images to finish loading (or fail) and for the scene
+      // to pick them up, so the picture shows the artwork, not the base colour.
+      await artSettled(modelAssetIds(model.objects));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const url = api.current?.snapshot();
       if (!url) throw new Error("The 3D view isn't ready yet");
       const bin = atob(url.split(",")[1] ?? "");

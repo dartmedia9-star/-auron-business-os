@@ -1,5 +1,5 @@
 import { box, cyl, prism, type Part } from "../parts";
-import { chair, clamp, type ObjectDef, type ParamReader } from "./kit";
+import { chair, clamp, type ObjectDef, type ParamReader, type SurfaceDef } from "./kit";
 
 // Counters, tables and furniture. Counters face their guests at the front
 // (+z); staff stand at the back.
@@ -40,6 +40,14 @@ export function counterParts(w: number, d: number, h: number, p: ParamReader, op
   return parts;
 }
 
+/** Artwork surfaces of a counter; the top keeps its own colour. */
+const counterSurfaces = (): SurfaceDef[] => [
+  { id: "front", label: "Front fascia", facing: "front", roles: ["fascia", "brand-panel"] },
+  { id: "left", label: "Left side", facing: "left", roles: ["side-panel", "body", "fascia", "return"] },
+  { id: "right", label: "Right side", facing: "right", roles: ["side-panel", "body", "fascia", "return"] },
+  { id: "rear", label: "Rear", facing: "back", roles: ["body", "side-panel", "return"] },
+];
+
 const counterParams = [
   { key: "topOverhang", label: "Top overhang", kind: "length", default: 50, min: 0, max: 300 },
   { key: "topThickness", label: "Top thickness", kind: "length", default: 40, min: 12, max: 150 },
@@ -64,6 +72,7 @@ export const FURNITURE_DEFS = {
     surface: true,
     legacyPlan: true,
     params: [...counterParams],
+    surfaces: counterSurfaces,
     build: (o, p) => counterParts(o.width, o.depth, o.height, p),
   },
   reception_counter: {
@@ -83,6 +92,7 @@ export const FURNITURE_DEFS = {
       { key: "returnSide", label: "Return wing", kind: "choice", default: "left", options: [{ value: "left", label: "Left" }, { value: "right", label: "Right" }] },
       ...counterParams,
     ],
+    surfaces: counterSurfaces,
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const rd = clamp(p.num("runDepth"), 200, Math.min(d - 100, w / 2));
@@ -117,6 +127,7 @@ export const FURNITURE_DEFS = {
       ...counterParams.filter((q) => q.key !== "topOverhang"),
       { key: "topOverhang", label: "Top overhang", kind: "length", default: 20, min: 0, max: 300 },
     ],
+    surfaces: counterSurfaces,
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const sh = clamp(p.num("showcaseHeight"), 20, h / 2);
@@ -142,6 +153,7 @@ export const FURNITURE_DEFS = {
     accentColor: "#c8a24a",
     round: true,
     params: [{ key: "topColor", label: "Top colour", kind: "color", default: "#2b2f3a" }],
+    surfaces: () => [{ id: "front", label: "Front (wraps the front half)", facing: "front", roles: ["body", "band"] }],
     build: (o, p) => {
       const r = o.width / 2;
       const h = o.height;

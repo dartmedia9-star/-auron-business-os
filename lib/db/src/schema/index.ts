@@ -22,3 +22,4 @@ export * from "./payment-allocations";
 export * from "./rate-catalog";
 export * from "./design-projects";
 export * from "./design-custom-objects";
+export * from "./design-assets";

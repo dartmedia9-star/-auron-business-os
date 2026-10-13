@@ -1,5 +1,6 @@
-import { boundsOf, formatArea, formatLength, polygonArea, type ProjectModel, type Vec2 } from "@workspace/design-model";
+import { boundsOf, formatArea, formatLength, polygonArea, type ProjectModel, type Vec2, UNIT_LABELS, unitWords } from "@workspace/design-model";
 import { textBox, type Crowded } from "./annotation-layout";
+import { artRowText, type ArtRow } from "./export-artwork";
 import { PRINT_PALETTE, buildPlan, buildPlanPrimitives, layersFromSettings, type Layers, type Prim, type Style } from "./plan-primitives";
 
 // ---------------------------------------------------------------------------
@@ -21,6 +22,8 @@ export type ExportOptions = {
   layers: Layers;
   includeNotes: boolean;
   includeTitleBlock: boolean;
+  /** PDF only: add an artwork schedule page after the plan (when any object carries artwork). */
+  includeArtwork: boolean;
 };
 
 const PAPER: Record<PaperSize, { w: number; h: number }> = { A4: { w: 297, h: 210 }, A3: { w: 420, h: 297 } };
@@ -30,7 +33,7 @@ const MARGIN = 10;
 const TITLE_H = 26;
 
 export function defaultExportOptions(model: ProjectModel): ExportOptions {
-  return { paper: "A4", orientation: "landscape", layers: layersFromSettings(model), includeNotes: true, includeTitleBlock: true };
+  return { paper: "A4", orientation: "landscape", layers: layersFromSettings(model), includeNotes: true, includeTitleBlock: true, includeArtwork: model.objects.some((o) => !!o.finishes && Object.keys(o.finishes).length > 0) };
 }
 
 export type Sheet = {
@@ -213,7 +216,7 @@ function paintFrame(model: ProjectModel, sheet: Sheet, painter: Painter, opts: E
     ["Date", model.drawing.date || "—"],
     ["Prepared by", model.drawing.preparedBy || "—"],
     ["Scale", `1:${sheet.denom} @ ${opts.paper}`],
-    ["Units", unit === "ft" ? "Feet & inches" : unit === "m" ? "Metres" : unit === "cm" ? "Centimetres" : "Millimetres"],
+    ["Units", UNIT_LABELS[unit]],
     ["Floor area", area ? formatArea(area, unit) : "—"],
   ];
   const colStart = x0 + Math.min(110, (x1 - x0) * 0.38);
@@ -227,7 +230,7 @@ function paintFrame(model: ProjectModel, sheet: Sheet, painter: Painter, opts: E
     painter.text({ x: cx + 2.5, y: cy + 6 }, truncate(v, Math.floor(colW / 1.7)), 2.9, 0, "start", "middle", false, INK, false);
   });
   painter.poly([{ x: colStart, y: y0 + TITLE_H / 2 }, { x: x1, y: y0 + TITLE_H / 2 }], false, null, 1, "#cccccc", 0.2);
-  painter.text({ x: x1, y: h - MARGIN + 2.5 }, "Dimensions in " + (unit === "ft" ? "feet and inches" : unit) + " unless noted. Verify on site before fabrication. Not a structural or fire-safety approval.", 2, 0, "end", "middle", false, GREY, false);
+  painter.text({ x: x1, y: h - MARGIN + 2.5 }, "Dimensions in " + unitWords(unit) + " unless noted. Verify on site before fabrication. Not a structural or fire-safety approval.", 2, 0, "end", "middle", false, GREY, false);
 }
 
 function wrap(text: string, max: number): string[] {
@@ -356,7 +359,9 @@ function overWhite(hex: string, alpha: number): [number, number, number] {
   return [Math.round(255 + (r - 255) * alpha), Math.round(255 + (g - 255) * alpha), Math.round(255 + (b - 255) * alpha)];
 }
 
-export async function exportPlanPdf(model: ProjectModel, opts: ExportOptions): Promise<Blob> {
+export type ArtSchedule = { rows: ArtRow[]; thumbs: ReadonlyMap<number, { data: string; w: number; h: number }> };
+
+export async function exportPlanPdf(model: ProjectModel, opts: ExportOptions, art?: ArtSchedule): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
   const sheet = layoutSheet(model, opts);
   const doc = new jsPDF({ orientation: opts.orientation, unit: "mm", format: opts.paper.toLowerCase() as "a4" | "a3", compress: true });
@@ -415,7 +420,82 @@ export async function exportPlanPdf(model: ProjectModel, opts: ExportOptions): P
   };
   paintPrims(sheet, painter);
   paintFrame(model, sheet, painter, opts);
+  if (opts.includeArtwork && art?.rows.length) paintArtworkPages(doc, model, sheet, art);
   return doc.output("blob");
+}
+
+type PdfDoc = InstanceType<(typeof import("jspdf"))["jsPDF"]>;
+
+/** The artwork schedule: one row per surface with an image, as many pages as it takes. */
+function paintArtworkPages(doc: PdfDoc, model: ProjectModel, sheet: Sheet, art: ArtSchedule) {
+  const unit = model.settings.displayUnit;
+  const W = sheet.w;
+  const H = sheet.h;
+  const ROW = 30;
+  const THUMB = { w: 40, h: 26 };
+  const x0 = MARGIN + THUMB.w + 4;
+  const span = W - MARGIN - x0;
+  const cx = [x0, x0 + span * 0.36, x0 + span * 0.62];
+  const cw = [span * 0.34, span * 0.24, span * 0.38];
+  let y = 0;
+  const header = (first: boolean) => {
+    doc.addPage();
+    doc.setTextColor(17, 17, 17);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(pdfText(first ? "Artwork schedule" : "Artwork schedule (continued)"), MARGIN, MARGIN + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(90, 90, 90);
+    doc.text(pdfText(`${model.drawing.title || model.venue.name || "Design"} · sizes in ${UNIT_LABELS[unit]} · artwork is mapped flat onto each surface as seen from in front of it`), MARGIN, MARGIN + 10.5);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(60, 60, 60);
+    ["Object and surface", "Image", "Fit and printed size"].forEach((t, i) => doc.text(t, cx[i], MARGIN + 17));
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, MARGIN + 19, W - MARGIN, MARGIN + 19);
+    y = MARGIN + 22;
+  };
+  header(true);
+  const lines = (text: string, w: number) => doc.splitTextToSize(pdfText(text), w) as string[];
+  for (const r of art.rows) {
+    if (y + ROW > H - MARGIN) header(false);
+    const t = artRowText(r, unit);
+    const thumb = art.thumbs.get(r.assetId);
+    if (thumb) {
+      const k = Math.min(THUMB.w / thumb.w, THUMB.h / thumb.h);
+      const w = thumb.w * k;
+      const h = thumb.h * k;
+      doc.addImage(thumb.data, "JPEG", MARGIN + (THUMB.w - w) / 2, y + (THUMB.h - h) / 2, w, h);
+    } else {
+      doc.setFillColor(243, 244, 246);
+      doc.rect(MARGIN, y, THUMB.w, THUMB.h, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(159, 18, 57);
+      doc.text(r.image ? "No preview" : "Missing image", MARGIN + THUMB.w / 2, y + THUMB.h / 2, { align: "center", baseline: "middle" });
+    }
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.15);
+    doc.rect(MARGIN, y, THUMB.w, THUMB.h, "S");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(17, 17, 17);
+    const head = lines(t.object, cw[0]).slice(0, 2);
+    doc.text(head, cx[0], y + 3.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(60, 60, 60);
+    doc.text([...lines(t.surface, cw[0]).slice(0, 1), ...lines(t.size, cw[0]).slice(0, 1)], cx[0], y + 3.5 + head.length * 4);
+    doc.setTextColor(r.image ? 60 : 159, r.image ? 60 : 18, r.image ? 60 : 57);
+    doc.text(lines(t.image, cw[1]).slice(0, 5), cx[1], y + 3.5);
+    doc.setTextColor(60, 60, 60);
+    doc.text([...lines(t.fit, cw[2]).slice(0, 2), ...lines(t.print, cw[2]).slice(0, 3)], cx[2], y + 3.5);
+    doc.setDrawColor(230, 230, 230);
+    doc.line(MARGIN, y + ROW - 2, W - MARGIN, y + ROW - 2);
+    y += ROW;
+  }
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

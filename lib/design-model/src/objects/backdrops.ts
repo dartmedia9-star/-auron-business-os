@@ -46,6 +46,15 @@ export const BACKDROP_DEFS = {
       { key: "frameSize", label: "Frame size", kind: "length", default: 75, min: 10, max: 600 },
       { key: "supports", label: "Rear braces (behind the footprint)", kind: "boolean", default: false },
     ],
+    surfaces: (o, p) => {
+      const { width: w, height: h } = o;
+      const f = p.bool("frame") ? Math.min(p.num("frameSize"), w / 4, h / 4) : 0;
+      // Inside the edge frame: the frame covers the panel's edges.
+      return [
+        { id: "front", label: "Front", facing: "front", roles: ["panel"], rect: { u0: -w / 2 + f, v0: f, u1: w / 2 - f, v1: h - f } },
+        { id: "rear", label: "Rear", facing: "back", roles: ["panel"], rect: { u0: -w / 2 + f, v0: f, u1: w / 2 - f, v1: h - f } },
+      ];
+    },
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const framed = p.bool("frame");
@@ -86,6 +95,7 @@ export const BACKDROP_DEFS = {
       { key: "spacing", label: "Upright spacing", kind: "length", default: 1000, min: 300, max: 5000 },
       { key: "feet", label: "Braced feet", kind: "boolean", default: true },
     ],
+    surfaces: () => [{ id: "front", label: "Front", facing: "front", roles: ["panel"] }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const tube = clamp(p.num("tube"), 20, Math.min(200, d / 3));
@@ -126,6 +136,10 @@ export const BACKDROP_DEFS = {
       { key: "panelWidth", label: "Panel width", kind: "length", default: 1000, min: 300, max: 3000 },
       { key: "feet", label: "Feet at joints", kind: "boolean", default: true },
     ],
+    surfaces: () => [
+      { id: "front", label: "Front (across all panels)", facing: "front", roles: ["panel"] },
+      { id: "rear", label: "Rear", facing: "back", roles: ["panel"] },
+    ],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const n = clamp(Math.ceil(w / clamp(p.num("panelWidth"), 200, Math.max(200, w)) - 1e-6), 1, 80);
@@ -161,6 +175,7 @@ export const BACKDROP_DEFS = {
       { key: "logoSize", label: "Logo size", kind: "length", default: 300, min: 50, max: 2000 },
       { key: "logoSpacing", label: "Logo spacing", kind: "length", default: 600, min: 100, max: 3000 },
     ],
+    surfaces: () => [{ id: "front", label: "Front", facing: "front", roles: ["panel", "logo"] }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const face = Math.min(20, d / 4);
@@ -204,6 +219,10 @@ export const BACKDROP_DEFS = {
       { key: "signHeight", label: "Sign panel height", kind: "length", default: 1200, min: 200, max: 5000 },
       { key: "postSize", label: "Post size", kind: "length", default: 50, min: 20, max: 200 },
     ],
+    surfaces: () => [
+      { id: "front", label: "Sign front", facing: "front", roles: ["panel", "header"] },
+      { id: "rear", label: "Sign rear", facing: "back", roles: ["panel"] },
+    ],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const post = clamp(p.num("postSize"), 20, Math.min(200, w / 6));
@@ -235,6 +254,10 @@ export const BACKDROP_DEFS = {
       { key: "bays", label: "Bays", kind: "count", default: 3, min: 1, max: 12 },
       { key: "shelves", label: "Shelves per bay", kind: "count", default: 3, min: 0, max: 10 },
       { key: "header", label: "Header height", kind: "length", default: 350, min: 0, max: 1500 },
+    ],
+    surfaces: () => [
+      { id: "header", label: "Header front", facing: "front", roles: ["header"] },
+      { id: "back", label: "Back panel (inside the bays)", facing: "front", roles: ["back-panel"] },
     ],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
@@ -276,6 +299,10 @@ export const BACKDROP_DEFS = {
       { key: "screenWidth", label: "Screen width", kind: "length", default: 3000, min: 300, max: 50000 },
       { key: "screenHeight", label: "Screen height", kind: "length", default: 1690, min: 200, max: 30000 },
       { key: "screenBottom", label: "Screen bottom height", kind: "length", default: 800, min: 0, max: 20000 },
+    ],
+    surfaces: () => [
+      { id: "front", label: "Wall front", facing: "front", roles: ["wall"] },
+      { id: "screen", label: "Screen", facing: "front", roles: ["screen"], glow: true },
     ],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;

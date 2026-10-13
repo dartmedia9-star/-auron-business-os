@@ -6,6 +6,7 @@ import {
   redo as historyRedo,
   undo as historyUndo,
   type CustomSpec,
+  type Finishes,
   type History,
   type ObjectType,
   type OpeningKind,
@@ -51,6 +52,8 @@ export type CustomPlacement = {
   /** Library entry it came from (kept on the instance for "update from library"). */
   libraryId: number | null;
   libraryRevision: number | null;
+  /** Artwork carried by the library entry, copied onto the new instance. */
+  finishes?: Finishes;
 };
 
 export type ToolOptions = {

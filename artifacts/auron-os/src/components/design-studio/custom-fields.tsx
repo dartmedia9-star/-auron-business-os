@@ -53,7 +53,7 @@ export function CustomObjectFields({ o, model, patch }: { o: DesignObject; model
 
   const libraryId = typeof o.props.libraryId === "number" ? o.props.libraryId : null;
   const entry = libraryId != null ? library.items.find((e) => e.item.id === libraryId) : undefined;
-  const differs = !!entry?.definition && !sameJson(entry.definition.spec, spec);
+  const differs = !!entry?.definition && (!sameJson(entry.definition.spec, spec) || !sameJson(entry.definition.finishes ?? {}, o.finishes ?? {}));
 
   const setSpec = (next: CustomSpec, key: string) => {
     const r = customSpecSchema.safeParse(next);
@@ -66,7 +66,7 @@ export function CustomObjectFields({ o, model, patch }: { o: DesignObject; model
 
   const saveNew = () =>
     create.mutate(
-      { data: { name: o.name.slice(0, 120) || "Custom object", category: "Other", definition: definitionFromSpec(spec, o.color, o.accentColor) } },
+      { data: { name: o.name.slice(0, 120) || "Custom object", category: "Other", definition: definitionFromSpec(spec, o.color, o.accentColor, 0, o.finishes) } },
       {
         onSuccess: (item) => {
           void qc.invalidateQueries({ queryKey: getListDesignObjectsQueryKey() });
@@ -80,7 +80,7 @@ export function CustomObjectFields({ o, model, patch }: { o: DesignObject; model
   const updateLibrary = () => {
     if (!entry) return;
     update.mutate(
-      { id: entry.item.id, data: { baseRevision: entry.item.revision, definition: definitionFromSpec(spec, o.color, o.accentColor, entry.definition?.elevation ?? 0) } },
+      { id: entry.item.id, data: { baseRevision: entry.item.revision, definition: definitionFromSpec(spec, o.color, o.accentColor, entry.definition?.elevation ?? 0, o.finishes) } },
       {
         onSuccess: (item) => {
           setConfirmUpdate(false);
@@ -100,7 +100,7 @@ export function CustomObjectFields({ o, model, patch }: { o: DesignObject; model
 
   const resetToLibrary = () => {
     if (!entry?.definition) return;
-    patch({ custom: entry.definition.spec, props: { ...o.props, libraryRevision: entry.item.revision } });
+    patch({ custom: entry.definition.spec, finishes: entry.definition.finishes, props: { ...o.props, libraryRevision: entry.item.revision } });
   };
 
   return (
@@ -139,7 +139,7 @@ export function CustomObjectFields({ o, model, patch }: { o: DesignObject; model
             variant="outline"
             className="h-11 justify-start"
             data-testid="edit-in-builder"
-            onClick={() => openBuilder({ kind: "instance", objectId: o.id, name: o.name, spec, color: o.color, accentColor: o.accentColor, libraryId })}
+            onClick={() => openBuilder({ kind: "instance", objectId: o.id, name: o.name, spec, color: o.color, accentColor: o.accentColor, libraryId, finishes: o.finishes })}
           >
             <PenLine className="mr-2 h-4 w-4" /> Edit in Custom Builder
           </Button>

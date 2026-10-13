@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { DesignObject as LibraryObject } from "@workspace/api-client-react";
-import { parseCustomDefinition, specToContent, type CustomDefinition, type CustomSpec, type TemplateId } from "@workspace/design-model";
+import { parseCustomDefinition, specToContent, type CustomDefinition, type CustomSpec, type Finishes, type TemplateId } from "@workspace/design-model";
 import type { CustomPlacement } from "./store";
 
 // Shared between the object library, the inspector and the (lazy-loaded)
@@ -14,7 +14,7 @@ export type BuilderRequest =
   /** Edit the reusable definition saved in My Custom Objects. */
   | { kind: "library"; item: LibraryObject }
   /** Edit one placed object only (its own copy of the recipe). */
-  | { kind: "instance"; objectId: string; name: string; spec: CustomSpec; color: string; accentColor: string; libraryId: number | null };
+  | { kind: "instance"; objectId: string; name: string; spec: CustomSpec; color: string; accentColor: string; libraryId: number | null; finishes?: Finishes };
 
 export type ParsedLibraryObject = { item: LibraryObject; definition: CustomDefinition | null; error: string | null };
 
@@ -24,7 +24,7 @@ export function parseLibraryObject(item: LibraryObject): ParsedLibraryObject {
 }
 
 export function placementFor(item: LibraryObject, d: CustomDefinition): CustomPlacement {
-  return { spec: d.spec, name: item.name, color: d.color, accentColor: d.accentColor, elevation: d.elevation, libraryId: item.id, libraryRevision: item.revision };
+  return { spec: d.spec, name: item.name, color: d.color, accentColor: d.accentColor, elevation: d.elevation, libraryId: item.id, libraryRevision: item.revision, finishes: d.finishes };
 }
 
 /** An API error as a sentence for a toast (without the "HTTP 400 Bad Request:" prefix). */
@@ -38,8 +38,8 @@ export const OpenBuilderContext = createContext<((req: BuilderRequest) => void) 
 export const useOpenBuilder = () => useContext(OpenBuilderContext);
 
 /** A library definition made from a placed object's recipe (its original drawing isn't kept on the instance). */
-export function definitionFromSpec(spec: CustomSpec, color: string, accentColor: string, elevation = 0): CustomDefinition {
-  return { v: 1, ...specToContent(spec), spec, color, accentColor, elevation };
+export function definitionFromSpec(spec: CustomSpec, color: string, accentColor: string, elevation = 0, finishes?: Finishes): CustomDefinition {
+  return { v: 1, ...specToContent(spec), spec, color, accentColor, elevation, ...(finishes && Object.keys(finishes).length ? { finishes } : {}) };
 }
 
 /** Deep equality ignoring key order (the database returns JSON with sorted keys). */

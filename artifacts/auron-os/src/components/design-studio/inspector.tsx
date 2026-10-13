@@ -41,6 +41,7 @@ import { useEditor } from "./store";
 import { SplitSectionDialog } from "./dialogs";
 import { ProjectPanel } from "./project-panel";
 import { CustomObjectFields } from "./custom-fields";
+import { ArtworkFields } from "./artwork-fields";
 
 // Properties for whatever is selected; the project panel when nothing is.
 // Every dimension is typed exactly; dragging on the canvas is optional.
@@ -468,6 +469,7 @@ function ObjectFields({ o, model, patch }: { o: DesignObject; model: ProjectMode
           return <ColorField key={p.key} label={p.label} value={String(v)} onChange={set} />;
         })}
       </PanelSection>
+      <ArtworkFields o={o} unit={unit} patch={patch} />
       {o.type === "custom" && <CustomObjectFields o={o} model={model} patch={patch} />}
       <p className="px-4 pb-3 text-[11px] text-muted-foreground">Models show size and placement only. They don't confirm that a structure is safe to build.</p>
     </>

@@ -14,7 +14,8 @@ import {
   useUpdateDesignProject,
   type DesignProjectSummary,
 } from "@workspace/api-client-react";
-import { createEmptyModel } from "@workspace/design-model";
+import { createEmptyModel, DISPLAY_UNITS, UNIT_LABELS, type DisplayUnit } from "@workspace/design-model";
+import { getDefaultUnit, setDefaultUnit } from "@/components/design-studio/unit-menu";
 import { CustomObjectsSection } from "@/components/design-studio/custom-objects-section";
 import { PageHeader } from "@/components/ds/page-header";
 import { CardsSkeleton, EmptyState, ErrorState } from "@/components/ds/states";
@@ -197,6 +198,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
   const [name, setName] = useState("");
   const [venue, setVenue] = useState("");
   const [client, setClient] = useState("");
+  const [unit, setUnit] = useState<DisplayUnit>(getDefaultUnit);
   const clientList = clients.data?.data ?? [];
 
   const submit = () => {
@@ -210,11 +212,12 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
           venueName: venue.trim() || null,
           clientName: match ? null : client.trim() || null,
           clientId: match?.id ?? null,
-          model: createEmptyModel({ venueName: venue.trim(), title: n, client: match?.name ?? client.trim() }) as unknown as Record<string, unknown>,
+          model: createEmptyModel({ venueName: venue.trim(), title: n, client: match?.name ?? client.trim(), displayUnit: unit }) as unknown as Record<string, unknown>,
         },
       },
       {
         onSuccess: (p) => {
+          setDefaultUnit(unit);
           onOpenChange(false);
           setName("");
           setVenue("");
@@ -256,6 +259,17 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 <option key={c.id} value={c.name} />
               ))}
             </datalist>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dp-unit">Units</Label>
+            <select id="dp-unit" value={unit} onChange={(e) => setUnit(e.target.value as DisplayUnit)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-[16px] md:text-sm" data-testid="design-unit">
+              {DISPLAY_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {UNIT_LABELS[u]}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Remembered for your next design. You can switch any time without changing sizes.</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" onClick={() => onOpenChange(false)}>

@@ -9,8 +9,11 @@ export type ParseModelResult = { ok: true; model: ProjectModel } | { ok: false; 
 
 type Migration = (input: Record<string, unknown>) => Record<string, unknown>;
 
-/** Migrations from version N to N + 1, keyed by N. Version 1 is current. */
-const MIGRATIONS: Record<number, Migration> = {};
+/** Migrations from version N to N + 1, keyed by N. */
+const MIGRATIONS: Record<number, Migration> = {
+  // 1 → 2 only adds the optional `finishes` on objects: nothing to convert.
+  1: (doc) => doc,
+};
 
 function migrate(input: Record<string, unknown>): Record<string, unknown> | string {
   let doc = input;

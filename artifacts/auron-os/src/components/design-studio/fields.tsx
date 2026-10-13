@@ -1,5 +1,5 @@
 import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { MEASURE_STATUSES, parseLength, toInputValue, UNIT_LABELS, type DisplayUnit, type MeasureStatus } from "@workspace/design-model";
+import { MEASURE_STATUSES, lengthEdit, toInputValue, unitSuffix, UNIT_LABELS, type DisplayUnit, type MeasureStatus } from "@workspace/design-model";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -77,7 +77,12 @@ export function LengthField({
   }, [valueMm, unit]);
 
   const commit = () => {
-    const r = parseLength(text, unit);
+    // Untouched text is a rounded display of the stored value: never write it back.
+    const r = lengthEdit(text, valueMm, unit);
+    if (r.ok && "unchanged" in r) {
+      setError(null);
+      return;
+    }
     if (!r.ok) {
       setError(r.error);
       return;
@@ -87,7 +92,7 @@ export function LengthField({
       return;
     }
     if (r.mm > max) {
-      setError(`Must be at most ${toInputValue(max, unit)} ${unit === "ft" ? "ft" : unit}`);
+      setError(`Must be at most ${toInputValue(max, unit)} ${unitSuffix(unit)}`);
       return;
     }
     setError(null);
@@ -133,7 +138,7 @@ export function LengthField({
             }
           }}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">{unit === "ft" ? "ft-in" : unit}</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">{unitSuffix(unit)}</span>
       </div>
     </FieldRow>
   );

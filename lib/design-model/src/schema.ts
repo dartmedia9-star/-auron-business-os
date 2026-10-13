@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DISPLAY_UNITS } from "./units";
 import { customSpecSchema } from "./custom-schema";
+import { finishesSchema, finishSchema } from "./finish-schema";
 
 // ---------------------------------------------------------------------------
 // The Design Studio project model: one editable document shared by the 2D
@@ -19,7 +20,12 @@ import { customSpecSchema } from "./custom-schema";
 // elsewhere never re-targets a door.
 // ---------------------------------------------------------------------------
 
-export const SCHEMA_VERSION = 1;
+/**
+ * 2: objects may carry `finishes` (artwork on named surfaces). Version 1
+ * designs need no change; the bump makes an older build refuse a design
+ * with artwork instead of silently dropping it on save.
+ */
+export const SCHEMA_VERSION = 2;
 
 /** Upper bound for any length (1 km) to reject corrupt values. */
 const MAX_MM = 1_000_000;
@@ -126,6 +132,8 @@ export const sectionSchema = z.object({
   labelOffset: vec2Schema.default({ x: 0, y: 0 }),
 });
 
+export { FINISH_FITS, FINISH_ROTATIONS, MAX_FINISHES, finishSchema, finishesSchema } from "./finish-schema";
+
 export const OBJECT_TYPES = [
   // Stage and platforms
   "stage",
@@ -204,6 +212,8 @@ export const objectSchema = z.object({
    * or other instances; props.libraryId names the library entry it came from.
    */
   custom: customSpecSchema.optional(),
+  /** Artwork per named surface (see finishes.ts); absent on objects without any. */
+  finishes: finishesSchema.optional(),
 }).superRefine((o, ctx) => {
   if (o.type === "custom" && !o.custom) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["custom"], message: "A custom object needs its construction recipe" });
 });
@@ -315,6 +325,9 @@ export type Pillar = z.infer<typeof pillarSchema>;
 export type Section = z.infer<typeof sectionSchema>;
 export type SectionKind = Section["kind"];
 export type DesignObject = z.infer<typeof objectSchema>;
+export type Finish = z.infer<typeof finishSchema>;
+export type FinishFit = Finish["fit"];
+export type Finishes = z.infer<typeof finishesSchema>;
 export type Dimension = z.infer<typeof dimensionSchema>;
 export type Label = z.infer<typeof labelSchema>;
 export type Note = z.infer<typeof noteSchema>;

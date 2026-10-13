@@ -19,6 +19,7 @@ import {
   type Part,
   type SolidPart,
   type Tone,
+  type V3,
   type Opening,
   type OpeningKind,
   type ProjectModel,
@@ -246,28 +247,56 @@ export function pillarHeight(model: ProjectModel, p: { x: number; y: number; hei
 export { objectParts };
 export type { Part };
 
-export type MeshGroup = { key: string; tone: Tone; color: string; geometry: THREE.BufferGeometry };
+/** Artwork on one surface: what to draw and where each object-frame point (mm) falls in the image. */
+export type ArtSurface = {
+  key: string;
+  texture: THREE.Texture;
+  /** Screen content: lit. */
+  glow: boolean;
+  /** UVs inside 0–1 show the image; outside, the surface colour. Off for the tiled missing pattern. */
+  clip: boolean;
+  uv: (q: V3) => [number, number];
+};
+export type ArtMapping = {
+  /** Per part, per face: index into `surfaces`, or -1 (see surfaceLayout). */
+  faceSurface: Array<Int16Array | null>;
+  surfaces: Array<ArtSurface | null>;
+};
 
-/** Merged, flat-shaded geometry for a set of parts (metres), grouped by colour. */
-export function partsGeometry(parts: Part[], colorOf: (p: SolidPart) => string, detail: "render" | "thumb" = "render"): MeshGroup[] {
-  const groups = new Map<string, { tone: Tone; color: string; pos: number[] }>();
-  for (const p of parts) {
-    if (!isRendered(p)) continue;
+export type MeshGroup = { key: string; tone: Tone; color: string; geometry: THREE.BufferGeometry; art?: ArtSurface };
+
+/**
+ * Merged, flat-shaded geometry for a set of parts (metres), grouped by
+ * colour. Faces on a surface that carries artwork get their own group with
+ * image coordinates.
+ */
+export function partsGeometry(parts: Part[], colorOf: (p: SolidPart) => string, detail: "render" | "thumb" = "render", art?: ArtMapping): MeshGroup[] {
+  const groups = new Map<string, { tone: Tone; color: string; pos: number[]; uv: number[] | null; art?: ArtSurface }>();
+  parts.forEach((p, pi) => {
+    if (!isRendered(p)) return;
     const color = colorOf(p);
-    const key = `${p.tone}:${color}`;
-    let g = groups.get(key);
-    if (!g) groups.set(key, (g = { tone: p.tone, color, pos: [] }));
-    for (const f of partFaces(p, detail)) {
+    const faceArt = art?.faceSurface[pi] ?? null;
+    partFaces(p, detail).forEach((f, fi) => {
+      const si = faceArt ? faceArt[fi] : -1;
+      const surface = si >= 0 ? art!.surfaces[si] : null;
+      const key = surface ? `art:${surface.key}:${p.tone}:${color}` : `${p.tone}:${color}`;
+      let g = groups.get(key);
+      if (!g) groups.set(key, (g = { tone: p.tone, color, pos: [], uv: surface ? [] : null, art: surface ?? undefined }));
       // Fan-triangulate each (convex) face.
-      for (let i = 1; i < f.length - 1; i++) for (const q of [f[0], f[i], f[i + 1]]) g.pos.push(q[0] * MM, q[1] * MM, q[2] * MM);
-    }
-  }
+      for (let i = 1; i < f.length - 1; i++)
+        for (const q of [f[0], f[i], f[i + 1]]) {
+          g.pos.push(q[0] * MM, q[1] * MM, q[2] * MM);
+          if (surface && g.uv) g.uv.push(...surface.uv(q));
+        }
+    });
+  });
   return [...groups.entries()].map(([key, g]) => {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(g.pos, 3));
+    if (g.uv) geometry.setAttribute("uv", new THREE.Float32BufferAttribute(g.uv, 2));
     geometry.computeVertexNormals();
     geometry.computeBoundingSphere();
-    return { key, tone: g.tone, color: g.color, geometry };
+    return { key, tone: g.tone, color: g.color, geometry, art: g.art };
   });
 }
 
