@@ -20,6 +20,7 @@ import {
   Check,
   Keyboard,
   Pentagon,
+  Image as ImageIcon,
 } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { updateEntity, validateModel, type ProjectModel } from "@workspace/design-model";
@@ -34,6 +35,8 @@ import { ObjectLibrary } from "./object-library";
 import { OpenBuilderContext, type BuilderRequest } from "./builder-types";
 import { AddRoomDialog } from "./dialogs";
 import { ExportDialog } from "./export-dialog";
+import { UnitMenu } from "./unit-menu";
+import { AssetLibrary, AssetPickerContext, type AssetPick } from "./asset-library";
 import { Saver, clearLocalDraft, useAutosave, type SaveStatus } from "./autosave";
 
 const Studio3D = lazy(() => import("./studio-3d"));
@@ -121,6 +124,9 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
   const [addRoom, setAddRoom] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [builder, setBuilder] = useState<BuilderRequest | null>(null);
+  // The image gallery: browse/import, or pick an image for a surface (`assetPick`).
+  const [assets, setAssets] = useState<{ pick: AssetPick | null } | null>(null);
+  const openAssets = useCallback((pick: AssetPick | null) => setAssets({ pick }), []);
   const [draftOffer, setDraftOffer] = useState(recoveredDraft ?? null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -178,6 +184,7 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
 
   return (
     <OpenBuilderContext.Provider value={setBuilder}>
+    <AssetPickerContext.Provider value={openAssets}>
     <div className="design-studio fixed inset-0 z-40 flex flex-col bg-background text-foreground" style={{ paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }} data-testid="design-editor">
       <TopBar
         name={name}
@@ -196,6 +203,7 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
           else setPanelOpen(true);
         }}
         onExport={() => setExportOpen(true)}
+        onImages={() => openAssets(null)}
         compact={phone}
         panelToggle={
           wide ? (
@@ -331,6 +339,7 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
 
       <ObjectLibrary open={library} onOpenChange={setLibrary} side={phone ? "bottom" : "left"} onOpenBuilder={setBuilder} />
       <AddRoomDialog open={addRoom} onOpenChange={setAddRoom} unit={model.settings.displayUnit} />
+      <AssetLibrary open={!!assets} onOpenChange={(v) => !v && setAssets(null)} side={phone ? "bottom" : "right"} pick={assets?.pick ?? null} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} model={model} projectName={name} />
       {builder && (
         <Suspense fallback={<div className="fixed inset-0 z-50 bg-background"><CenteredSpinner label="Opening the Custom Builder…" /></div>}>
@@ -342,11 +351,12 @@ function EditorLayout({ projectId, name, onRename, onReloadServer, recoveredDraf
               placeCustomObject(store, placement, dropPoint(store));
               store.setTool("select");
             }}
-            onApplyInstance={(id, change) => store.commit(updateEntity(store.getState().history.present, id, { custom: change.spec, color: change.color, accentColor: change.accentColor, name: change.name }))}
+            onApplyInstance={(id, change) => store.commit(updateEntity(store.getState().history.present, id, { custom: change.spec, color: change.color, accentColor: change.accentColor, name: change.name, finishes: change.finishes }))}
           />
         </Suspense>
       )}
     </div>
+    </AssetPickerContext.Provider>
     </OpenBuilderContext.Provider>
   );
 }
@@ -430,6 +440,7 @@ function TopBar({
   issues,
   onIssues,
   onExport,
+  onImages,
   compact,
   panelToggle,
 }: {
@@ -442,6 +453,7 @@ function TopBar({
   issues: number;
   onIssues: () => void;
   onExport: () => void;
+  onImages: () => void;
   compact: boolean;
   panelToggle: ReactNode;
 }) {
@@ -502,6 +514,12 @@ function TopBar({
             <span className="ml-1 text-xs tabular-nums">{issues}</span>
           </Button>
         )}
+        {!compact && (
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={onImages} aria-label="Images" title="Images and designer artwork" data-testid="images-open">
+            <ImageIcon className="h-5 w-5" />
+          </Button>
+        )}
+        {!compact && <UnitMenu />}
         <div className="mx-0.5 flex rounded-xl bg-muted p-1" role="radiogroup" aria-label="Workspace">
           {(["2d", "3d"] as const).map((w) => (
             <button
@@ -521,10 +539,14 @@ function TopBar({
             </button>
           ))}
         </div>
-        <Button variant={compact ? "ghost" : "outline"} size={compact ? "icon" : "default"} className={cn("h-11", compact ? "w-11" : "px-3")} onClick={onExport} aria-label="Export" data-testid="export-open">
-          <Download className="h-4 w-4" />
-          {!compact && <span className="ml-1.5">Export</span>}
-        </Button>
+        {compact ? (
+          <UnitMenu compact onImages={onImages} onExport={onExport} />
+        ) : (
+          <Button variant="outline" className="h-11 px-3" onClick={onExport} aria-label="Export" data-testid="export-open">
+            <Download className="h-4 w-4" />
+            <span className="ml-1.5">Export</span>
+          </Button>
+        )}
         {panelToggle}
       </div>
     </header>
@@ -573,6 +595,8 @@ function useKeyboardShortcuts(store: EditorStore, openExport: () => void) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      // Sliders, menus and list boxes use the arrow keys themselves.
+      if (t?.closest?.('[role="slider"],[role="listbox"],[role="menu"],[role="radiogroup"]')) return;
       if (document.querySelector("[role=dialog]")) return;
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();

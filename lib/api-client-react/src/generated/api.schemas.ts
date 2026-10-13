@@ -2528,6 +2528,126 @@ export interface DesignProjectDuplicate {
   name?: string;
 }
 
+export type DesignAssetKind = typeof DesignAssetKind[keyof typeof DesignAssetKind];
+
+
+export const DesignAssetKind = {
+  image: 'image',
+  'pdf-image': 'pdf-image',
+  'pdf-page': 'pdf-page',
+} as const;
+
+export interface DesignAsset {
+  id: number;
+  name: string;
+  kind: DesignAssetKind;
+  mime: string;
+  width: number;
+  height: number;
+  byteSize: number;
+  sha256: string;
+  hasThumb: boolean;
+  /** @nullable */
+  sourceName?: string | null;
+  /** @nullable */
+  sourcePage?: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+}
+
+export type DesignAssetUploadStartKind = typeof DesignAssetUploadStartKind[keyof typeof DesignAssetUploadStartKind];
+
+
+export const DesignAssetUploadStartKind = {
+  image: 'image',
+  'pdf-image': 'pdf-image',
+  'pdf-page': 'pdf-page',
+} as const;
+
+export interface DesignAssetUploadStart {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  kind: DesignAssetUploadStartKind;
+  /** @minimum 1 */
+  byteSize: number;
+  /** @pattern ^[0-9a-f]{64}$ */
+  sha256: string;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  sourceName?: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  sourcePage?: number | null;
+}
+
+export type DesignAssetUploadStartedStatus = typeof DesignAssetUploadStartedStatus[keyof typeof DesignAssetUploadStartedStatus];
+
+
+export const DesignAssetUploadStartedStatus = {
+  exists: 'exists',
+  upload: 'upload',
+} as const;
+
+export interface DesignAssetUploadStarted {
+  status: DesignAssetUploadStartedStatus;
+  asset?: DesignAsset;
+  uploadId?: string;
+  chunkSize?: number;
+  chunkCount?: number;
+  expiresAt?: string;
+}
+
+export interface DesignAssetUploadState {
+  uploadId: string;
+  chunkSize: number;
+  chunkCount: number;
+  received: number[];
+  expiresAt: string;
+}
+
+export interface DesignAssetUploadComplete {
+  /**
+     * Base64 PNG, JPEG or WebP thumbnail made in the browser (at most 300 KB, 1024 px)
+     * @nullable
+     */
+  thumbnail?: string | null;
+}
+
+export interface DesignAssetRename {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+}
+
+export type DesignAssetUseType = typeof DesignAssetUseType[keyof typeof DesignAssetUseType];
+
+
+export const DesignAssetUseType = {
+  project: 'project',
+  customObject: 'customObject',
+} as const;
+
+export interface DesignAssetUse {
+  type: DesignAssetUseType;
+  id: number;
+  name: string;
+}
+
+export interface DesignAssetInUse {
+  error: string;
+  usedBy: DesignAssetUse[];
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

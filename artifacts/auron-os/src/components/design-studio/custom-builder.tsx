@@ -31,6 +31,8 @@ import {
 import { getListDesignObjectsQueryKey, useCreateDesignObject, useUpdateDesignObject } from "@workspace/api-client-react";
 import {
   CUSTOM_CATEGORIES,
+  DISPLAY_UNITS,
+  UNIT_LABELS,
   CUSTOM_LIMITS,
   DEFAULT_CONSTRUCTION,
   EXAMPLES,
@@ -55,18 +57,22 @@ import {
   type CustomSpec,
   type DisplayUnit,
   type History,
+  type Finishes,
+  type ReferenceImage,
   type Sketch,
   type SketchPoint,
   type SketchShape,
   type TemplateDef,
   type TemplateId,
 } from "@workspace/design-model";
+import { ReferenceSection, useShownReference, type RefMode } from "./builder-reference";
+import { ArtworkFields } from "./artwork-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { BuilderCanvas, type BuilderCanvasHandle, type BuilderTool } from "./builder-canvas";
@@ -74,6 +80,7 @@ import { newSketchId, polyLength } from "./builder-sketch";
 import { plainError, type BuilderRequest, type LibraryObject } from "./builder-types";
 import { ColorField, LengthField, NumberField, PanelSection, SelectField, TextField, ToggleRow } from "./fields";
 import type { CustomPlacement } from "./store";
+import { getDefaultUnit } from "./unit-menu";
 import type { SketchHit } from "./builder-sketch";
 
 const BuilderPreview = lazy(() => import("./builder-preview"));
@@ -86,7 +93,7 @@ const BuilderPreview = lazy(() => import("./builder-preview"));
 // service, and everything runs in the browser.
 // ---------------------------------------------------------------------------
 
-type Doc = { content: BuilderContent; name: string; category: string; description: string; color: string; accentColor: string };
+type Doc = { content: BuilderContent; name: string; category: string; description: string; color: string; accentColor: string; finishes?: Finishes };
 
 const TOOLS: Array<{ tool: BuilderTool; label: string; icon: ComponentType<{ className?: string }>; key: string; group: number }> = [
   { tool: "select", label: "Select", icon: MousePointer2, key: "V", group: 0 },
@@ -149,7 +156,7 @@ function initialDoc(req: BuilderRequest): { doc: Doc; problem: string | null } {
     }
     return { doc: { ...base, name: "New custom object", content: emptyContent() }, problem: null };
   }
-  if (req.kind === "instance") return { doc: { ...base, name: req.name, color: req.color, accentColor: req.accentColor, content: specToContent(req.spec) }, problem: null };
+  if (req.kind === "instance") return { doc: { ...base, name: req.name, color: req.color, accentColor: req.accentColor, finishes: req.finishes, content: specToContent(req.spec) }, problem: null };
   const r = parseCustomDefinition(req.item.definition);
   if (!r.ok) return { doc: { ...base, name: req.item.name, category: req.item.category, description: req.item.description ?? "", content: emptyContent() }, problem: `The saved drawing couldn't be read (${r.error}). You can redraw it and save to repair it.` };
   const d = r.definition;
@@ -160,6 +167,7 @@ function initialDoc(req: BuilderRequest): { doc: Doc; problem: string | null } {
       description: req.item.description ?? "",
       color: d.color,
       accentColor: d.accentColor,
+      finishes: d.finishes,
       content: { sketch: d.sketch, construction: d.construction, parts: d.parts, template: d.template },
     },
     problem: null,
@@ -185,10 +193,12 @@ export type CustomBuilderProps = {
   /** In the editor: put the object into the current design (an independent copy). */
   onPlace?: (placement: CustomPlacement) => void;
   /** In the editor, for an instance: replace that object's recipe only. */
-  onApplyInstance?: (objectId: string, change: { spec: CustomSpec; color: string; accentColor: string; name: string }) => void;
+  onApplyInstance?: (objectId: string, change: { spec: CustomSpec; color: string; accentColor: string; name: string; finishes?: Finishes }) => void;
 };
 
-export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, onApplyInstance }: CustomBuilderProps) {
+export default function CustomBuilder({ request, onClose, unit: unitProp, onPlace, onApplyInstance }: CustomBuilderProps) {
+  // Starts in the design's unit (or the device default); switching here only changes how lengths are shown.
+  const [unit, setUnit] = useState<DisplayUnit>(() => unitProp ?? getDefaultUnit());
   const { toast } = useToast();
   const qc = useQueryClient();
   const wide = useWide();
@@ -212,6 +222,12 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
   const [fitKey, setFitKey] = useState(0);
   const [restore, setRestore] = useState<{ doc: Doc; at: number } | null>(null);
   const canvas = useRef<BuilderCanvasHandle>(null);
+  const [refMode, setRefModeState] = useState<RefMode>(null);
+  const [calPoints, setCalPoints] = useState<SketchPoint[]>([]);
+  const setRefMode = (m: RefMode) => {
+    setRefModeState(m);
+    setCalPoints([]);
+  };
   const create = useCreateDesignObject();
   const update = useUpdateDesignObject();
   const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
@@ -323,7 +339,8 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
   const definition = () => {
     if (!result.ok) return null;
     const c = doc.content;
-    const d = { v: 1 as const, sketch: c.sketch, construction: c.construction, parts: c.parts, template: c.template, spec: result.spec, color: doc.color, accentColor: doc.accentColor, elevation: 0 };
+    const finishes = doc.finishes && Object.keys(doc.finishes).length ? doc.finishes : undefined;
+    const d = { v: 1 as const, sketch: c.sketch, construction: c.construction, parts: c.parts, template: c.template, spec: result.spec, color: doc.color, accentColor: doc.accentColor, elevation: 0, ...(finishes ? { finishes } : {}) };
     const parsed = parseCustomDefinition(d);
     if (!parsed.ok) {
       toast({ title: "This object can't be saved yet", description: parsed.error, variant: "destructive" });
@@ -377,13 +394,13 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
   };
   const applyInstance = () => {
     if (request.kind !== "instance" || !onApplyInstance || !result.ok) return;
-    onApplyInstance(request.objectId, { spec: result.spec, color: doc.color, accentColor: doc.accentColor, name });
+    onApplyInstance(request.objectId, { spec: result.spec, color: doc.color, accentColor: doc.accentColor, name, finishes: doc.finishes && Object.keys(doc.finishes).length ? doc.finishes : undefined });
     savedDoc.current = doc;
     onClose();
   };
   const place = () => {
     if (!onPlace || !result.ok) return;
-    onPlace({ spec: result.spec, name, color: doc.color, accentColor: doc.accentColor, elevation: 0, libraryId: saved?.id ?? null, libraryRevision: saved?.revision ?? null });
+    onPlace({ spec: result.spec, name, color: doc.color, accentColor: doc.accentColor, elevation: 0, libraryId: saved?.id ?? null, libraryRevision: saved?.revision ?? null, finishes: doc.finishes });
     onClose();
   };
   const tryClose = () => (dirty ? setConfirmClose(true) : onClose());
@@ -420,6 +437,15 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuLabel>Show lengths in</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={unit} onValueChange={(v) => setUnit(v as DisplayUnit)}>
+            {DISPLAY_UNITS.map((u) => (
+              <DropdownMenuRadioItem key={u} value={u} className="min-h-10" data-testid={`builder-unit-${u}`}>
+                {UNIT_LABELS[u]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
           <DropdownMenuItem className="min-h-11" onSelect={() => setTemplateOpen(true)}>
             <LayoutTemplate className="mr-2 h-4 w-4" /> Exact size or example…
           </DropdownMenuItem>
@@ -489,7 +515,7 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
   const contextStrip = (
     <div className="pointer-events-none absolute inset-x-2 top-2 flex flex-wrap items-start gap-2">
       <div className="pointer-events-auto max-w-full rounded-lg border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur" data-testid="builder-hint">
-        {TOOL_HINT[tool] ?? ""}
+        {refMode === "move" ? "Drag the picture into place. Tap Move again when done." : refMode === "calibrate" ? (calPoints.length < 2 ? `Tap point ${calPoints.length === 0 ? "A" : "B"} on the picture.` : "Type the real distance A–B in the settings.") : TOOL_HINT[tool] ?? ""}
         {penMode && <span className="ml-1 font-medium text-foreground">Pencil mode: fingers pan and zoom.</span>}
       </div>
       {draftState.active && (draftState.tool === "polyline" || draftState.tool === "polygon" || draftState.tool === "arc") && (
@@ -520,6 +546,17 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
     </div>
   );
 
+  const shownRef = useShownReference(doc.content.sketch);
+  const setReference = (r: ReferenceImage) => {
+    const sk = doc.content.sketch;
+    setSketch({ ...sk, references: { ...(sk.references ?? {}), [sk.plane]: r } });
+  };
+  // Leave the picture modes when the picture goes away or the view changes.
+  useEffect(() => {
+    if (!shownRef && refMode) setRefMode(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownRef, doc.content.sketch.plane]);
+
   const drawing = (
     <div className="relative min-h-0 min-w-0 flex-1">
       <BuilderCanvas
@@ -537,6 +574,11 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
         onRequestText={setTextAt}
         onDraftState={setDraftState}
         parts={doc.content.construction.method === "assembly" ? doc.content.parts : undefined}
+        reference={shownRef}
+        refMode={refMode}
+        onReferenceChange={setReference}
+        calibrationPoints={calPoints}
+        onCalibrationTap={(p) => setCalPoints((pts) => (pts.length >= 2 ? [p] : [...pts, p]))}
       />
       {contextStrip}
       <div className="absolute bottom-2 right-2 flex gap-1">
@@ -563,7 +605,7 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
       {shown ? (
         <PreviewBoundary>
           <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading 3D preview…</div>}>
-            <BuilderPreview parts={shown.parts} spec={shown.spec} color={doc.color} accentColor={doc.accentColor} dark={dark} fitKey={fitKey} />
+            <BuilderPreview parts={shown.parts} spec={shown.spec} color={doc.color} accentColor={doc.accentColor} finishes={doc.finishes} dark={dark} fitKey={fitKey} />
           </Suspense>
         </PreviewBoundary>
       ) : (
@@ -614,6 +656,16 @@ export default function CustomBuilder({ request, onClose, unit = "mm", onPlace, 
       penMode={penMode}
       setPenMode={setPenMode}
       onTemplates={() => setTemplateOpen(true)}
+      artwork={
+        shown && size ? (
+          <ArtworkFields
+            o={{ id: "builder", type: "custom", custom: shown.spec, width: size.width, depth: size.depth, height: size.height, props: {}, finishes: doc.finishes }}
+            unit={unit}
+            patch={(p, key) => commit({ ...doc, finishes: p.finishes as Finishes | undefined }, key)}
+          />
+        ) : null
+      }
+      reference={<ReferenceSection sketch={doc.content.sketch} setSketch={setSketch} unit={unit} mode={refMode} setMode={setRefMode} calPoints={calPoints} setCalPoints={setCalPoints} />}
     />
   );
 
@@ -762,6 +814,8 @@ type PanelProps = {
   penMode: boolean;
   setPenMode: (v: boolean) => void;
   onTemplates: () => void;
+  reference: ReactNode;
+  artwork: ReactNode;
 };
 
 function BuilderPanel(p: PanelProps) {
@@ -812,6 +866,8 @@ function BuilderPanel(p: PanelProps) {
         </Button>
       </PanelSection>
 
+      {p.reference}
+
       {c.method === "assembly" && <PartsEditor doc={doc} setContent={p.setContent} unit={unit} />}
 
       {(p.selShape || selDim || selLabel) && (
@@ -848,6 +904,8 @@ function BuilderPanel(p: PanelProps) {
           {sketch.shapes.length}/{CUSTOM_LIMITS.shapes} shapes. Snapping finds corners, centres and crossings of lines.
         </p>
       </PanelSection>
+
+      {p.artwork}
 
       <PanelSection title="Details">
         <SelectField label="Category" value={(CUSTOM_CATEGORIES as readonly string[]).includes(doc.category) ? doc.category : "Other"} options={CUSTOM_CATEGORIES.map((x) => ({ value: x, label: x }))} onChange={(category) => p.commit({ ...doc, category })} />

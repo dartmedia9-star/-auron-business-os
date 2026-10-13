@@ -21,6 +21,31 @@ export type ObjectCategory = (typeof OBJECT_CATEGORIES)[number];
 /** What a geometry builder needs from an object. */
 export type ObjectShape = Pick<DesignObject, "type" | "width" | "depth" | "height" | "props"> & { custom?: CustomSpec | null };
 
+/** Which way a surface faces, in the object's own frame. */
+export type SurfaceFacing = "front" | "back" | "left" | "right" | "top";
+
+/**
+ * A named surface that can carry artwork. The artwork goes on every face
+ * of the listed parts that points the `facing` way, mapped flat across them
+ * as one picture, so a modular wall or a fascia with a brand panel in front
+ * of it shows one continuous image.
+ */
+export type SurfaceDef = {
+  /** Stable key in the object's `finishes` (never rename once shipped). */
+  id: string;
+  label: string;
+  facing: SurfaceFacing;
+  /** Part roles whose faces take the artwork. */
+  roles: string[];
+  /**
+   * Printable area in surface coordinates (mm; u to the right and v up, as
+   * seen looking at the surface). Default: the extent of the matched faces.
+   */
+  rect?: { u0: number; v0: number; u1: number; v1: number };
+  /** Screen content: lit so it stays readable whatever the scene lighting. */
+  glow?: boolean;
+};
+
 export type ObjectDef = {
   type: ObjectType;
   label: string;
@@ -49,6 +74,8 @@ export type ObjectDef = {
   legacyPlan?: boolean;
   /** Label for the width field (e.g. "Length" for a beam). */
   widthLabel?: string;
+  /** Surfaces that can carry artwork, for the object as it is now built. */
+  surfaces?: (o: ObjectShape, p: ParamReader) => SurfaceDef[];
 };
 
 export type ParamReader = {

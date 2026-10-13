@@ -142,6 +142,7 @@ export function placeCustomObject(store: EditorStore, c: CustomPlacement, p: Vec
   const same = m.objects.filter((o) => o.type === "custom" && o.name.replace(/ \d+$/, "") === c.name).length;
   const obj = makeCustomObject(c.spec, p.x, p.y, { name: same > 0 ? `${c.name} ${same + 1}` : c.name, color: c.color, accentColor: c.accentColor, props });
   obj.elevation = Math.max(c.elevation, surfaceBelow(m, obj));
+  if (c.finishes && Object.keys(c.finishes).length) obj.finishes = c.finishes;
   store.commit({ ...m, objects: [...m.objects, obj] });
   store.select([obj.id]);
   return obj.id;

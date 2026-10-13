@@ -10,3 +10,6 @@ export * from "./serialize";
 export * from "./parts";
 export * from "./custom-schema";
 export * from "./custom";
+export * from "./image-header";
+export * from "./finishes";
+export * from "./reference";

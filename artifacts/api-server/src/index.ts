@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { removeExpiredUploads } from "./routes/design-assets";
 
 const rawPort = process.env["PORT"];
 
@@ -23,3 +24,11 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+// Unfinished Design Studio image uploads are removed when they expire.
+const sweepUploads = () =>
+  removeExpiredUploads()
+    .then((n) => n && logger.info({ removed: n }, "Removed expired design asset uploads"))
+    .catch((err) => logger.warn({ err }, "Couldn't remove expired design asset uploads (has migration 0009 been applied?)"));
+void sweepUploads();
+setInterval(sweepUploads, 3600_000).unref();

@@ -1,5 +1,5 @@
 import { box, type Part } from "../parts";
-import { clamp, type ObjectDef, type ParamReader } from "./kit";
+import { clamp, type ObjectDef, type ObjectShape, type ParamReader, type SurfaceDef } from "./kit";
 
 // Stage and platform objects. Every part sits inside the footprint except
 // front steps, which stand in front of the stage (marked `outside`).
@@ -51,6 +51,17 @@ export function flight(width: number, top: number, zFront: number, opts: { count
   return parts;
 }
 
+/** Artwork surfaces of a platform: the deck edge and the skirt below it, on each side. */
+const platformSurfaces = (o: ObjectShape): SurfaceDef[] => {
+  const deck = o.type === "riser" ? "riser-deck" : o.type === "modular_stage" ? "deck-module" : "stage-deck";
+  return [
+    { id: "front", label: "Front fascia", facing: "front", roles: [deck, "skirt-front"] },
+    { id: "left", label: "Left skirting", facing: "left", roles: [deck, "skirt-side"] },
+    { id: "right", label: "Right skirting", facing: "right", roles: [deck, "skirt-side"] },
+    { id: "rear", label: "Rear skirting", facing: "back", roles: [deck, "skirt-back"] },
+  ];
+};
+
 const deckParam = { key: "deckThickness", label: "Deck thickness", kind: "length", default: 50, min: 10, max: 300 } as const;
 
 export const STAGE_DEFS = {
@@ -75,6 +86,7 @@ export const STAGE_DEFS = {
       { key: "frontSteps", label: "Front steps", kind: "boolean", default: false },
       { key: "stepWidth", label: "Step width", kind: "length", default: 1200, min: 300 },
     ],
+    surfaces: platformSurfaces,
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const skirt = p.bool("skirting");
@@ -101,6 +113,7 @@ export const STAGE_DEFS = {
     surface: true,
     legacyPlan: true,
     params: [deckParam, { key: "skirting", label: "Skirting all round", kind: "boolean", default: false }],
+    surfaces: platformSurfaces,
     build: (o, p) => {
       const s = p.bool("skirting");
       return platform(o.width, o.height, o.depth, p, { skirtFront: s, skirtSides: s, skirtBack: s, role: "riser" });
@@ -125,6 +138,7 @@ export const STAGE_DEFS = {
       { key: "skirting", label: "Skirting", kind: "boolean", default: true },
       { key: "frontSteps", label: "Front steps", kind: "boolean", default: false },
     ],
+    surfaces: platformSurfaces,
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const deck = Math.min(60, h / 3);
@@ -253,6 +267,7 @@ export const STAGE_DEFS = {
     thin: true,
     legacyPlan: true,
     params: [{ key: "pleated", label: "Pleated", kind: "boolean", default: true }],
+    surfaces: () => [{ id: "front", label: "Front", facing: "front", roles: ["panel", "pleat"] }],
     build: (o, p) => {
       const { width: w, depth: d, height: h } = o;
       const t = Math.max(d, 5);

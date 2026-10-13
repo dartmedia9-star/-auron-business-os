@@ -36,6 +36,35 @@ const CUSTOM_DEF: ObjectDef = {
   // The recipe is the source of truth; an instance always carries one (the
   // schema requires it), so there is no stand-in geometry.
   build: (o) => (o.custom ? customParts(o.custom) : []),
+  surfaces: (o) => {
+    const spec = o.custom;
+    if (!spec) return [];
+    switch (spec.method) {
+      case "panel":
+        return [
+          { id: "front", label: "Front", facing: "front", roles: ["panel"] },
+          { id: "rear", label: "Rear", facing: "back", roles: ["panel"] },
+        ];
+      case "extrude":
+        return spec.plane === "front"
+          ? [
+              { id: "front", label: "Front", facing: "front", roles: ["solid"] },
+              { id: "rear", label: "Rear", facing: "back", roles: ["solid"] },
+            ]
+          : [
+              { id: "front", label: "Front", facing: "front", roles: ["solid"] },
+              { id: "top", label: "Top", facing: "top", roles: ["solid"] },
+            ];
+      case "flat":
+        return [{ id: "top", label: "Top", facing: "top", roles: ["outline"] }];
+      case "frame":
+        return [{ id: "front", label: "Infill panels, front", facing: "front", roles: ["infill"] }];
+      case "assembly": {
+        const roles = [...new Set(spec.parts.map((q) => q.name || q.shape))];
+        return [{ id: "front", label: "Front", facing: "front", roles }];
+      }
+    }
+  },
 };
 
 export const OBJECT_DEFS: Record<ObjectType, ObjectDef> = {
@@ -92,6 +121,6 @@ export function paramValue<T extends PropValue>(props: Record<string, PropValue>
   return (def?.default ?? 0) as T;
 }
 
-export { OBJECT_CATEGORIES, type ObjectCategory, type ObjectDef, type ObjectParam, type ObjectShape, type PropValue } from "./kit";
+export { OBJECT_CATEGORIES, type ObjectCategory, type ObjectDef, type ObjectParam, type ObjectShape, type PropValue, type SurfaceDef, type SurfaceFacing } from "./kit";
 export { arcPoints, archSection } from "./frames";
 export { counterParts } from "./furniture";

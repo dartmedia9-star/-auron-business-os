@@ -1,17 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Download, FileImage, FileText, Loader2, Share2 } from "lucide-react";
-import type { ProjectModel } from "@workspace/design-model";
+import { type DisplayUnit, type ProjectModel } from "@workspace/design-model";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { SelectField, ToggleRow } from "./fields";
-import { defaultExportOptions, downloadBlob, exportPlanPdf, exportPlanPng, layoutSheet, pdfUnsupportedText, renderPlanCanvas, safeFilename, type ExportOptions } from "./export-plan";
+import { SelectField, ToggleRow, UNIT_OPTIONS } from "./fields";
+import { defaultExportOptions, downloadBlob, exportPlanPdf, exportPlanPng, layoutSheet, pdfUnsupportedText, renderPlanCanvas, safeFilename, type ArtSchedule, type ExportOptions } from "./export-plan";
+import { artThumbData, artworkSchedule } from "./export-artwork";
+import { useAssets } from "./asset-library";
+import { assetFileUrl, assetThumbUrl } from "./asset-upload";
 
 // Export the floor plan for a client: choose paper, layers and notes, see a
 // preview, then download (or share from the iPad share sheet).
 
-export function ExportDialog({ open, onOpenChange, model, projectName }: { open: boolean; onOpenChange: (v: boolean) => void; model: ProjectModel; projectName: string }) {
+export function ExportDialog({ open, onOpenChange, model: projectModel, projectName }: { open: boolean; onOpenChange: (v: boolean) => void; model: ProjectModel; projectName: string }) {
+  // Dimensions can be printed in another unit; the project itself is never changed.
+  const [unit, setUnit] = useState<DisplayUnit>(projectModel.settings.displayUnit);
+  const model = useMemo(
+    () => (unit === projectModel.settings.displayUnit ? projectModel : { ...projectModel, settings: { ...projectModel.settings, displayUnit: unit } }),
+    [projectModel, unit],
+  );
   const [opts, setOpts] = useState<ExportOptions>(() => defaultExportOptions(model));
   const [busy, setBusy] = useState<null | "png" | "pdf" | "share">(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -23,6 +32,7 @@ export function ExportDialog({ open, onOpenChange, model, projectName }: { open:
   useEffect(() => {
     if (open) {
       setOpts(defaultExportOptions(model));
+      setUnit(projectModel.settings.displayUnit);
       setDone(null);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -45,15 +55,27 @@ export function ExportDialog({ open, onOpenChange, model, projectName }: { open:
   const filename = safeFilename(model.drawing.title || model.venue.name || projectName);
   const hasContent = model.rooms.length + model.sections.length + model.objects.length + model.partitions.length > 0;
 
+  const assets = useAssets();
+  const hasArtwork = model.objects.some((o) => !!o.finishes && Object.keys(o.finishes).length > 0);
+  const artSchedule = async (): Promise<ArtSchedule | undefined> => {
+    if (!opts.includeArtwork || !hasArtwork) return undefined;
+    const list = assets.data ?? (await assets.refetch()).data ?? [];
+    const byId = new Map(list.map((a) => [a.id, a]));
+    const rows = artworkSchedule(model, byId);
+    const ids = [...new Set(rows.filter((r) => r.image).map((r) => r.assetId))];
+    const thumbs = await Promise.all(ids.map((id) => artThumbData(id, byId.get(id)?.hasThumb ? assetThumbUrl(id) : assetFileUrl(id))));
+    return { rows, thumbs: new Map(thumbs.filter((t) => !!t).map((t) => [t!.id, t!])) };
+  };
+
   const run = async (kind: "png" | "pdf" | "share") => {
     setBusy(kind);
     try {
       if (kind === "share") {
-        const blob = await exportPlanPdf(model, opts);
+        const blob = await exportPlanPdf(model, opts, await artSchedule());
         const file = new File([blob], `${filename}.pdf`, { type: "application/pdf" });
         await navigator.share({ files: [file], title: model.drawing.title || projectName });
       } else {
-        const blob = kind === "png" ? await exportPlanPng(model, opts) : await exportPlanPdf(model, opts);
+        const blob = kind === "png" ? await exportPlanPng(model, opts) : await exportPlanPdf(model, opts, await artSchedule());
         downloadBlob(blob, `${filename}.${kind}`);
         // Confirmed inline rather than with a toast, so Escape still closes the dialog.
         setDone(`${filename}.${kind}`);
@@ -110,6 +132,7 @@ export function ExportDialog({ open, onOpenChange, model, projectName }: { open:
               <SelectField label="Paper" value={opts.paper} options={[{ value: "A4", label: "A4" }, { value: "A3", label: "A3" }]} onChange={(paper) => setOpts({ ...opts, paper })} />
               <SelectField label="Orientation" value={opts.orientation} options={[{ value: "landscape", label: "Landscape" }, { value: "portrait", label: "Portrait" }]} onChange={(orientation) => setOpts({ ...opts, orientation })} />
             </div>
+            <SelectField label="Dimensions in" testId="export-unit" value={unit} options={UNIT_OPTIONS} onChange={(u) => setUnit(u as DisplayUnit)} />
             <div className="rounded-lg border px-3 py-1">
               <ToggleRow label="Wall lengths" checked={L.wallDims} onChange={(v) => setLayer("wallDims", v)} />
               <ToggleRow label="Overall dimensions" checked={L.overallDims} onChange={(v) => setLayer("overallDims", v)} />
@@ -121,6 +144,7 @@ export function ExportDialog({ open, onOpenChange, model, projectName }: { open:
               <ToggleRow label="Labels and names" checked={L.labels} onChange={(v) => setOpts({ ...opts, layers: { ...L, labels: v, roomNames: v } })} />
               <ToggleRow label="Notes" checked={opts.includeNotes} onChange={(includeNotes) => setOpts({ ...opts, includeNotes })} />
               <ToggleRow label="Title block" checked={opts.includeTitleBlock} onChange={(includeTitleBlock) => setOpts({ ...opts, includeTitleBlock })} />
+              {hasArtwork && <ToggleRow label="Artwork schedule (PDF only)" checked={opts.includeArtwork} onChange={(includeArtwork) => setOpts({ ...opts, includeArtwork })} testId="export-artwork" />}
             </div>
             {!hasContent && <p className="text-xs text-warning">The plan is empty. Draw a room first.</p>}
             <div className="grid grid-cols-2 gap-2">

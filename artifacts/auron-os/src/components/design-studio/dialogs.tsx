@@ -9,6 +9,7 @@ import {
   toInputValue,
   type DisplayUnit,
   type Section,
+  isImperial,
 } from "@workspace/design-model";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -159,7 +160,7 @@ export function SplitSectionDialog({ open, onOpenChange, section, unit }: { open
             ]}
             onChange={(v) => setAxis(v as "x" | "y")}
           />
-          <FieldRow label={`Sizes (${unit === "ft" ? "feet" : unit}), comma separated`} htmlFor="split-sizes">
+          <FieldRow label={`Sizes (${isImperial(unit) ? "feet" : unit}), comma separated`} htmlFor="split-sizes">
             <input id="split-sizes" data-testid="split-sizes" className="h-11 w-full rounded-lg border border-input bg-background/60 px-3 text-[16px] tabular-nums" value={text} onChange={(e) => setText(e.target.value)} inputMode="text" autoComplete="off" />
           </FieldRow>
           <div className={cn("rounded-lg px-3 py-2 text-xs", fits ? "bg-success/10 text-success" : "bg-warning/10 text-warning")} role="status">

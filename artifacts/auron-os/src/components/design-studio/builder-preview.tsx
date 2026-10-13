@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { partsBounds, type CustomSpec, type Part } from "@workspace/design-model";
+import { partsBounds, type CustomSpec, type Finishes, type Part } from "@workspace/design-model";
 import { ObjectModel } from "./object-mesh";
 import { MM } from "./scene-builders";
 
@@ -10,10 +10,10 @@ import { MM } from "./scene-builders";
 // editor's 3D view, so what you see here is what gets placed. Loaded only
 // when the builder opens. Orbit with one finger, pinch to zoom.
 
-export default function BuilderPreview({ parts, spec, color, accentColor, dark, fitKey }: { parts: Part[]; spec: CustomSpec; color: string; accentColor: string; dark: boolean; fitKey: number }) {
+export default function BuilderPreview({ parts, spec, color, accentColor, finishes, dark, fitKey }: { parts: Part[]; spec: CustomSpec; color: string; accentColor: string; finishes?: Finishes; dark: boolean; fitKey: number }) {
   const object = useMemo(
-    () => ({ type: "custom" as const, width: 1, depth: 1, height: 1, props: {}, color, accentColor, custom: spec }),
-    [spec, color, accentColor],
+    () => ({ type: "custom" as const, width: 1, depth: 1, height: 1, props: {}, color, accentColor, custom: spec, finishes }),
+    [spec, color, accentColor, finishes],
   );
   return (
     <Canvas
