@@ -21,12 +21,14 @@ import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Search, RotateCcw, ArrowUpDown, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, Search, RotateCcw, ArrowUpDown, Calendar, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -92,6 +94,7 @@ export default function ExpensesList() {
   const [date, setDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [eventId, setEventId] = useState("");
+  const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [paidBy, setPaidBy] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("GPay / UPI");
   const [otherPaidByName, setOtherPaidByName] = useState("");
@@ -282,17 +285,46 @@ export default function ExpensesList() {
       </div>
       <div className="space-y-2">
         <Label>Event <span className="text-muted-foreground">(optional)</span></Label>
-        <Select value={eventId || "no-event"} onValueChange={(value) => setEventId(value === "no-event" ? "" : value)}>
-          <SelectTrigger><SelectValue placeholder="No event — operating expense" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="no-event">No event — operating expense</SelectItem>
-            {events.map((event) => (
-              <SelectItem key={event.id} value={String(event.id)}>
-                {event.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Searchable picker: a plain Select can't be filtered and was unscrollable on iOS inside the sheet. */}
+        <Popover open={eventPickerOpen} onOpenChange={setEventPickerOpen} modal>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" aria-expanded={eventPickerOpen} className="h-9 w-full justify-between font-normal">
+              <span className={cn("truncate", !eventId && "text-muted-foreground")}>
+                {eventId
+                  ? events.find((event) => String(event.id) === eventId)?.name ?? `Event #${eventId}`
+                  : "No event — operating expense"}
+              </span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search events…" />
+              <CommandList className="max-h-[min(300px,40dvh)] overscroll-contain">
+                <CommandEmpty>No event found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="No event — operating expense"
+                    onSelect={() => { setEventId(""); setEventPickerOpen(false); }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", !eventId ? "opacity-100" : "opacity-0")} />
+                    No event — operating expense
+                  </CommandItem>
+                  {events.map((event) => (
+                    <CommandItem
+                      key={event.id}
+                      value={`${event.name} ${event.id}`}
+                      onSelect={() => { setEventId(String(event.id)); setEventPickerOpen(false); }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", String(event.id) === eventId ? "opacity-100" : "opacity-0")} />
+                      <span className="truncate">{event.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       <div className="space-y-2">
         <Label>Paid By *</Label>
